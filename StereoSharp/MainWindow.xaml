@@ -8,8 +8,15 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <sharpGL:OpenGLControl 
-            OpenGLDraw="OpenGLControl_OpenGLDraw" OpenGLInitialized="OpenGLControl_OpenGLInitialized"
+        <sharpGL:OpenGLControl
+            MouseDown="View_MouseDown"
+            FrameRate="60"
+            Name="view"
+            OpenGLDraw="OpenGLControl_OpenGLDraw"
+            OpenGLInitialized="OpenGLControl_OpenGLInitialized"
+            Resized="View_Resized"
+            DrawFPS="False"
             RenderContextType="FBO" />
+        <Label Name="fps" Margin="0,0,627,283" Foreground="White"/>
     </Grid>
 </Window>
