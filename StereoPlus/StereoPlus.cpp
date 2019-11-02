@@ -416,6 +416,8 @@ int main()
 	// uncomment this call to draw in wireframe polygons.
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	float t = 0;
+	bool isFirst = true;
+
 	// render loop
 	// -----------
 	while (!glfwWindowShouldClose(window))
@@ -426,9 +428,16 @@ int main()
 		
 		Draw(lines, window);
 
+		/*if (isFirst)
+		{
+			glfwSwapBuffers(window);
+			isFirst = false;
+		}*/
 		glfwSwapBuffers(window);
-		glfwPollEvents();
 
+		//glfwPollEvents();
+		glfwWaitEvents();
+		
 		MoveLines(lines);
 
 		/*vertices[3] = sin(t)*0.5f;

@@ -33,6 +33,7 @@ namespace StereoSharp
         }
 
         private Line[] lines;
+        //private Line[] lines;
         //private Stopwatch stopwatch = Stopwatch.StartNew();
         //private double delta;
 
@@ -230,12 +231,13 @@ void main()
 
             gl.PointSize(2);
 
-            foreach (var line in lines)
+            for (int i = 0; i < lines.Length; i++)
             {
-                var vertices = line.Vertices;
+
+                var vertices = lines[i].Vertices;
 
 
-                gl.BindBuffer(OpenGL.GL_ARRAY_BUFFER, line.VBO);
+                gl.BindBuffer(OpenGL.GL_ARRAY_BUFFER, lines[i].VBO);
                 gl.BufferData(OpenGL.GL_ARRAY_BUFFER, vertices, OpenGL.GL_DYNAMIC_DRAW);
 
                 //gl.BufferData(OpenGL.GL_ARRAY_BUFFER, vertices, OpenGL.GL_STREAM_DRAW);
@@ -245,13 +247,34 @@ void main()
                 // unbind VBO
                 gl.BindBuffer(OpenGL.GL_ARRAY_BUFFER, 0);
 
-                gl.UseProgram(line.ShaderProgram);
-                gl.BindVertexArray(line.VAO);
+                gl.UseProgram(lines[i].ShaderProgram);
+                gl.BindVertexArray(lines[i].VAO);
                 gl.DrawArrays(OpenGL.GL_LINES, 0, 2);
-
-                // unbind VAO
-                //gl.BindVertexArray(0);
             }
+
+
+            //foreach (var line in lines)
+            //{
+            //    var vertices = line.Vertices;
+
+
+            //    gl.BindBuffer(OpenGL.GL_ARRAY_BUFFER, line.VBO);
+            //    gl.BufferData(OpenGL.GL_ARRAY_BUFFER, vertices, OpenGL.GL_DYNAMIC_DRAW);
+
+            //    //gl.BufferData(OpenGL.GL_ARRAY_BUFFER, vertices, OpenGL.GL_STREAM_DRAW);
+            //    gl.VertexAttribPointer(OpenGL.GL_POINTS, 3, OpenGL.GL_FLOAT, false, 3 * sizeof(float), IntPtr.Zero);
+            //    gl.EnableVertexAttribArray(OpenGL.GL_POINTS);
+
+            //    // unbind VBO
+            //    gl.BindBuffer(OpenGL.GL_ARRAY_BUFFER, 0);
+
+            //    gl.UseProgram(line.ShaderProgram);
+            //    gl.BindVertexArray(line.VAO);
+            //    gl.DrawArrays(OpenGL.GL_LINES, 0, 2);
+
+            //    // unbind VAO
+            //    //gl.BindVertexArray(0);
+            //}
 
 
             //gl.Flush();
@@ -368,12 +391,12 @@ void main()
             return shaderProgram;
         }
 
-        private IEnumerable<Line> CreateLines(OpenGL gl)
+        private List<Line> CreateLines(OpenGL gl)
         {
             //var width = view.ActualWidth;
             //var height = view.ActualHeight;
 
-            var lineCount = 1000;
+            var lineCount = 5000;
 
 
             var lines = new List<Line>();
