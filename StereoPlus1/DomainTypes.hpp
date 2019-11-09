@@ -4,16 +4,6 @@
 
 #include "Infrastructure.h"
 
-struct StereoLine
-{
-	glm::vec3 Start, End;
-
-	static const uint_fast8_t CoordinateCount = 6;
-	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
-
-	GLuint VBO, VAO;
-	GLuint ShaderLeft, ShaderRight;
-};
 
 struct Line
 {
@@ -27,6 +17,25 @@ struct Line
 
 	float T;
 };
+
+struct StereoLine
+{
+	glm::vec3 Start, End;
+
+	//Line Left, Right;
+
+	static const uint_fast8_t CoordinateCount = 6;
+	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
+
+	GLuint VBO, VAO;
+	GLuint ShaderLeft, ShaderRight;
+
+	float T;
+
+};
+
+
+
 
 
 #endif // !DOMAIN_TYPES
