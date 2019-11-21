@@ -16,11 +16,6 @@ void processInput(GLFWwindow* window);
 
 
 
-// Render pipeline:
-// Compute white x or y limits for each line
-// Project lines to camera z=0 plane
-// Apply white limits to shaders of lines
-
 
 
 const int lineCount = 4;
@@ -281,17 +276,12 @@ public:
 	Line GetLeft(StereoLine* stereoLine)
 	{
 		Line line;
-
-		line.Start = stereoLine->Start;
-		line.End = stereoLine->End;
 		
 		glm::vec3 S = stereoLine->Start;
 
 		float denominator = cameraCenter.z - S.z - transformVec.z;
 
 		float SleftX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float Sy = (cameraCenter.z * (transformVec.y+ S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
 		float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
 
 		line.Start.x = SleftX;
@@ -303,34 +293,28 @@ public:
 		denominator = cameraCenter.z - E.z - transformVec.z;
 
 		float EleftX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float Ey = (cameraCenter.z * (transformVec.y + E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
 		float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
 
 		line.End.x = EleftX;
 		line.End.y = Ey;
 		line.End.z = 0;
 
+		line.VAO = stereoLine->VAOLeft;
+		line.VBO = stereoLine->VBOLeft;
+		line.ShaderProgram = stereoLine->ShaderLeft;
 
 		return line;
 	}
 
 	Line GetRight(StereoLine * stereoLine)
 	{
-
-
 		Line line;
-
-		line.Start = stereoLine->Start;
-		line.End = stereoLine->End;
-
 
 		glm::vec3 S = stereoLine->Start;
 
 		float denominator = cameraCenter.z - S.z - transformVec.z;
 
 		float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
 		float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
 
 		line.Start.x = SrightX;
@@ -342,13 +326,15 @@ public:
 		denominator = cameraCenter.z - E.z - transformVec.z;
 
 		float ErightX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
 		float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
 
 		line.End.x = ErightX;
 		line.End.y = Ey;
 		line.End.z = 0;
 
+		line.VAO = stereoLine->VAORight;
+		line.VBO = stereoLine->VBORight;
+		line.ShaderProgram = stereoLine->ShaderRight;
 
 		return line;
 	}
@@ -589,6 +575,7 @@ void Draw(StereoLine* lines, GLFWwindow* window)
 
 
 		Line left = Stereo.GetLeft(&lines[i]);
+		
 		DrawLine(left, lines[i].ShaderLeft, lines[i].VBOLeft, lines[i].VAOLeft);
 
 		Line right = Stereo.GetRight(&lines[i]);
@@ -598,7 +585,114 @@ void Draw(StereoLine* lines, GLFWwindow* window)
 }
 
 
+struct SceneConfiguration {
+	float whiteZ = 0;
+	float whiteZPrecision = 0.1;
 
+	GLFWwindow* window;
+};
+
+// Render pipeline:
+// Compute white x or y limits for each line
+// Project lines to camera z=0 plane
+// Apply white limits to shaders of lines
+class RenderScenePipeline {
+public:
+	// Determines which parts of line is white.
+	// Finds left and right limits of white in x
+	// or top and bottom limits of white in y.
+	// Z here is relative to camera
+	// >0 is close to camera and <0 is far from camera
+	WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision) {
+		WhitePartOfShader res;
+
+		bool isZero = (start.z == end.z) && (whiteZ + precision > start.z && start.z > whiteZ - precision);
+		if (!isZero)
+		{
+			float xSize = end.x > start.x ? end.x - start.x : start.x - end.x;
+			float ySize = end.y > start.y ? end.y - start.y : start.y - end.y;
+
+			// (z - z1) / (z2 - z1) = t
+			float t = (whiteZ - start.z) / (end.z - start.z);
+			float center;
+
+			if (xSize > ySize)
+			{
+				center = (end.x - start.x) * t + start.x;
+				res.isX = true;
+			}
+			else
+			{
+				center = (end.y - start.y) * t + start.y;
+				res.isX = false;
+			}
+
+			res.min = center - precision;
+			res.max = center + precision;
+		}
+
+		res.isZero = isZero;
+
+		return res;
+	}
+
+	void Pipeline(StereoLine* lines, size_t lineCount, SceneConfiguration& config) 
+	{
+		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glPointSize(2);
+
+		for (size_t i = 0; i < lineCount; i++)
+		{
+			auto whitePartOfShader = FindWhitePartOfShader(lines[i].Start, lines[i].End, config.whiteZ, config.whiteZPrecision);
+			
+			Line left = Stereo.GetLeft(&lines[i]);
+			DrawLine(
+				left, 
+				[left, whitePartOfShader, this] { UpdateWhitePartOfShader(left.ShaderProgram, whitePartOfShader); }
+			);
+
+			Line right = Stereo.GetRight(&lines[i]);
+			DrawLine(
+				right, 
+				[right, whitePartOfShader, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShader); }
+			);
+		}
+	}
+
+
+	void DrawLine(Line line, function<void()> updateWhitePartOfShader)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
+
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+
+		// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		updateWhitePartOfShader();
+
+		// Apply shader
+		glUseProgram(line.ShaderProgram);
+
+		glBindVertexArray(line.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+		//glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+
+	void UpdateWhitePartOfShader(GLuint shader, WhitePartOfShader whitePartOfShader)
+	{
+		// i for integer. I guess bool suits int more but it works in any case.
+		// f for float
+		glUniform1i(glGetUniformLocation(shader, "isZero"), whitePartOfShader.isZero);
+		glUniform1i(glGetUniformLocation(shader, "isX"), whitePartOfShader.isX);
+		glUniform1f(glGetUniformLocation(shader, "min"), whitePartOfShader.min);
+		glUniform1f(glGetUniformLocation(shader, "max"), whitePartOfShader.max);
+	}
+};
 
 
 
@@ -1156,8 +1250,18 @@ int main(int, char**)
 
 	//MoveCross(lines, glm::vec3(1, 1, 0));
 
-	mainWindow.customRenderFunc = [lines, mainWindow] {
-		Draw(lines, mainWindow.window);
+	SceneConfiguration config;
+	config.whiteZ = 0;
+	config.whiteZPrecision = 0.1;
+	config.window = mainWindow.window;
+
+	RenderScenePipeline renderPipeline;
+
+	mainWindow.customRenderFunc = [lines, mainWindow, &renderPipeline, &config] {
+
+		renderPipeline.Pipeline(lines, lineCount, config);
+
+		//Draw(lines, mainWindow.window);
 		MoveCamera();
 		//MoveLines(lines);
 		//MoveCross(lines);
