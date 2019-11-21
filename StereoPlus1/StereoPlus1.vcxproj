@@ -183,6 +183,11 @@
     <ClInclude Include="PersistanceImplementations.hpp" />
     <ClInclude Include="PersistanceInterfaces.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Left.frag" />
+    <None Include="Right.frag" />
+    <None Include=".vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

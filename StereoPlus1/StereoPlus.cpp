@@ -7,149 +7,23 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
 #include <functional>
+#include <fstream>
+
+using namespace std;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
-// settings
-//const unsigned int SCR_WIDTH = 800;
-//const unsigned int SCR_HEIGHT = 600;
 
 
-//const char* vertexShaderSource = "#version 330 core\n"
-//"layout (location = 0) in vec3 aPos;\n"
-//"void main()\n"
-//"{\n"
-//"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-//"}\0";
-//const char* fragmentShaderSource = "#version 330 core\n"
-//"layout(location = 0) out vec3 color;"
-//"out vec4 FragColor;\n"
-//"void main()\n"
-//"{\n"
-//"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-//"}\n\0";
-
-const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"void main()\n"
-"{\n"
-"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-"}\0";
-const char* fragmentShaderSourceLeft = "#version 330 core\n"
-"layout(location = 0) out vec3 color;"
-"uniform float farT;"
-"uniform float closeT;"
-"uniform bool isZero;"
-"out vec4 FragColor;\n"
-"void main()\n"
-"{\n"
-//"	var pos = "
-"	if (isZero || gl_FragCoord.z > closeT && gl_FragCoord.z < farT) FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
-"	else FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);\n"
+// Render pipeline:
+// Compute white x or y limits for each line
+// Project lines to camera z=0 plane
+// Apply white limits to shaders of lines
 
 
 
-//"FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0);"
-
-//"if (gl_FragCoord.z > -5) "
-//	"FragColor = vec4(0.0, 0.0, 1.0, 1.0);"
-//"else "
-//"FragColor = vec4(0.0, 1.0, 0.0, 1.0);"
-//"	vec3 st = gl_FragCoord.xyz;"
-//"	if (st.z < 0){ FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);}\n"
-//"	else {FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);}\n"
-//"   FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n"
-"}\n\0";
-const char* fragmentShaderSourceRight = "#version 330 core\n"
-"layout(location = 0) out vec3 color;"
-"out vec4 FragColor;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
-"}\n\0";
-
-
-const int lineCount = 3;
-
-//GLuint CreateShaderProgram()
-//{
-//	
-//	const char* vertexShaderSource = "#version 330 core\n"
-//		"layout(location = 0) in vec3 aPos;\n"
-//		"void main(){gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);}\0";
-//	const char* fragmentShaderSource = "#version 330 core\n"
-//		"out vec4 FragColor;\n"
-//		"void main()\n"
-//		"{\n"
-//		"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-//		"}\n\0";
-//
-//	int success;
-//	char infoLog[512];
-//
-//	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-//	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-//	glCompileShader(vertexShader);
-//	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-//	if (!success)
-//	{
-//		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-//		std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-//	}
-//	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-//	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-//	glCompileShader(fragmentShader);
-//	// check for shader compile errors
-//	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-//	if (!success)
-//	{
-//		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-//		std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-//	}
-//	// link shaders
-//	GLuint shaderProgram = glCreateProgram();
-//	glAttachShader(shaderProgram, vertexShader);
-//	glAttachShader(shaderProgram, fragmentShader);
-//	glLinkProgram(shaderProgram);
-//	// check for linking errors
-//	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-//	if (!success)
-//	{
-//		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-//		std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-//	}
-//	glDeleteShader(vertexShader);
-//	glDeleteShader(fragmentShader);
-//
-//	return shaderProgram;
-//}
-
-//Line* CreateLines()
-//{
-//	Line* lines = new Line[lineCount];
-//
-//	float r = 1;
-//
-//	for (size_t i = 0; i < lineCount; i++)
-//	{
-//		float t = (float)i / (float)lineCount * 3.1415926 * 2;
-//
-//		lines[i] = Line();
-//		lines[i].Start.x = r * sin(t);
-//		lines[i].Start.y = r * cos(t);
-//		lines[i].Start.z = 0;
-//		/*lines[i].End.X = r * sin(t);
-//		lines[i].End.Y = r * cos(t);
-//		lines[i].End.Z = 0;*/
-//		lines[i].T = t;
-//		lines[i].ShaderProgram = CreateShaderProgram();
-//		glGenVertexArrays(1, &lines[i].VAO);
-//		glGenBuffers(1, &lines[i].VBO);
-//	}
-//
-//	return lines;
-//}
+const int lineCount = 4;
 
 
 GLuint CreateShaderProgram(const char* vertexShaderSource, const char* fragmentShaderSource)
@@ -194,43 +68,91 @@ GLuint CreateShaderProgram(const char* vertexShaderSource, const char* fragmentS
 	return shaderProgram;
 }
 
+std::string ReadShader(std::string path)
+{
+	std::ifstream in(path);
+	std::string contents((std::istreambuf_iterator<char>(in)),
+		std::istreambuf_iterator<char>());
+
+	return contents;
+}
 
 StereoLine* CreateCross()
 {
 	StereoLine* lines = new StereoLine[3];
+	
+	float size = 0.1;
+	float z = -0;
+	std::string vertexShaderSource = ReadShader(".vert");
+	std::string fragmentShaderSourceLeft = ReadShader("Left.frag");
+	std::string fragmentShaderSourceRight = ReadShader("Right.frag");
 
 	lines[0] = StereoLine();
-	lines[0].Start.x = -10;
-	lines[0].End.x = 10;
-	lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-	lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-	glGenVertexArrays(1, &lines[0].VAO);
-	glGenBuffers(1, &lines[0].VBO);
+	lines[0].Start.x = -size;
+	lines[0].End.x = size;
+	//lines[0].Start.z = z;
+	//lines[0].End.z = z;
+
+	lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	//glGenVertexArrays(1, &lines[0].VAO);
+	//glGenBuffers(1, &lines[0].VBO);
+	glGenVertexArrays(1, &lines[0].VAOLeft);
+	glGenBuffers(1, &lines[0].VBOLeft);
+	glGenVertexArrays(1, &lines[0].VAORight);
+	glGenBuffers(1, &lines[0].VBORight);
+	//lines[0] = StereoLine();
+	//lines[0].Start.x = 0;
+	//lines[0].Start.y = 0;
+	//lines[0].Start.z = -2;
+	//lines[0].End.x = 0.5;
+	//lines[0].End.y = 0.5;
+	//lines[0].End.z = -2;
+
+	//lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	//lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	//glGenVertexArrays(1, &lines[0].VAO);
+	//glGenBuffers(1, &lines[0].VBO);
+
 
 
 	lines[1] = StereoLine();
-	lines[1].Start.y = -10;
-	lines[1].End.y = 10;
-	lines[1].ShaderLeft = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-	lines[1].ShaderRight = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-	glGenVertexArrays(1, &lines[1].VAO);
-	glGenBuffers(1, &lines[1].VBO);
+	lines[1].Start.y = -size;
+	lines[1].End.y = size;
+	//lines[1].Start.z = z;
+	//lines[1].End.z = z;
+	lines[1].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	lines[1].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	glGenVertexArrays(1, &lines[1].VAOLeft);
+	glGenBuffers(1, &lines[1].VBOLeft);
+	glGenVertexArrays(1, &lines[1].VAORight);
+	glGenBuffers(1, &lines[1].VBORight);
 
 	lines[2] = StereoLine();
-	lines[2].Start.z = -10;
-	lines[2].End.z = 10;
-	lines[2].ShaderLeft = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-	lines[2].ShaderRight = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-	glGenVertexArrays(1, &lines[2].VAO);
-	glGenBuffers(1, &lines[2].VBO);
+	lines[2].Start.z = -size;
+	lines[2].End.z = size;
+	lines[2].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	lines[2].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	//glGenVertexArrays(1, &lines[2].VAO);
+	//glGenBuffers(1, &lines[2].VBO);
+
+	glGenVertexArrays(1, &lines[2].VAOLeft);
+	glGenBuffers(1, &lines[2].VBOLeft);
+	glGenVertexArrays(1, &lines[2].VAORight);
+	glGenBuffers(1, &lines[2].VBORight);
+
 	return lines;
 }
 
 StereoLine* CreateLines()
 {
+	string vertexShaderSource = ReadShader(".vert");
+	string fragmentShaderSourceLeft = ReadShader("Left.frag");
+	string fragmentShaderSourceRight = ReadShader("Right.frag");
+
 	StereoLine* lines = new StereoLine[lineCount];
 
-	float r = 1;
+	float r = 0.5;
 
 	for (size_t i = 0; i < lineCount; i++)
 	{
@@ -239,19 +161,76 @@ StereoLine* CreateLines()
 		lines[i] = StereoLine();
 		lines[i].Start.x = r * sin(t);
 		lines[i].Start.y = r * cos(t);
-		lines[i].Start.z = 10;
+		lines[i].Start.z = -2;
 		/*lines[i].End.X = r * sin(t);
 		lines[i].End.Y = r * cos(t);
 		lines[i].End.Z = 0;*/
 		lines[i].T = t;
 
-		lines[i].ShaderLeft = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-		lines[i].ShaderRight = CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-		glGenVertexArrays(1, &lines[i].VAO);
-		glGenBuffers(1, &lines[i].VBO);
+		lines[i].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+		lines[i].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+		//glGenVertexArrays(1, &lines[i].VAO);
+		//glGenBuffers(1, &lines[i].VBO);
+		glGenVertexArrays(1, &lines[i].VAOLeft);
+		glGenBuffers(1, &lines[i].VBOLeft);
 	}
 
 	return lines;
+}
+
+
+
+void MoveLines(Line* lines)
+{
+	float r = 1.5;
+	for (size_t i = 0; i < lineCount; i++)
+	{
+		lines[i].End.x = sin(lines[i].T) * r;
+		lines[i].End.y = cos(lines[i].T) * r;
+		lines[i].End.z = -10;
+
+		lines[i].T += 0.1;
+	}
+}
+
+void MoveLines(StereoLine* lines)
+{
+	float speed = 0.01;
+	float r = 1;
+	for (size_t i = 0; i < lineCount; i++)
+	{
+		lines[i].End.x = sin(lines[i].T) * r;
+		lines[i].End.y = cos(lines[i].T) * r;
+		lines[i].End.z = 2;
+
+		lines[i].T += speed;
+	}
+}
+
+
+
+void MoveCross(StereoLine* lines, glm::vec3 pos)
+{
+	lines[0].Start.x = pos.x - 10;
+	lines[0].Start.y = pos.y;
+	lines[0].Start.z = pos.z;
+	lines[0].End.x = pos.x + 10;
+	lines[0].End.y = pos.y;
+	lines[0].End.z = pos.z;
+
+	lines[1].Start.x = pos.x;
+	lines[1].Start.y = pos.y - 10;
+	lines[1].Start.z = pos.z;
+	lines[1].End.x = pos.x;
+	lines[1].End.y = pos.y + 10;
+	lines[1].End.z = pos.z;
+
+	lines[2].Start.x = pos.x;
+	lines[2].Start.y = pos.y;
+	lines[2].Start.z = pos.z - 10;
+	lines[2].End.x = pos.x;
+	lines[2].End.y = pos.y;
+	lines[2].End.z = pos.z + 10;
 }
 
 
@@ -292,41 +271,45 @@ class Stereo
 {
 public:
 	glm::vec2 screenCenter = glm::vec2(0,0);
-	glm::vec3 cameraCenter = glm::vec3(600,300,100);
-	glm::vec3 transformVec = glm::vec3(1,1,1);
-	float eyeToCenterDistance;
+	glm::vec3 cameraCenter = glm::vec3(0,3,-10);
+	//glm::vec3 transformVec = glm::vec3(1,1,1);
+	glm::vec3 transformVec = glm::vec3(0,0,0);
+	float eyeToCenterDistance = 0.5;
 
 
 
 	Line GetLeft(StereoLine* stereoLine)
 	{
-
 		Line line;
 
 		line.Start = stereoLine->Start;
 		line.End = stereoLine->End;
+		
+		glm::vec3 S = stereoLine->Start;
 
-		//glm::vec3 S = stereoLine->Start;
+		float denominator = cameraCenter.z - S.z - transformVec.z;
 
-		//float denominator = cameraCenter.z - S.z - transformVec.z;
+		float SleftX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
+		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
+		//float Sy = (cameraCenter.z * (transformVec.y+ S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
+		float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
 
-		//float SleftX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		////float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
+		line.Start.x = SleftX;
+		line.Start.y = Sy;
+		line.Start.z = 0;
 
-		//line.Start.x = SleftX;
-		//line.Start.y = Sy;
+		glm::vec3 E = stereoLine->End;
 
-		//glm::vec3 E = stereoLine->End;
+		denominator = cameraCenter.z - E.z - transformVec.z;
 
-		//denominator = cameraCenter.z - E.z - transformVec.z;
+		float EleftX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
+		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
+		//float Ey = (cameraCenter.z * (transformVec.y + E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
+		float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
 
-		//float EleftX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		////float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
-
-		//line.End.x = EleftX;
-		//line.End.y = Ey;
+		line.End.x = EleftX;
+		line.End.y = Ey;
+		line.End.z = 0;
 
 
 		return line;
@@ -342,27 +325,29 @@ public:
 		line.End = stereoLine->End;
 
 
-		//glm::vec3 S = stereoLine->Start;
+		glm::vec3 S = stereoLine->Start;
 
-		//float denominator = cameraCenter.z - S.z - transformVec.z;
+		float denominator = cameraCenter.z - S.z - transformVec.z;
 
+		float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
 		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		////float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
+		float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
 
-		//line.Start.x = SrightX;
-		//line.Start.y = Sy;
+		line.Start.x = SrightX;
+		line.Start.y = Sy;
+		line.Start.z = 0;
 
-		//glm::vec3 E = stereoLine->End;
+		glm::vec3 E = stereoLine->End;
 
-		//denominator = cameraCenter.z - E.z - transformVec.z;
+		denominator = cameraCenter.z - E.z - transformVec.z;
 
-		//float ErightX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		////float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		//float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
+		float ErightX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
+		//float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
+		float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
 
-		//line.End.x = ErightX;
-		//line.End.y = Ey;
+		line.End.x = ErightX;
+		line.End.y = Ey;
+		line.End.z = 0;
 
 
 		return line;
@@ -397,156 +382,219 @@ void Draw(Line* lines, GLFWwindow* window)
 	}
 }
 
+//void UpdateWhitePartOfShader(Line& line, GLuint shader)
+//{
+//	float closeZ = line.Start.z > line.End.z ? line.Start.z : line.End.z;
+//	float farZ = line.Start.z < line.End.z ? line.Start.z : line.End.z;
+//
+//	float size = line.Start.z - line.End.z;
+//
+//	float coordinate = 0;
+//	float precision = 1;
+//
+//	//size *= precision;
+//
+//	//float closeT = 1- ((coordinate + precision) - left.Start.z) / (left.End.z - left.Start.z);
+//	//float farT = 1- ((coordinate - precision) - left.Start.z) / (left.End.z - left.Start.z);
+//
+//	// Calculate limits of white (zero) shader
+//	float farT = 0;
+//	float closeT = 0;
+//
+//	bool isZero = (line.Start.z == line.End.z) && (line.Start.z > closeT && line.Start.z < farT);
+//	if (!isZero)
+//	{
+//		farT = 1 - ((coordinate + precision) - line.Start.z) / (line.End.z - line.Start.z);
+//		closeT = 1 - ((coordinate - precision) - line.Start.z) / (line.End.z - line.Start.z);
+//	}
+//
+//	GLuint farTLoc = glGetUniformLocation(shader, "farT");
+//	GLuint closeTLoc = glGetUniformLocation(shader, "closeT");
+//	GLuint isZeroLoc = glGetUniformLocation(shader, "isZero");
+//
+//	glUniform1f(farTLoc, farT / 2);
+//	glUniform1f(closeTLoc, closeT / 2);
+//	glUniform1f(isZeroLoc, isZero);
+//}
+
+struct WhitePartOfShader {
+	bool isZero;
+	bool isX;
+	float min, max;
+};
+
+// Determines which parts of line is white.
+// Finds left and right limits of white in x
+// or top and bottom limits of white in y.
+// Z here is relative to camera
+// >0 is close to camera and <0 is far from camera
+WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision) {
+	//// Z coordinate that should be painted white.
+	//float whiteZ = 0.0;
+	//float precision = 0.01;
+
+	bool isZero = (start.z == end.z) && (whiteZ + precision > start.z && start.z > whiteZ - precision);
+	if (!isZero)
+	{
+		float xSize = end.x > start.x ? end.x - start.x : start.x - end.x;
+		float ySize = end.y > start.y ? end.y - start.y : start.y - end.y;
+
+		// (z - z1) / (z2 - z1) = t
+		float t = (whiteZ - start.z) / (end.z - start.z);
+
+		if (xSize > ySize)
+		{
+			float xCenter = (end.x - start.x) * t + start.x;
+			float xMin = xCenter - precision;
+			float xMax = xCenter + precision;
+
+			WhitePartOfShader res;
+			res.isZero = false;
+			res.isX = true;
+			res.min = xMin;
+			res.max = xMax;
+
+			return res;
+		}
+		else
+		{
+			float yCenter = (end.y - start.y) * t + start.y;
+			float yMin = yCenter - precision;
+			float yMax = yCenter + precision;
+
+			WhitePartOfShader res;
+			res.isZero = false;
+			res.isX = false;
+			res.min = yMin;
+			res.max = yMax;
+
+			return res;
+		}
+	}
+
+	WhitePartOfShader res;
+	res.isZero = true;
+
+	return res;
+}
+
+void UpdateWhitePartOfShader(Line& line, GLuint shader)
+{
+	// Z coordinate that should be painted white.
+	float whiteZ = 0.1;
+	float precision = 0.01;
+
+	// Calculate limits of white (zero) shader
+	float farT = 0;
+	float closeT = 0;
+
+	bool isZero = (line.Start.z == line.End.z) && (whiteZ + precision > line.Start.z && line.Start.z > whiteZ - precision);
+	if (!isZero)
+	{
+		float closeZ = line.Start.z > line.End.z ? line.Start.z : line.End.z;
+		float farZ = line.Start.z < line.End.z ? line.Start.z : line.End.z;
+
+		float size = closeZ - farZ;
+
+		
+
+		farT = 1 - ((whiteZ + precision) - closeZ) / (farZ - closeZ) / 2;
+		closeT = 1 - ((whiteZ - precision) - closeZ) / (farZ - closeZ) / 2;
+		/*farT = ((whiteZ + precision) - closeZ) / (farZ - closeZ);
+		closeT = ((whiteZ - precision) - closeZ) / (farZ - closeZ);*/
+	}
+
+	GLuint farTLoc = glGetUniformLocation(shader, "farT");
+	GLuint closeTLoc = glGetUniformLocation(shader, "closeT");
+	GLuint isZeroLoc = glGetUniformLocation(shader, "isZero");
+
+	glUniform1f(farTLoc, farT);
+	glUniform1f(closeTLoc, closeT);
+	glUniform1f(isZeroLoc, isZero);
+}
+
+
+
+void DrawLine(Line& line, GLuint shader, GLuint VBO, GLuint VAO)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+	glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+	//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
+	//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(GL_POINTS);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	UpdateWhitePartOfShader(line, shader);
+
+	// Apply shader
+	glUseProgram(shader);
+
+
+	   
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+	//glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_LINES, 0, 2);
+}
+
+
+//void DrawStereoLine(StereoLine& line)
+//{
+//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//
+//	glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+//	//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
+//	//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+//
+//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+//	glEnableVertexAttribArray(GL_POINTS);
+//
+//	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+//
+//	UpdateWhitePartOfShader(line, shader);
+//
+//	// Apply shader
+//	glUseProgram(shader);
+//
+//
+//
+//	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+//	//glDrawArrays(GL_TRIANGLES, 0, 3);
+//	glDrawArrays(GL_LINES, 0, 2);
+//}
+
+
 void Draw(StereoLine* lines, GLFWwindow* window)
 {
 	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glPointSize(2);
 
+	glDepthRangef(0, -0);
+
 	//Draw(lines->Start
-
+	
 	for (size_t i = 0; i < lineCount; i++)
 	{
+		/*Line left = Stereo.GetLeft(&lines[i]);
+		DrawLine(left, lines[i].ShaderLeft, lines[i].VBO, lines[i].VAO);
 
-		// Left
+		Line right = Stereo.GetRight(&lines[i]);
+		DrawLine(right, lines[i].ShaderRight, lines[i].VBO, lines[i].VAO);*/
+
+
 		Line left = Stereo.GetLeft(&lines[i]);
+		DrawLine(left, lines[i].ShaderLeft, lines[i].VBOLeft, lines[i].VAOLeft);
 
-		glBindBuffer(GL_ARRAY_BUFFER, lines[i].VBO);
-
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &left, GL_STREAM_DRAW);
-		//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
-		//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-
-		// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		int size = left.Start.z - left.End.z;
-
-		float coordinate = 0;
-		float precision =1;
-
-		//size *= precision;
-
-		//float closeT = 1- ((coordinate + precision) - left.Start.z) / (left.End.z - left.Start.z);
-		//float farT = 1- ((coordinate - precision) - left.Start.z) / (left.End.z - left.Start.z);
-
-		float farT = 0;
-		float closeT = 0;
-
-		bool isZero = (left.Start.z == left.End.z) && (left.Start.z > closeT && left.Start.z < farT);
-		if (!isZero)
-		{
-			farT = 1-((coordinate + precision) - left.Start.z) / (left.End.z - left.Start.z);
-			closeT = 1-((coordinate - precision) - left.Start.z) / (left.End.z - left.Start.z);
-		}
-
-
-
-
-		unsigned int farTLoc = glGetUniformLocation(lines[i].ShaderLeft, "farT");
-		unsigned int closeTLoc = glGetUniformLocation(lines[i].ShaderLeft, "closeT");
-		unsigned int isZeroLoc = glGetUniformLocation(lines[i].ShaderLeft, "isZero");
-
-
-		glUniform1f(farTLoc, farT/2);
-		glUniform1f(closeTLoc, closeT/2);
-		glUniform1f(isZeroLoc, isZero);
-
-
-		// draw our first triangle
-		glUseProgram(lines[i].ShaderLeft);
-
-
-		//glUniformBlockBinding(fragmentShader, farT, 0);
-
-
-		glBindVertexArray(lines[i].VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		//glDrawArrays(GL_TRIANGLES, 0, 3);
-		glDrawArrays(GL_LINES, 0, 2);
-
-		// -------------------------------------------------------------------------------
-
-		//// Right
-		//Line right = Stereo.GetRight(&lines[i]);
-
-		//glBindBuffer(GL_ARRAY_BUFFER, lines[i].VBO);
-
-		//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &right, GL_STREAM_DRAW);
-		////glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
-		////glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-		//glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		//glEnableVertexAttribArray(GL_POINTS);
-
-		//// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-		//glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		//// draw our first triangle
-		//glUseProgram(lines[i].ShaderRight);
-		//glBindVertexArray(lines[i].VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		////glDrawArrays(GL_TRIANGLES, 0, 3);
-		//glDrawArrays(GL_LINES, 0, 2);
-
-		// -------------------------------------------------------------------------------
+		Line right = Stereo.GetRight(&lines[i]);
+		DrawLine(right, lines[i].ShaderRight, lines[i].VBORight, lines[i].VAORight);
 
 	}
-}
-
-void MoveLines(Line* lines)
-{
-	float r = 1.5;
-	for (size_t i = 0; i < lineCount; i++)
-	{
-		lines[i].End.x = sin(lines[i].T) * r;
-		lines[i].End.y = cos(lines[i].T) * r;
-		lines[i].End.z = -10;
-
-		lines[i].T += 0.1;
-	}
-}
-
-void MoveLines(StereoLine* lines)
-{
-	float r = 1.5;
-	for (size_t i = 0; i < lineCount; i++)
-	{
-		lines[i].End.x = sin(lines[i].T) * r;
-		lines[i].End.y = cos(lines[i].T) * r;
-		lines[i].End.z = -10;
-
-		lines[i].T += 0.1;
-	}
-}
-
-
-
-void MoveCross(StereoLine* lines, glm::vec3 pos)
-{
-	lines[0].Start.x = pos.x - 10;
-	lines[0].Start.y = pos.y;
-	lines[0].Start.z = pos.z;
-	lines[0].End.x = pos.x + 10;
-	lines[0].End.y = pos.y;
-	lines[0].End.z = pos.z;
-
-	lines[1].Start.x = pos.x;
-	lines[1].Start.y = pos.y - 10;
-	lines[1].Start.z = pos.z;
-	lines[1].End.x = pos.x;
-	lines[1].End.y = pos.y + 10;
-	lines[1].End.z = pos.z;
-
-	lines[2].Start.x = pos.x;
-	lines[2].Start.y = pos.y;
-	lines[2].Start.z = pos.z - 10;
-	lines[2].End.x = pos.x;
-	lines[2].End.y = pos.y;
-	lines[2].End.z = pos.z + 10;
 }
 
 
@@ -556,6 +604,7 @@ void MoveCross(StereoLine* lines, glm::vec3 pos)
 
 class MainWindow
 {
+#pragma region Private
 	GLuint fbo;
 	GLuint texture;
 	GLuint depthBuffer;
@@ -742,14 +791,12 @@ class MainWindow
 
 		ImGui::End();
 	}
-
+#pragma endregion
 public:
 	// Custom Render Canvas Size
 	glm::vec2 renderSize;
 	GLFWwindow* window;
 	std::function<bool()> customRenderFunc;
-
-
 
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
 		// resize color attachment
@@ -765,9 +812,6 @@ public:
 		// update internal dimensions
 		renderSize = newSize;
 	}
-
-
-
 
 	bool Init() {
 		// Setup window
@@ -798,7 +842,7 @@ public:
 			return false;
 		glfwMakeContextCurrent(window);
 		glfwSwapInterval(1); // Enable vsync
-
+		
 		// Initialize OpenGL loader
 #if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
 		bool err = gl3wInit() != 0;
@@ -865,6 +909,49 @@ public:
 		return true;
 	}
 
+	bool CustomRenderWindow() 
+	{
+		ImGui::Begin("Custom render");
+
+		{
+			/*	glEnable(GL_DEPTH_TEST);
+				glDepthMask(GL_TRUE);
+				glDepthFunc(GL_LESS);
+				glClear(GL_DEPTH_BUFFER_BIT);
+				glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);*/
+
+			//glMatrixMode(1);
+
+			bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+
+			if (!customRenderFunc())
+				return false;
+
+			unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+
+			//glBindRenderbuffer(GL_RENDERBUFFER, 0);
+		}
+
+		ImGui::Image((void*)(intptr_t)texture, renderSize);
+
+		{
+			// handle custom render window resize
+			glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
+			glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
+
+			glm::vec2 newSize = vMax - vMin;
+
+			if (renderSize != newSize)
+			{
+				ResizeCustomRenderCanvas(newSize);
+			}
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+
 	bool Design()
 	{
 		// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
@@ -872,27 +959,27 @@ public:
 			ImGui::ShowDemoWindow(&show_demo_window);
 
 		// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-		{
-			static float f = 0.0f;
-			static int counter = 0;
+		//{
+		//	static float f = 0.0f;
+		//	static int counter = 0;
 
-			ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+		//	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
-			ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-			ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-			ImGui::Checkbox("Another Window", &show_another_window);
+		//	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+		//	ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+		//	ImGui::Checkbox("Another Window", &show_another_window);
 
-			ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-			ImGui::ColorEdit3("clear color", (float*)& clear_color); // Edit 3 floats representing a color
+		//	ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+		//	ImGui::ColorEdit3("clear color", (float*)& clear_color); // Edit 3 floats representing a color
 
-			if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-				counter++;
-			ImGui::SameLine();
-			ImGui::Text("counter = %d", counter);
+		//	if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+		//		counter++;
+		//	ImGui::SameLine();
+		//	ImGui::Text("counter = %d", counter);
 
-			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-			ImGui::End();
-		}
+		//	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		//	ImGui::End();
+		//}
 
 		//// 3. Show another simple window.
 		//if (show_another_window)
@@ -905,99 +992,70 @@ public:
 		//}
 
 		// 4 custom rendering
+		if (!CustomRenderWindow())
 		{
-			ImGui::Begin("Custom render");
-
-
-
-			bindFrameBuffer(fbo, renderSize.x, renderSize.y);
-
-			if (!customRenderFunc())
-			{
-				return false;
-			}
-
-			unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
-
-			ImGui::Image((void*)(intptr_t)texture, renderSize);
-
-
-			{
-				// handle custom render window resize
-				glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
-				glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
-
-				glm::vec2 newSize = vMax - vMin;
-
-				if (renderSize != newSize)
-				{
-					ResizeCustomRenderCanvas(newSize);
-				}
-			}
-
-			ImGui::End();
-
-
+			return false;
 		}
 
-		{
-			// Demonstrate the various window flags. Typically you would just use the default!
-			static bool no_titlebar = false;
-			static bool no_scrollbar = false;
-			static bool no_menu = false;
-			static bool no_move = false;
-			static bool no_resize = false;
-			static bool no_collapse = false;
-			static bool no_close = false;
-			static bool no_nav = false;
-			static bool no_background = false;
-			static bool no_bring_to_front = false;
-			static bool no_docking = false;
+		//{
+		//	// Demonstrate the various window flags. Typically you would just use the default!
+		//	static bool no_titlebar = false;
+		//	static bool no_scrollbar = false;
+		//	static bool no_menu = false;
+		//	static bool no_move = false;
+		//	static bool no_resize = false;
+		//	static bool no_collapse = false;
+		//	static bool no_close = false;
+		//	static bool no_nav = false;
+		//	static bool no_background = false;
+		//	static bool no_bring_to_front = false;
+		//	static bool no_docking = false;
 
-			ImGuiWindowFlags window_flags = 0;
-			if (no_titlebar)        window_flags |= ImGuiWindowFlags_NoTitleBar;
-			if (no_scrollbar)       window_flags |= ImGuiWindowFlags_NoScrollbar;
-			if (!no_menu)           window_flags |= ImGuiWindowFlags_MenuBar;
-			if (no_move)            window_flags |= ImGuiWindowFlags_NoMove;
-			if (no_resize)          window_flags |= ImGuiWindowFlags_NoResize;
-			if (no_collapse)        window_flags |= ImGuiWindowFlags_NoCollapse;
-			if (no_nav)             window_flags |= ImGuiWindowFlags_NoNav;
-			if (no_background)      window_flags |= ImGuiWindowFlags_NoBackground;
-			if (no_bring_to_front)  window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus;
-			if (no_docking)         window_flags |= ImGuiWindowFlags_NoDocking;
-			//if (no_close)           p_open = NULL; // Don't pass our bool* to Begin
+		//	ImGuiWindowFlags window_flags = 0;
+		//	if (no_titlebar)        window_flags |= ImGuiWindowFlags_NoTitleBar;
+		//	if (no_scrollbar)       window_flags |= ImGuiWindowFlags_NoScrollbar;
+		//	if (!no_menu)           window_flags |= ImGuiWindowFlags_MenuBar;
+		//	if (no_move)            window_flags |= ImGuiWindowFlags_NoMove;
+		//	if (no_resize)          window_flags |= ImGuiWindowFlags_NoResize;
+		//	if (no_collapse)        window_flags |= ImGuiWindowFlags_NoCollapse;
+		//	if (no_nav)             window_flags |= ImGuiWindowFlags_NoNav;
+		//	if (no_background)      window_flags |= ImGuiWindowFlags_NoBackground;
+		//	if (no_bring_to_front)  window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus;
+		//	if (no_docking)         window_flags |= ImGuiWindowFlags_NoDocking;
+		//	//if (no_close)           p_open = NULL; // Don't pass our bool* to Begin
 
-			// We specify a default position/size in case there's no data in the .ini file. Typically this isn't required! We only do it to make the Demo applications a little more welcoming.
-			ImVec2 main_viewport_pos = ImGui::GetMainViewport()->Pos;
-			ImGui::SetNextWindowPos(ImVec2(main_viewport_pos.x + 650, main_viewport_pos.y + 20), ImGuiCond_FirstUseEver);
-			ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
+		//	// We specify a default position/size in case there's no data in the .ini file. Typically this isn't required! We only do it to make the Demo applications a little more welcoming.
+		//	ImVec2 main_viewport_pos = ImGui::GetMainViewport()->Pos;
+		//	ImGui::SetNextWindowPos(ImVec2(main_viewport_pos.x + 650, main_viewport_pos.y + 20), ImGuiCond_FirstUseEver);
+		//	ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
 
-			// Main body of the Demo window starts here.
-			if (ImGui::Begin("Dear ImGui Demo", NULL, window_flags))
-			{
-				bool tr = true;
+		//	// Main body of the Demo window starts here.
+		//	if (ImGui::Begin("Dear ImGui Demo", NULL, window_flags))
+		//	{
+		//		bool tr = true;
 
-				ShowExampleAppDockSpace(&tr);
-				// Early out if the window is collapsed, as an optimization.
-				ImGui::End();
-				//return;
-			}
+		//		ShowExampleAppDockSpace(&tr);
+		//		// Early out if the window is collapsed, as an optimization.
+		//		ImGui::End();
+		//		//return;
+		//	}
 
 
 
-			//bool tr = true;
-			//bool no_docking = false;
+		//	//bool tr = true;
+		//	//bool no_docking = false;
 
-			//ShowExampleAppDockSpace(&tr);
+		//	//ShowExampleAppDockSpace(&tr);
 
-			//if (no_docking)         window_flags |= ImGuiWindowFlags_NoDocking;
+		//	//if (no_docking)         window_flags |= ImGuiWindowFlags_NoDocking;
 
-		}
+		//}
 
 	}
 
 	bool MainLoop()
 	{
+		
 		// Main loop
 		while (!glfwWindowShouldClose(window))
 		{
@@ -1014,6 +1072,8 @@ public:
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
+
+
 
 
 			if (!Design()) 
@@ -1072,7 +1132,14 @@ public:
 };
 
 
+float t = 0;
 
+void MoveCamera() {
+
+	Stereo.cameraCenter.z = 10 + 5*sin(t);
+	t += 0.01;
+
+}
 
 int main(int, char**)
 {
@@ -1087,10 +1154,11 @@ int main(int, char**)
 	//StereoLine* lines = CreateLines();
 	StereoLine* lines = CreateCross();
 
-	MoveCross(lines, glm::vec3(1, 1, 0));
+	//MoveCross(lines, glm::vec3(1, 1, 0));
 
 	mainWindow.customRenderFunc = [lines, mainWindow] {
 		Draw(lines, mainWindow.window);
+		MoveCamera();
 		//MoveLines(lines);
 		//MoveCross(lines);
 		return true;

@@ -27,7 +27,9 @@ struct StereoLine
 	static const uint_fast8_t CoordinateCount = 6;
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
-	GLuint VBO, VAO;
+	//GLuint VBO, VAO;
+	GLuint VBOLeft, VAOLeft;
+	GLuint VBORight, VAORight;
 	GLuint ShaderLeft, ShaderRight;
 
 	float T;

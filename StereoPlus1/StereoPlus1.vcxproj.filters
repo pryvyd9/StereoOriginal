@@ -16,6 +16,9 @@
     <Filter Include="imgui">
       <UniqueIdentifier>{ec197285-b8c2-43f7-a724-0bdf037cbdcf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Shaders">
+      <UniqueIdentifier>{ef2404ec-5b4d-45bd-9487-f55661ec5d7f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="StereoPlus.cpp">
@@ -83,5 +86,16 @@
     <ClInclude Include="include\imgui\imstb_truetype.h">
       <Filter>imgui</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Left.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="Right.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include=".vert">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
