@@ -11,14 +11,14 @@
 
 using namespace std;
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
+//void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+//void processInput(GLFWwindow* window);
 
 
 
 
 
-const int lineCount = 4;
+//const int lineCount = 4;
 
 
 GLuint CreateShaderProgram(const char* vertexShaderSource, const char* fragmentShaderSource)
@@ -139,68 +139,68 @@ StereoLine* CreateCross()
 	return lines;
 }
 
-StereoLine* CreateLines()
-{
-	string vertexShaderSource = ReadShader(".vert");
-	string fragmentShaderSourceLeft = ReadShader("Left.frag");
-	string fragmentShaderSourceRight = ReadShader("Right.frag");
+//StereoLine* CreateLines()
+//{
+//	string vertexShaderSource = ReadShader(".vert");
+//	string fragmentShaderSourceLeft = ReadShader("Left.frag");
+//	string fragmentShaderSourceRight = ReadShader("Right.frag");
+//
+//	StereoLine* lines = new StereoLine[lineCount];
+//
+//	float r = 0.5;
+//
+//	for (size_t i = 0; i < lineCount; i++)
+//	{
+//		float t = (float)i / (float)lineCount * 3.1415926 * 2;
+//
+//		lines[i] = StereoLine();
+//		lines[i].Start.x = r * sin(t);
+//		lines[i].Start.y = r * cos(t);
+//		lines[i].Start.z = -2;
+//		/*lines[i].End.X = r * sin(t);
+//		lines[i].End.Y = r * cos(t);
+//		lines[i].End.Z = 0;*/
+//		lines[i].T = t;
+//
+//		lines[i].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+//		lines[i].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+//		//glGenVertexArrays(1, &lines[i].VAO);
+//		//glGenBuffers(1, &lines[i].VBO);
+//		glGenVertexArrays(1, &lines[i].VAOLeft);
+//		glGenBuffers(1, &lines[i].VBOLeft);
+//	}
+//
+//	return lines;
+//}
 
-	StereoLine* lines = new StereoLine[lineCount];
-
-	float r = 0.5;
-
-	for (size_t i = 0; i < lineCount; i++)
-	{
-		float t = (float)i / (float)lineCount * 3.1415926 * 2;
-
-		lines[i] = StereoLine();
-		lines[i].Start.x = r * sin(t);
-		lines[i].Start.y = r * cos(t);
-		lines[i].Start.z = -2;
-		/*lines[i].End.X = r * sin(t);
-		lines[i].End.Y = r * cos(t);
-		lines[i].End.Z = 0;*/
-		lines[i].T = t;
-
-		lines[i].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
-		lines[i].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
-		//glGenVertexArrays(1, &lines[i].VAO);
-		//glGenBuffers(1, &lines[i].VBO);
-		glGenVertexArrays(1, &lines[i].VAOLeft);
-		glGenBuffers(1, &lines[i].VBOLeft);
-	}
-
-	return lines;
-}
 
 
-
-void MoveLines(Line* lines)
-{
-	float r = 1.5;
-	for (size_t i = 0; i < lineCount; i++)
-	{
-		lines[i].End.x = sin(lines[i].T) * r;
-		lines[i].End.y = cos(lines[i].T) * r;
-		lines[i].End.z = -10;
-
-		lines[i].T += 0.1;
-	}
-}
-
-void MoveLines(StereoLine* lines)
-{
-	float speed = 0.01;
-	float r = 1;
-	for (size_t i = 0; i < lineCount; i++)
-	{
-		lines[i].End.x = sin(lines[i].T) * r;
-		lines[i].End.y = cos(lines[i].T) * r;
-		lines[i].End.z = 2;
-
-		lines[i].T += speed;
-	}
-}
+//void MoveLines(Line* lines)
+//{
+//	float r = 1.5;
+//	for (size_t i = 0; i < lineCount; i++)
+//	{
+//		lines[i].End.x = sin(lines[i].T) * r;
+//		lines[i].End.y = cos(lines[i].T) * r;
+//		lines[i].End.z = -10;
+//
+//		lines[i].T += 0.1;
+//	}
+//}
+//
+//void MoveLines(StereoLine* lines)
+//{
+//	float speed = 0.01;
+//	float r = 1;
+//	for (size_t i = 0; i < lineCount; i++)
+//	{
+//		lines[i].End.x = sin(lines[i].T) * r;
+//		lines[i].End.y = cos(lines[i].T) * r;
+//		lines[i].End.z = 2;
+//
+//		lines[i].T += speed;
+//	}
+//}
 
 
 
@@ -262,15 +262,20 @@ void MoveCross(StereoLine* lines, glm::vec3 pos)
 //	}
 //}
 
-class Stereo
+class StereoCamera
 {
 public:
+	glm::vec2 screenSize = glm::vec2(1, 1);
 	glm::vec2 screenCenter = glm::vec2(0,0);
-	glm::vec3 cameraCenter = glm::vec3(0,3,-10);
-	//glm::vec3 transformVec = glm::vec3(1,1,1);
 	glm::vec3 transformVec = glm::vec3(0,0,0);
-	float eyeToCenterDistance = 0.5;
 
+	glm::vec3 position = glm::vec3(0,3,-10);
+	glm::vec3 left = glm::vec3(1,0,0);
+	glm::vec3 up = glm::vec3(0,1,0);
+	glm::vec3 forward = glm::vec3(0,0,-1);
+
+
+	float eyeToCenterDistance = 0.5;
 
 
 	Line GetLeft(StereoLine* stereoLine)
@@ -279,10 +284,10 @@ public:
 		
 		glm::vec3 S = stereoLine->Start;
 
-		float denominator = cameraCenter.z - S.z - transformVec.z;
+		float denominator = position.z - S.z - transformVec.z;
 
-		float SleftX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
+		float SleftX = (S.x * position.z - (S.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator;
+		float Sy = (position.z * (transformVec.y - S.y) + position.y * (S.z + transformVec.z)) / denominator;
 
 		line.Start.x = SleftX;
 		line.Start.y = Sy;
@@ -290,10 +295,10 @@ public:
 
 		glm::vec3 E = stereoLine->End;
 
-		denominator = cameraCenter.z - E.z - transformVec.z;
+		denominator = position.z - E.z - transformVec.z;
 
-		float EleftX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x - eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
+		float EleftX = (E.x * position.z - (E.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator;
+		float Ey = (position.z * (transformVec.y - E.y) + position.y * (E.z + transformVec.z)) / denominator;
 
 		line.End.x = EleftX;
 		line.End.y = Ey;
@@ -312,10 +317,10 @@ public:
 
 		glm::vec3 S = stereoLine->Start;
 
-		float denominator = cameraCenter.z - S.z - transformVec.z;
+		float denominator = position.z - S.z - transformVec.z;
 
-		float SrightX = (S.x * cameraCenter.z - (S.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		float Sy = (cameraCenter.z * (transformVec.y - S.y) + cameraCenter.y * (S.z + transformVec.z)) / denominator;
+		float SrightX = (S.x * position.z - (S.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator;
+		float Sy = (position.z * (transformVec.y - S.y) + position.y * (S.z + transformVec.z)) / denominator;
 
 		line.Start.x = SrightX;
 		line.Start.y = Sy;
@@ -323,10 +328,10 @@ public:
 
 		glm::vec3 E = stereoLine->End;
 
-		denominator = cameraCenter.z - E.z - transformVec.z;
+		denominator = position.z - E.z - transformVec.z;
 
-		float ErightX = (E.x * cameraCenter.z - (E.z + transformVec.z) * (cameraCenter.x + eyeToCenterDistance) + cameraCenter.z * transformVec.x) / denominator;
-		float Ey = (cameraCenter.z * (transformVec.y - E.y) + cameraCenter.y * (E.z + transformVec.z)) / denominator;
+		float ErightX = (E.x * position.z - (E.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator;
+		float Ey = (position.z * (transformVec.y - E.y) + position.y * (E.z + transformVec.z)) / denominator;
 
 		line.End.x = ErightX;
 		line.End.y = Ey;
@@ -338,70 +343,38 @@ public:
 
 		return line;
 	}
-}Stereo;
 
-void Draw(Line* lines, GLFWwindow* window)
-{
-	for (size_t i = 0; i < lineCount; i++)
+	void Move(glm::vec3 value)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, lines[i].VBO);
-
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &lines[i], GL_STREAM_DRAW);
-		//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
-		//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-
-		// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// draw our first triangle
-		glUseProgram(lines[i].ShaderProgram);
-		glBindVertexArray(lines[i].VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		//glDrawArrays(GL_TRIANGLES, 0, 3);
-		glDrawArrays(GL_LINES, 0, 2);
-
-		// -------------------------------------------------------------------------------
-
+		//position += value;
+		transformVec += value;
 	}
-}
 
-//void UpdateWhitePartOfShader(Line& line, GLuint shader)
-//{
-//	float closeZ = line.Start.z > line.End.z ? line.Start.z : line.End.z;
-//	float farZ = line.Start.z < line.End.z ? line.Start.z : line.End.z;
-//
-//	float size = line.Start.z - line.End.z;
-//
-//	float coordinate = 0;
-//	float precision = 1;
-//
-//	//size *= precision;
-//
-//	//float closeT = 1- ((coordinate + precision) - left.Start.z) / (left.End.z - left.Start.z);
-//	//float farT = 1- ((coordinate - precision) - left.Start.z) / (left.End.z - left.Start.z);
-//
-//	// Calculate limits of white (zero) shader
-//	float farT = 0;
-//	float closeT = 0;
-//
-//	bool isZero = (line.Start.z == line.End.z) && (line.Start.z > closeT && line.Start.z < farT);
-//	if (!isZero)
-//	{
-//		farT = 1 - ((coordinate + precision) - line.Start.z) / (line.End.z - line.Start.z);
-//		closeT = 1 - ((coordinate - precision) - line.Start.z) / (line.End.z - line.Start.z);
-//	}
-//
-//	GLuint farTLoc = glGetUniformLocation(shader, "farT");
-//	GLuint closeTLoc = glGetUniformLocation(shader, "closeT");
-//	GLuint isZeroLoc = glGetUniformLocation(shader, "isZero");
-//
-//	glUniform1f(farTLoc, farT / 2);
-//	glUniform1f(closeTLoc, closeT / 2);
-//	glUniform1f(isZeroLoc, isZero);
-//}
+	void MoveLeft(float value) {
+		Move(left * value);
+	}
+
+	void MoveRight(float value) {
+		Move(-left * value);
+	}
+
+	void MoveUp(float value) {
+		Move(up * value);
+	}
+
+	void MoveDown(float value) {
+		Move(-up * value);
+	}
+
+	void MoveForward(float value) {
+		Move(forward * value);
+	}
+
+	void MoveBack(float value) {
+		Move(-forward * value);
+	}
+
+};
 
 struct WhitePartOfShader {
 	bool isZero;
@@ -409,186 +382,11 @@ struct WhitePartOfShader {
 	float min, max;
 };
 
-// Determines which parts of line is white.
-// Finds left and right limits of white in x
-// or top and bottom limits of white in y.
-// Z here is relative to camera
-// >0 is close to camera and <0 is far from camera
-WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision) {
-	//// Z coordinate that should be painted white.
-	//float whiteZ = 0.0;
-	//float precision = 0.01;
-
-	bool isZero = (start.z == end.z) && (whiteZ + precision > start.z && start.z > whiteZ - precision);
-	if (!isZero)
-	{
-		float xSize = end.x > start.x ? end.x - start.x : start.x - end.x;
-		float ySize = end.y > start.y ? end.y - start.y : start.y - end.y;
-
-		// (z - z1) / (z2 - z1) = t
-		float t = (whiteZ - start.z) / (end.z - start.z);
-
-		if (xSize > ySize)
-		{
-			float xCenter = (end.x - start.x) * t + start.x;
-			float xMin = xCenter - precision;
-			float xMax = xCenter + precision;
-
-			WhitePartOfShader res;
-			res.isZero = false;
-			res.isX = true;
-			res.min = xMin;
-			res.max = xMax;
-
-			return res;
-		}
-		else
-		{
-			float yCenter = (end.y - start.y) * t + start.y;
-			float yMin = yCenter - precision;
-			float yMax = yCenter + precision;
-
-			WhitePartOfShader res;
-			res.isZero = false;
-			res.isX = false;
-			res.min = yMin;
-			res.max = yMax;
-
-			return res;
-		}
-	}
-
-	WhitePartOfShader res;
-	res.isZero = true;
-
-	return res;
-}
-
-void UpdateWhitePartOfShader(Line& line, GLuint shader)
-{
-	// Z coordinate that should be painted white.
-	float whiteZ = 0.1;
-	float precision = 0.01;
-
-	// Calculate limits of white (zero) shader
-	float farT = 0;
-	float closeT = 0;
-
-	bool isZero = (line.Start.z == line.End.z) && (whiteZ + precision > line.Start.z && line.Start.z > whiteZ - precision);
-	if (!isZero)
-	{
-		float closeZ = line.Start.z > line.End.z ? line.Start.z : line.End.z;
-		float farZ = line.Start.z < line.End.z ? line.Start.z : line.End.z;
-
-		float size = closeZ - farZ;
-
-		
-
-		farT = 1 - ((whiteZ + precision) - closeZ) / (farZ - closeZ) / 2;
-		closeT = 1 - ((whiteZ - precision) - closeZ) / (farZ - closeZ) / 2;
-		/*farT = ((whiteZ + precision) - closeZ) / (farZ - closeZ);
-		closeT = ((whiteZ - precision) - closeZ) / (farZ - closeZ);*/
-	}
-
-	GLuint farTLoc = glGetUniformLocation(shader, "farT");
-	GLuint closeTLoc = glGetUniformLocation(shader, "closeT");
-	GLuint isZeroLoc = glGetUniformLocation(shader, "isZero");
-
-	glUniform1f(farTLoc, farT);
-	glUniform1f(closeTLoc, closeT);
-	glUniform1f(isZeroLoc, isZero);
-}
-
-
-
-void DrawLine(Line& line, GLuint shader, GLuint VBO, GLuint VAO)
-{
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-	//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(GL_POINTS);
-
-	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	UpdateWhitePartOfShader(line, shader);
-
-	// Apply shader
-	glUseProgram(shader);
-
-
-	   
-	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-	//glDrawArrays(GL_TRIANGLES, 0, 3);
-	glDrawArrays(GL_LINES, 0, 2);
-}
-
-
-//void DrawStereoLine(StereoLine& line)
-//{
-//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-//
-//	glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-//	//glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, GetVertices(lines[i]), GL_STREAM_DRAW);
-//	//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-//
-//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-//	glEnableVertexAttribArray(GL_POINTS);
-//
-//	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-//
-//	UpdateWhitePartOfShader(line, shader);
-//
-//	// Apply shader
-//	glUseProgram(shader);
-//
-//
-//
-//	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-//	//glDrawArrays(GL_TRIANGLES, 0, 3);
-//	glDrawArrays(GL_LINES, 0, 2);
-//}
-
-
-void Draw(StereoLine* lines, GLFWwindow* window)
-{
-	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glPointSize(2);
-
-	glDepthRangef(0, -0);
-
-	//Draw(lines->Start
-	
-	for (size_t i = 0; i < lineCount; i++)
-	{
-		/*Line left = Stereo.GetLeft(&lines[i]);
-		DrawLine(left, lines[i].ShaderLeft, lines[i].VBO, lines[i].VAO);
-
-		Line right = Stereo.GetRight(&lines[i]);
-		DrawLine(right, lines[i].ShaderRight, lines[i].VBO, lines[i].VAO);*/
-
-
-		Line left = Stereo.GetLeft(&lines[i]);
-		
-		DrawLine(left, lines[i].ShaderLeft, lines[i].VBOLeft, lines[i].VAOLeft);
-
-		Line right = Stereo.GetRight(&lines[i]);
-		DrawLine(right, lines[i].ShaderRight, lines[i].VBORight, lines[i].VAORight);
-
-	}
-}
-
-
 struct SceneConfiguration {
 	float whiteZ = 0;
 	float whiteZPrecision = 0.1;
 
+	StereoCamera camera;
 	GLFWwindow* window;
 };
 
@@ -646,13 +444,13 @@ public:
 		{
 			auto whitePartOfShader = FindWhitePartOfShader(lines[i].Start, lines[i].End, config.whiteZ, config.whiteZPrecision);
 			
-			Line left = Stereo.GetLeft(&lines[i]);
+			Line left = config.camera.GetLeft(&lines[i]);
 			DrawLine(
 				left, 
 				[left, whitePartOfShader, this] { UpdateWhitePartOfShader(left.ShaderProgram, whitePartOfShader); }
 			);
 
-			Line right = Stereo.GetRight(&lines[i]);
+			Line right = config.camera.GetRight(&lines[i]);
 			DrawLine(
 				right, 
 				[right, whitePartOfShader, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShader); }
@@ -670,7 +468,6 @@ public:
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(GL_POINTS);
 
-		// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		updateWhitePartOfShader();
@@ -679,7 +476,6 @@ public:
 		glUseProgram(line.ShaderProgram);
 
 		glBindVertexArray(line.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		//glDrawArrays(GL_TRIANGLES, 0, 3);
 		glDrawArrays(GL_LINES, 0, 2);
 	}
 
@@ -890,6 +686,7 @@ public:
 	// Custom Render Canvas Size
 	glm::vec2 renderSize;
 	GLFWwindow* window;
+	SceneConfiguration* renderConfig;
 	std::function<bool()> customRenderFunc;
 
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
@@ -1200,7 +997,7 @@ public:
 
 			glfwSwapBuffers(window);
 
-
+			processInput(window);
 		
 
 		}
@@ -1213,6 +1010,26 @@ public:
 	{
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
+
+		float cameraSpeed = 0.01;
+
+		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+			renderConfig->camera.MoveRight(cameraSpeed);
+
+		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+			renderConfig->camera.MoveLeft(cameraSpeed);
+
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+			renderConfig->camera.MoveUp(cameraSpeed);
+
+		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+			renderConfig->camera.MoveDown(cameraSpeed);
+
+		if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
+			renderConfig->camera.MoveForward(cameraSpeed);
+
+		if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
+			renderConfig->camera.MoveBack(cameraSpeed);
 	}
 
 	// glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -1226,14 +1043,14 @@ public:
 };
 
 
-float t = 0;
-
-void MoveCamera() {
-
-	Stereo.cameraCenter.z = 10 + 5*sin(t);
-	t += 0.01;
-
-}
+//float t = 0;
+//
+//void MoveCamera() {
+//
+//	Stereo.cameraCenter.z = 10 + 5*sin(t);
+//	t += 0.01;
+//
+//}
 
 int main(int, char**)
 {
@@ -1255,14 +1072,21 @@ int main(int, char**)
 	config.whiteZPrecision = 0.1;
 	config.window = mainWindow.window;
 
+	mainWindow.renderConfig = &config;
 	RenderScenePipeline renderPipeline;
+	
+	int lineCount = 3;
 
-	mainWindow.customRenderFunc = [lines, mainWindow, &renderPipeline, &config] {
+	mainWindow.customRenderFunc = [lines, mainWindow, &renderPipeline, &config, lineCount] {
+
+		config.camera.screenSize = mainWindow.renderSize;
 
 		renderPipeline.Pipeline(lines, lineCount, config);
 
+		//config.camera.MoveRight(0.001);
+
 		//Draw(lines, mainWindow.window);
-		MoveCamera();
+		//MoveCamera();
 		//MoveLines(lines);
 		//MoveCross(lines);
 		return true;
