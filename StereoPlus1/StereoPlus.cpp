@@ -76,65 +76,78 @@ StereoLine* CreateCross()
 {
 	StereoLine* lines = new StereoLine[3];
 	
-	float size = 0.1;
+	float size = 0.8;
 	float z = -0;
 	std::string vertexShaderSource = ReadShader(".vert");
 	std::string fragmentShaderSourceLeft = ReadShader("Left.frag");
 	std::string fragmentShaderSourceRight = ReadShader("Right.frag");
 
-	lines[0] = StereoLine();
-	lines[0].Start.x = -size;
-	lines[0].End.x = size;
-	//lines[0].Start.z = z;
-	//lines[0].End.z = z;
+	//lines[0] = StereoLine();
+	//lines[0].Start.x = -size;
+	//lines[0].End.x = size;
+	////lines[0].Start.z = z;
+	////lines[0].End.z = z;
 
+	//lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	//lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	////glGenVertexArrays(1, &lines[0].VAO);
+	////glGenBuffers(1, &lines[0].VBO);
+	//glGenVertexArrays(1, &lines[0].VAOLeft);
+	//glGenBuffers(1, &lines[0].VBOLeft);
+	//glGenVertexArrays(1, &lines[0].VAORight);
+	//glGenBuffers(1, &lines[0].VBORight);
+	////lines[0] = StereoLine();
+	////lines[0].Start.x = 0;
+	////lines[0].Start.y = 0;
+	////lines[0].Start.z = -2;
+	////lines[0].End.x = 0.5;
+	////lines[0].End.y = 0.5;
+	////lines[0].End.z = -2;
+
+	////lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	////lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	////glGenVertexArrays(1, &lines[0].VAO);
+	////glGenBuffers(1, &lines[0].VBO);
+
+
+
+	//lines[1] = StereoLine();
+	//lines[1].Start.y = -size;
+	//lines[1].End.y = size;
+	////lines[1].Start.z = z;
+	////lines[1].End.z = z;
+	//lines[1].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	//lines[1].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	//glGenVertexArrays(1, &lines[1].VAOLeft);
+	//glGenBuffers(1, &lines[1].VBOLeft);
+	//glGenVertexArrays(1, &lines[1].VAORight);
+	//glGenBuffers(1, &lines[1].VBORight);
+
+	//lines[2] = StereoLine();
+	//lines[2].Start.z = -size;
+	//lines[2].End.z = size;
+	//lines[2].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
+	//lines[2].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
+	////glGenVertexArrays(1, &lines[2].VAO);
+	////glGenBuffers(1, &lines[2].VBO);
+
+	//glGenVertexArrays(1, &lines[2].VAOLeft);
+	//glGenBuffers(1, &lines[2].VBOLeft);
+	//glGenVertexArrays(1, &lines[2].VAORight);
+	//glGenBuffers(1, &lines[2].VBORight);
+
+	lines[0] = StereoLine();
+	lines[0].Start.z = -size;
+	lines[0].End.z = size;
 	lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
 	lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
-	//glGenVertexArrays(1, &lines[0].VAO);
-	//glGenBuffers(1, &lines[0].VBO);
+	//glGenVertexArrays(1, &lines[2].VAO);
+	//glGenBuffers(1, &lines[2].VBO);
+
 	glGenVertexArrays(1, &lines[0].VAOLeft);
 	glGenBuffers(1, &lines[0].VBOLeft);
 	glGenVertexArrays(1, &lines[0].VAORight);
 	glGenBuffers(1, &lines[0].VBORight);
-	//lines[0] = StereoLine();
-	//lines[0].Start.x = 0;
-	//lines[0].Start.y = 0;
-	//lines[0].Start.z = -2;
-	//lines[0].End.x = 0.5;
-	//lines[0].End.y = 0.5;
-	//lines[0].End.z = -2;
-
-	//lines[0].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
-	//lines[0].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
-	//glGenVertexArrays(1, &lines[0].VAO);
-	//glGenBuffers(1, &lines[0].VBO);
-
-
-
-	lines[1] = StereoLine();
-	lines[1].Start.y = -size;
-	lines[1].End.y = size;
-	//lines[1].Start.z = z;
-	//lines[1].End.z = z;
-	lines[1].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
-	lines[1].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
-	glGenVertexArrays(1, &lines[1].VAOLeft);
-	glGenBuffers(1, &lines[1].VBOLeft);
-	glGenVertexArrays(1, &lines[1].VAORight);
-	glGenBuffers(1, &lines[1].VBORight);
-
-	lines[2] = StereoLine();
-	lines[2].Start.z = -size;
-	lines[2].End.z = size;
-	lines[2].ShaderLeft = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceLeft.c_str());
-	lines[2].ShaderRight = CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSourceRight.c_str());
-	//glGenVertexArrays(1, &lines[2].VAO);
-	//glGenBuffers(1, &lines[2].VBO);
-
-	glGenVertexArrays(1, &lines[2].VAOLeft);
-	glGenBuffers(1, &lines[2].VBOLeft);
-	glGenVertexArrays(1, &lines[2].VAORight);
-	glGenBuffers(1, &lines[2].VBORight);
 
 	return lines;
 }
@@ -344,6 +357,8 @@ public:
 		return line;
 	}
 
+#pragma region Move
+
 	void Move(glm::vec3 value)
 	{
 		//position += value;
@@ -374,6 +389,7 @@ public:
 		Move(-forward * value);
 	}
 
+#pragma endregion
 };
 
 struct WhitePartOfShader {
@@ -401,8 +417,11 @@ public:
 	// or top and bottom limits of white in y.
 	// Z here is relative to camera
 	// >0 is close to camera and <0 is far from camera
-	WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision) {
+	WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision, SceneConfiguration& config) {
 		WhitePartOfShader res;
+
+		/*start += config.camera.transformVec;
+		end += config.camera.transformVec;*/
 
 		bool isZero = (start.z == end.z) && (whiteZ + precision > start.z && start.z > whiteZ - precision);
 		if (!isZero)
@@ -442,18 +461,31 @@ public:
 
 		for (size_t i = 0; i < lineCount; i++)
 		{
-			auto whitePartOfShader = FindWhitePartOfShader(lines[i].Start, lines[i].End, config.whiteZ, config.whiteZPrecision);
 			
 			Line left = config.camera.GetLeft(&lines[i]);
+
+			Line lm;
+			lm.Start = left.Start;
+			lm.Start.z = lines[i].Start.z;
+			lm.End = left.End;
+			lm.End.z = lines[i].End.z;
+			auto whitePartOfShaderLeft = FindWhitePartOfShader(lm.Start, lm.End, config.whiteZ, config.whiteZPrecision, config);
 			DrawLine(
 				left, 
-				[left, whitePartOfShader, this] { UpdateWhitePartOfShader(left.ShaderProgram, whitePartOfShader); }
+				[left, whitePartOfShaderLeft, this] { UpdateWhitePartOfShader(left.ShaderProgram, whitePartOfShaderLeft); }
 			);
 
 			Line right = config.camera.GetRight(&lines[i]);
+
+			Line rm;
+			rm.Start = right.Start;
+			rm.Start.z = lines[i].Start.z;
+			rm.End = right.End;
+			rm.End.z = lines[i].End.z;
+			auto whitePartOfShaderRight = FindWhitePartOfShader(rm.Start, rm.End, config.whiteZ, config.whiteZPrecision, config);
 			DrawLine(
 				right, 
-				[right, whitePartOfShader, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShader); }
+				[right, whitePartOfShaderRight, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShaderRight); }
 			);
 		}
 	}
@@ -1075,7 +1107,7 @@ int main(int, char**)
 	mainWindow.renderConfig = &config;
 	RenderScenePipeline renderPipeline;
 	
-	int lineCount = 3;
+	int lineCount = 1;
 
 	mainWindow.customRenderFunc = [lines, mainWindow, &renderPipeline, &config, lineCount] {
 
