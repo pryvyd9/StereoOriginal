@@ -1,7 +1,5 @@
 #pragma once
-#include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
-#include <imgui/imgui_impl_opengl3.h>
+#include "GLLoader.hpp"
 #include "Window.hpp"
 #include <functional>
 
@@ -131,6 +129,20 @@ public:
 		return true;
 	}
 
+	void HandleResize()
+	{
+		// handle custom render window resize
+		glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
+		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
+
+		glm::vec2 newSize = vMax - vMin;
+
+		if (renderSize != newSize)
+		{
+			ResizeCustomRenderCanvas(newSize);
+		}
+	}
+
 	virtual bool Design()
 	{
 		ImGui::Begin("Custom render");
@@ -146,19 +158,7 @@ public:
 		//glBindRenderbuffer(GL_RENDERBUFFER, 0);
 		ImGui::Image((void*)(intptr_t)texture, renderSize);
 		
-		{
-			// handle custom render window resize
-			glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
-			glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
-
-			glm::vec2 newSize = vMax - vMin;
-
-			if (renderSize != newSize)
-			{
-				ResizeCustomRenderCanvas(newSize);
-			}
-		}
-
+		HandleResize();
 
 		ImGui::End();
 
