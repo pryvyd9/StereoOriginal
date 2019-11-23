@@ -4,6 +4,7 @@
 #include <imgui/imgui_impl_opengl3.h>
 #include "Window.hpp"
 #include <vector>
+#include <functional>
 
 // About Desktop OpenGL function loaders:
 //  Modern desktop OpenGL doesn't have a standard portable header file to load OpenGL function pointers.
@@ -100,12 +101,10 @@ class GUI
 	}
 
 #pragma endregion
-
 public:
 	GLFWwindow* window;
 
 	std::vector<Window*> windows;
-
 
 	bool Init()
 	{
