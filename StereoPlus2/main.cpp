@@ -29,6 +29,10 @@ struct StereoLine
 	GLuint ShaderLeft, ShaderRight;
 };
 
+struct Config {
+	std::string ShaderPath = "shaders/";
+}Config;
+
 class GLLoader
 {
 public:
@@ -85,6 +89,7 @@ public:
 };
 
 
+
 class SceneObject
 {
 public:
@@ -103,9 +108,9 @@ public:
 	{
 		float size = 0.8;
 		float z = -0;
-		std::string vertexShaderSource = GLLoader::ReadShader(".vert");
-		std::string fragmentShaderSourceLeft = GLLoader::ReadShader("Left.frag");
-		std::string fragmentShaderSourceRight = GLLoader::ReadShader("Right.frag");
+		std::string vertexShaderSource = GLLoader::ReadShader(Config.ShaderPath + ".vert");
+		std::string fragmentShaderSourceLeft = GLLoader::ReadShader(Config.ShaderPath + "Left.frag");
+		std::string fragmentShaderSourceRight = GLLoader::ReadShader(Config.ShaderPath + "Right.frag");
 
 		StereoLine line;
 
@@ -117,10 +122,10 @@ public:
 		//glGenVertexArrays(1, &lines[2].VAO);
 		//glGenBuffers(1, &lines[2].VBO);
 
-		glGenVertexArrays(1, &lines[0].VAOLeft);
-		glGenBuffers(1, &lines[0].VBOLeft);
-		glGenVertexArrays(1, &lines[0].VAORight);
-		glGenBuffers(1, &lines[0].VBORight);
+		glGenVertexArrays(1, &line.VAOLeft);
+		glGenBuffers(1, &line.VBOLeft);
+		glGenVertexArrays(1, &line.VAORight);
+		glGenBuffers(1, &line.VBORight);
 
 
 		lines.push_back(line);
@@ -131,7 +136,6 @@ public:
 };
 
 
-
 int main(int, char**)
 {
 	CustomRenderWindow customRenderWindow;
@@ -139,8 +143,12 @@ int main(int, char**)
 	GUI gui;
 	gui.windows.push_back((Window*)&customRenderWindow);
 
+
 	if (!gui.Init())
 		return false;
+
+	Cursor cursor;
+	cursor.Init();
 
 	if (!gui.MainLoop())
 		return false;

@@ -151,6 +151,11 @@
     <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\.vert" />
+    <None Include="shaders\Left.frag" />
+    <None Include="shaders\Right.frag" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

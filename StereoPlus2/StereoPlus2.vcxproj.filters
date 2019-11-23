@@ -19,6 +19,9 @@
     <Filter Include="gl3w">
       <UniqueIdentifier>{b46c20cd-87b6-4c9e-a921-27854477a877}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{89450241-0b57-4e6f-9f6f-01966387404b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -86,5 +89,16 @@
     <ClInclude Include="Window.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\Left.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\Right.frag">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
