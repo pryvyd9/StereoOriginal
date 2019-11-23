@@ -19,6 +19,9 @@
     <Filter Include="Source Files\glad">
       <UniqueIdentifier>{58fe2df8-b754-4403-a619-06ac4ce5b572}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\gl3w">
+      <UniqueIdentifier>{b46c20cd-87b6-4c9e-a921-27854477a877}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -33,9 +36,6 @@
     <ClCompile Include="include\imgui\imgui_impl_opengl3.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="include\glad\glad.c">
-      <Filter>Source Files\glad</Filter>
-    </ClCompile>
     <ClCompile Include="include\imgui\imgui_draw.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
@@ -45,5 +45,16 @@
     <ClCompile Include="include\imgui\imgui_demo.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="include\GL\gl3w.c">
+      <Filter>Source Files\gl3w</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\GL\gl3w.h">
+      <Filter>Source Files\gl3w</Filter>
+    </ClInclude>
+    <ClInclude Include="include\GL\glcorearb.h">
+      <Filter>Source Files\gl3w</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
