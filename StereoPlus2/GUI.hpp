@@ -32,12 +32,74 @@
 
 class GUI
 {
+	GLuint fbo;
+	GLuint texture;
+	GLuint depthBuffer;
+
+
+	GLuint createFrameBuffer() {
+		GLuint fbo;
+		glGenFramebuffers(1, &fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glDrawBuffer(GL_COLOR_ATTACHMENT0);
+		int g = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+		//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+		//	int u = 0;
+		//}
+
+		return fbo;
+	}
+
+	GLuint createTextureAttachment(int width, int height) {
+		GLuint texture;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
+
+		return texture;
+	}
+
+	GLuint createDepthTextureAttachment(int width, int height) {
+		GLuint texture;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texture, 0);
+
+		return texture;
+	}
+
+	GLuint createDepthBufferAttachment(int width, int height) {
+		GLuint depthBuffer;
+		glGenRenderbuffers(1, &depthBuffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+
+		return depthBuffer;
+	}
+
+
+	void bindFrameBuffer(GLuint fbo, int width, int height) {
+		glBindTexture(GL_TEXTURE_2D, 0);// make sure the texture isn't bound
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glViewport(0, 0, width, height);
+	}
+
+	void unbindCurrentFrameBuffer(int width, int height) {
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, width, height);
+	}
+
+
+
 #pragma region Private
-	// TEST TEST TEST
-	// Our state
-	bool show_demo_window = true;
-	bool show_another_window = false;
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	// It seems to be garbage collected or something.
 	// When trying to free it it fails some imgui internal free function.
@@ -97,6 +159,11 @@ class GUI
 			return false;
 		}
 
+		fbo = createFrameBuffer();
+		texture = createTextureAttachment(renderSize.x, renderSize.y);
+		depthBuffer = createDepthBufferAttachment(renderSize.x, renderSize.y);
+		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+
 		return true;
 	}
 
@@ -105,6 +172,15 @@ public:
 	GLFWwindow* window;
 
 	std::vector<Window*> windows;
+	std::function<bool()> customRenderFunc;
+	// TEST TEST TEST
+	// Our state
+	bool show_demo_window = true;
+	bool show_another_window = false;
+	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+	glm::vec2 renderSize = glm::vec3(1);
+
+
 
 	bool Init()
 	{
@@ -156,9 +232,54 @@ public:
 		return true;
 	}
 
+	bool CustomRenderWindow()
+	{
+		ImGui::Begin("Custom render");
+
+		{
+			/*	glEnable(GL_DEPTH_TEST);
+				glDepthMask(GL_TRUE);
+				glDepthFunc(GL_LESS);
+				glClear(GL_DEPTH_BUFFER_BIT);
+				glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);*/
+
+				//glMatrixMode(1);
+
+			bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+
+			/*if (!customRenderFunc())
+				return false;*/
+
+			unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+
+			//glBindRenderbuffer(GL_RENDERBUFFER, 0);
+		}
+
+		ImGui::Image((void*)(intptr_t)texture, renderSize);
+
+		//{
+		//	// handle custom render window resize
+		//	glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
+		//	glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
+
+		//	glm::vec2 newSize = vMax - vMin;
+
+		//	if (renderSize != newSize)
+		//	{
+		//		ResizeCustomRenderCanvas(newSize);
+		//	}
+		//}
+
+		ImGui::End();
+
+		return true;
+	}
+
 
 	bool Design()
 	{
+		CustomRenderWindow();
+
 		for (Window* window : windows)
 		{
 			if (!window->Design())
