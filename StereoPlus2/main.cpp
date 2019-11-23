@@ -160,7 +160,7 @@ int main(int, char**)
 	config.whiteZPrecision = 0.1;
 	config.window = gui.window;
 
-	//gui.sceneConfig = &config;
+	gui.sceneConfig = &config;
 
 	Cursor cursor;
 	cursor.Init();

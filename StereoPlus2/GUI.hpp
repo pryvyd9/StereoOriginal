@@ -20,33 +20,33 @@ class GUI
 		fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 	}
 
-	////process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-	////---------------------------------------------------------------------------------------------------------
-	//void processInput(GLFWwindow* window)
-	//{
-	//	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-	//		glfwSetWindowShouldClose(window, true);
+	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+	//---------------------------------------------------------------------------------------------------------
+	void processInput(GLFWwindow* window)
+	{
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(window, true);
 
-	//	float cameraSpeed = 0.01;
+		float cameraSpeed = 0.01;
 
-	//	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-	//		sceneConfig->camera.MoveRight(cameraSpeed);
+		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+			sceneConfig->camera.MoveRight(cameraSpeed);
 
-	//	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-	//		sceneConfig->camera.MoveLeft(cameraSpeed);
+		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+			sceneConfig->camera.MoveLeft(cameraSpeed);
 
-	//	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-	//		sceneConfig->camera.MoveUp(cameraSpeed);
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+			sceneConfig->camera.MoveUp(cameraSpeed);
 
-	//	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-	//		sceneConfig->camera.MoveDown(cameraSpeed);
+		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+			sceneConfig->camera.MoveDown(cameraSpeed);
 
-	//	if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
-	//		sceneConfig->camera.MoveForward(cameraSpeed);
+		if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
+			sceneConfig->camera.MoveForward(cameraSpeed);
 
-	//	if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
-	//		sceneConfig->camera.MoveBack(cameraSpeed);
-	//}
+		if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
+			sceneConfig->camera.MoveBack(cameraSpeed);
+	}
 
 
 	bool InitGL()
@@ -262,6 +262,8 @@ public:
 			}
 
 			glfwSwapBuffers(window);
+
+			processInput(window);
 		}
 
 		return true;
