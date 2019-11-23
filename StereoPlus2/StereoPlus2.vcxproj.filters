@@ -45,6 +45,9 @@
     <ClCompile Include="include\GL\gl3w.c">
       <Filter>gl3w</Filter>
     </ClCompile>
+    <ClCompile Include="CustomRenderWindow.hpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\GL\gl3w.h">
@@ -78,7 +81,10 @@
       <Filter>imgui</Filter>
     </ClInclude>
     <ClInclude Include="GUI.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Window.hpp">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

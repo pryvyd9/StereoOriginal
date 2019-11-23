@@ -1,9 +1,12 @@
 #include "GUI.hpp"
-
+#include "CustomRenderWindow.hpp"
 
 int main(int, char**)
 {
+	CustomRenderWindow customRenderWindow;
+	
 	GUI gui;
+	gui.windows.push_back((Window*)&customRenderWindow);
 
 	if (!gui.Init())
 		return false;
@@ -13,6 +16,7 @@ int main(int, char**)
 
 	if (!gui.OnExit())
 		return false;
+
 
     return 0;
 }
