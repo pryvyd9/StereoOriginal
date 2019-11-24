@@ -2,7 +2,7 @@
 #include "DomainTypes.hpp"
 #include "SceneConfig.hpp"
 #include "GUI.hpp"
-#include "CustomRenderWindow.hpp"
+#include "Windows.hpp"
 #include <vector>
 #include <string>
 #include <fstream>
@@ -11,7 +11,6 @@
 #include <functional>
 
 using namespace std;
-
 
 
 // Render pipeline:
@@ -25,6 +24,10 @@ class RenderScenePipeline {
 		float min, max;
 	};
 public:
+
+	float LineThickness = 1;
+	glm::vec4 backgroundColor = glm::vec4(0,0,0,1);
+
 	// Determines which parts of line is white.
 	// Finds left and right limits of white in x
 	// or top and bottom limits of white in y.
@@ -68,9 +71,10 @@ public:
 
 	void Pipeline(StereoLine * lines, size_t lineCount, SceneConfiguration & config)
 	{
-		glClearColor(0, 1, 0, 1.0f);
+		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
+		//glClearColor(0, 1, 0, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		glLineWidth(5);
+		glLineWidth(LineThickness);
 
 		//glEnable(GL_STENCIL_TEST);
 		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -189,16 +193,16 @@ int main(int, char**)
 {
 	RenderScenePipeline renderPipeline;
 
-	CustomRenderWindow customRenderWindow;
-	
 	GUI gui;
-	gui.windows.push_back((Window*)&customRenderWindow);
 
+	CustomRenderWindow customRenderWindow;
+	CameraPropertiesWindow cameraPropertiesWindow;
+	CrossPropertiesWindow crossPropertiesWindow;
 
-	if (!gui.Init())
-		return false;
-
-	if (!customRenderWindow.Init())
+	if (!gui.Init() 
+		|| !customRenderWindow.Init()
+		|| !cameraPropertiesWindow.Init()
+		|| !crossPropertiesWindow.Init())
 		return false;
 
 
@@ -206,33 +210,32 @@ int main(int, char**)
 	config.whiteZ = 0;
 	config.whiteZPrecision = 0.1;
 	config.window = gui.window;
+	config.camera.viewSize = &customRenderWindow.renderSize;
 
+	cameraPropertiesWindow.Camera = &config.camera;
 	gui.sceneConfig = &config;
 
-	Cursor cursor;
-	cursor.Init();
+	Cross cross;
 
-	customRenderWindow.customRenderFunc = [&cursor, &config, &gui, &renderPipeline] {
+	if (!cross.Init())
+		return false;
 
-		config.camera.screenSize = gui.renderSize;
+	crossPropertiesWindow.Cross = &cross;
 
-		renderPipeline.Pipeline(&cursor.lines[0], cursor.lines.size(), config);
 
-		//config.camera.MoveRight(0.001);
+	gui.windows.push_back((Window*)& customRenderWindow);
+	gui.windows.push_back((Window*)& cameraPropertiesWindow);
+	gui.windows.push_back((Window*)& crossPropertiesWindow);
 
-		//Draw(lines, mainWindow.window);
-		//MoveCamera();
-		//MoveLines(lines);
-		//MoveCross(lines);
+	customRenderWindow.customRenderFunc = [&cross, &config, &gui, &renderPipeline] {
+		renderPipeline.Pipeline(&cross.lines[0], cross.lines.size(), config);
+
 		return true;
 	};
 
-	if (!gui.MainLoop())
+	if (!gui.MainLoop()
+		|| !gui.OnExit())
 		return false;
-
-	if (!gui.OnExit())
-		return false;
-
 
     return true;
 }
