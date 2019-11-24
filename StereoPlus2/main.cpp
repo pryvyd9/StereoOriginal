@@ -2,7 +2,7 @@
 #include "DomainTypes.hpp"
 #include "SceneConfig.hpp"
 #include "GUI.hpp"
-#include "CustomRenderWindow.hpp"
+#include "Windows.hpp"
 #include <vector>
 #include <string>
 #include <fstream>

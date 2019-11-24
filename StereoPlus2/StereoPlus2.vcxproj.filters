@@ -48,7 +48,7 @@
     <ClCompile Include="include\GL\gl3w.c">
       <Filter>gl3w</Filter>
     </ClCompile>
-    <ClCompile Include="CustomRenderWindow.hpp">
+    <ClCompile Include="Windows.hpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

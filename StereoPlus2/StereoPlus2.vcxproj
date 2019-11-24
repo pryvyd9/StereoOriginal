@@ -127,7 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CustomRenderWindow.hpp">
+    <ClCompile Include="Windows.hpp">
       <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MinimalRebuild>
     </ClCompile>
     <ClCompile Include="include\GL\gl3w.c" />
