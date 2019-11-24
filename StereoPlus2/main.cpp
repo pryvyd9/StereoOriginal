@@ -68,13 +68,37 @@ public:
 
 	void Pipeline(StereoLine * lines, size_t lineCount, SceneConfiguration & config)
 	{
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClearColor(0, 1, 0, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		glPointSize(2);
+		glLineWidth(5);
+
+		//glEnable(GL_STENCIL_TEST);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		
+		//glStencilFunc(GL_ALWAYS, 1, 0xFF);
+		//glStencilFunc(GL_ALWAYS, 1, 0xFF);
+		//glStencilFunc(GL_NEVER, 1, 0xFF);
+		//glPointSize(20);
+
+		/*glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glPointSize(2);*/
 
 		for (size_t i = 0; i < lineCount; i++)
 		{
 
+			//glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
+			//glStencilMask(0xFF);
+			//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+			/*glDepthMask(GL_FALSE);
+			glEnable(GL_STENCIL_TEST);
+			glStencilMask(0x1);
+			glStencilFunc(GL_NEVER, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);*/
+			//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+#pragma region left
 			Line left = config.camera.GetLeft(&lines[i]);
 
 			Line lm;
@@ -87,7 +111,21 @@ public:
 				left,
 				[left, whitePartOfShaderLeft, this] { UpdateWhitePartOfShader(left.ShaderProgram, whitePartOfShaderLeft); }
 			);
+#pragma endregion
 
+		/*	glDisable(GL_STENCIL_TEST);
+
+			glStencilFunc(GL_NOTEQUAL, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);*/
+			//glClearColor(1, 0, 0, 1.0f);
+			//glClear(GL_COLOR_BUFFER_BIT);
+
+			//glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			/*glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
+			glStencilMask(0xFF);*/
+
+#pragma region right
 			Line right = config.camera.GetRight(&lines[i]);
 
 			Line rm;
@@ -100,7 +138,16 @@ public:
 				right,
 				[right, whitePartOfShaderRight, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShaderRight); }
 			);
+#pragma endregion
+			//glDisable(GL_STENCIL_TEST);
+
 		}
+
+		glDepthMask(GL_TRUE);
+
+
+		//glDisable(GL_STENCIL_TEST);
+
 	}
 
 

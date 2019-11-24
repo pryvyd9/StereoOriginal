@@ -167,6 +167,9 @@ public:
 
 	virtual bool OnExit()
 	{
+		glDeleteFramebuffers(1, &fbo);
+		glDeleteTextures(1, &texture);
+
 		return true;
 	}
 };
