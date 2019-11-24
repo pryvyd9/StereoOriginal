@@ -152,7 +152,40 @@ class CameraPropertiesWindow : Window
 public:
 	StereoCamera* Camera;
 
-	float shs = 15;
+	virtual bool Init()
+	{
+		return true;
+	}
+
+	virtual bool Design()
+	{
+		ImGui::Begin("Camera Properties");                          // Create a window called "Hello, world!" and append into it.
+		ImGui::InputFloat3("position", (float*)&Camera->position, "%f", 0);
+		ImGui::InputFloat2("view center", (float*)&Camera->viewCenter, "%f", 0);
+		ImGui::InputFloat2("viewsize", (float*)Camera->viewSize, "%f", 0);
+
+		ImGui::InputFloat3("transformVec", (float*)&Camera->transformVec, "%f", 0);
+		ImGui::InputFloat3("left", (float*)&Camera->left, "%f", 0);
+		ImGui::InputFloat3("up", (float*)&Camera->up, "%f", 0);
+		ImGui::InputFloat3("forward", (float*)&Camera->forward, "%f", 0);
+
+		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)&Camera->eyeToCenterDistance, 0, 1, "%.2f", 1);
+		ImGui::InputFloat("eyeToCenterDistance", (float*)&Camera->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
+
+		ImGui::End();
+		return true;
+	}
+
+	virtual bool OnExit()
+	{
+		return true;
+	}
+};
+
+class CrossPropertiesWindow : Window
+{
+public:
+	Cross* Cross;
 
 	virtual bool Init()
 	{
@@ -161,39 +194,25 @@ public:
 
 	virtual bool Design()
 	{
-		// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+		ImGui::Begin("Cross Properties");                          // Create a window called "Hello, world!" and append into it.
+		if (ImGui::InputFloat3("position", (float*)& Cross->Position, "%f", 0)
+			|| ImGui::SliderFloat("size", (float*)& Cross->size, 1e-3, 10, "%.3f", 2))
 		{
-			static float f = 0.0f;
-			static int counter = 0;
-			/*float* h = (float*)& Camera->viewSize;
-
-			*(h + 1) = 1234.0f;*/
-
-
-			//float* h = (float*)(&Camera->viewSize->x);
-
-			ImGui::Begin("CameraProperties");                          // Create a window called "Hello, world!" and append into it.
-			ImGui::InputFloat2("viewsize", (float*)Camera->viewSize, "%f", 0);
-
-			//ImGui::Value("screenSize.x", Camera->screenSize.x, nullptr);
-			//ImGui::Value("screenSize.y", Camera->screenSize.y, nullptr);
-			
-
-			//ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-			//ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-			//ImGui::Checkbox("Another Window", &show_another_window);
-
-			//ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-			//ImGui::ColorEdit3("clear color", (float*)& clear_color); // Edit 3 floats representing a color
-
-			//if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-			//	counter++;
-			//ImGui::SameLine();
-			//ImGui::Text("counter = %d", counter);
-
-			//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-			ImGui::End();
+			Cross->Refresh();
 		}
+
+	/*	ImGui::InputFloat2("view center", (float*)& Camera->viewCenter, "%f", 0);
+		ImGui::InputFloat2("viewsize", (float*)Camera->viewSize, "%f", 0);
+
+		ImGui::InputFloat3("transformVec", (float*)& Camera->transformVec, "%f", 0);
+		ImGui::InputFloat3("left", (float*)& Camera->left, "%f", 0);
+		ImGui::InputFloat3("up", (float*)& Camera->up, "%f", 0);
+		ImGui::InputFloat3("forward", (float*)& Camera->forward, "%f", 0);
+
+		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& Camera->eyeToCenterDistance, 0, 1, "%.2f", 1);
+		ImGui::InputFloat("eyeToCenterDistance", (float*)& Camera->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);*/
+
+		ImGui::End();
 		return true;
 	}
 
