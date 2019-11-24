@@ -127,7 +127,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CustomRenderWindow.hpp" />
+    <ClCompile Include="CustomRenderWindow.hpp">
+      <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MinimalRebuild>
+    </ClCompile>
     <ClCompile Include="include\GL\gl3w.c" />
     <ClCompile Include="include\imgui\imgui.cpp" />
     <ClCompile Include="include\imgui\imgui_demo.cpp" />

@@ -13,7 +13,6 @@
 using namespace std;
 
 
-
 // Render pipeline:
 // Compute white x or y limits for each line
 // Project lines to camera z=0 plane
@@ -190,9 +189,11 @@ int main(int, char**)
 	RenderScenePipeline renderPipeline;
 
 	CustomRenderWindow customRenderWindow;
+	CameraPropertiesWindow cameraPropertiesWindow;
 	
 	GUI gui;
 	gui.windows.push_back((Window*)&customRenderWindow);
+	gui.windows.push_back((Window*)& cameraPropertiesWindow);
 
 
 	if (!gui.Init())
@@ -206,6 +207,9 @@ int main(int, char**)
 	config.whiteZ = 0;
 	config.whiteZPrecision = 0.1;
 	config.window = gui.window;
+	config.camera.viewSize = &customRenderWindow.renderSize;
+
+	cameraPropertiesWindow.Camera = &config.camera;
 
 	gui.sceneConfig = &config;
 
@@ -214,7 +218,6 @@ int main(int, char**)
 
 	customRenderWindow.customRenderFunc = [&cursor, &config, &gui, &renderPipeline] {
 
-		config.camera.screenSize = gui.renderSize;
 
 		renderPipeline.Pipeline(&cursor.lines[0], cursor.lines.size(), config);
 

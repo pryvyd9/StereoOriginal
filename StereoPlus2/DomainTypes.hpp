@@ -72,7 +72,7 @@ public:
 class StereoCamera
 {
 public:
-	glm::vec2 screenSize = glm::vec2(1, 1);
+	glm::vec2* viewSize = nullptr;
 	glm::vec2 screenCenter = glm::vec2(0, 0);
 	glm::vec3 transformVec = glm::vec3(0, 0, 0);
 
