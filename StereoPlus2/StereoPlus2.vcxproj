@@ -160,6 +160,8 @@
     <None Include="shaders\.vert" />
     <None Include="shaders\Left.frag" />
     <None Include="shaders\Right.frag" />
+    <None Include="shaders\WhiteSquare.frag" />
+    <None Include="zero.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
