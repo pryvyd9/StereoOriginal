@@ -25,6 +25,51 @@ struct StereoLine
 	GLuint ShaderLeft, ShaderRight;
 };
 
+class WhiteSquare
+{
+public:
+
+	float leftTop[9] = {
+		-1, -1, 0,
+		-1,  1, 0,
+		 1, -1, 0,
+	};
+
+	float rightBottom[9] = {
+		 1, -1, 0,
+		-1,  1, 0,
+		 1,  1, 0,
+	};
+
+	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 3;
+
+	GLuint VBOLeftTop, VAOLeftTop;
+	GLuint VBORightBottom, VAORightBottom;
+	GLuint ShaderProgramLeftTop, ShaderProgramRightBottom;
+
+
+	bool Init()
+	{
+
+		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
+		auto fragmentShaderSource = GLLoader::ReadShader("shaders/WhiteSquare.frag");
+
+		ShaderProgramLeftTop = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
+		ShaderProgramRightBottom = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
+
+		glGenVertexArrays(1, &VAOLeftTop);
+		glGenBuffers(1, &VBOLeftTop);
+		glGenVertexArrays(1, &VAORightBottom);
+		glGenBuffers(1, &VBORightBottom);
+
+		return true;
+	}
+
+	//glm::vec3 leftTop = glm::vec3(-1, -1, 0);
+	//glm::vec3 leftBottom = glm::vec3(-1, 1, 0);
+	//glm::vec3 rightTop = glm::vec3(-1, -1, 0);
+	//glm::vec3 rightBottom = glm::vec3(-1, -1, 0);
+};
 
 class Cross
 {

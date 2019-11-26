@@ -25,8 +25,10 @@ class RenderScenePipeline {
 	};
 public:
 
-	float LineThickness = 1;
+	float LineThickness = 20;
 	glm::vec4 backgroundColor = glm::vec4(0,0,0,1);
+
+	WhiteSquare whiteSquare;
 
 	// Determines which parts of line is white.
 	// Finds left and right limits of white in x
@@ -73,7 +75,11 @@ public:
 	{
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 		//glClearColor(0, 1, 0, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		// This is required before clearing Stencil buffer.
+		// Don't know what ~0 is though.
+		glStencilMask(~0);
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glLineWidth(LineThickness);
 
 		//glEnable(GL_STENCIL_TEST);
@@ -88,21 +94,18 @@ public:
 		glClear(GL_COLOR_BUFFER_BIT);
 		glPointSize(2);*/
 
-		for (size_t i = 0; i < lineCount; i++)
-		{
+		glEnable(GL_STENCIL_TEST);
+		//glClear(GL_STENCIL_BUFFER_BIT);
 
-			//glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
-			//glStencilMask(0xFF);
-			//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-			/*glDepthMask(GL_FALSE);
-			glEnable(GL_STENCIL_TEST);
-			glStencilMask(0x1);
-			glStencilFunc(GL_NEVER, 0x1, 0xFF);
-			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);*/
-			//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		glStencilMask(0xFF);
+		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+		//glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
+		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
 #pragma region left
+		for (size_t i = 0; i < lineCount; i++)
+		{
 			Line left = config.camera.GetLeft(&lines[i]);
 
 			Line lm;
@@ -115,44 +118,43 @@ public:
 				left,
 				[left, whitePartOfShaderLeft, this] { UpdateWhitePartOfShader(left.ShaderProgram, whitePartOfShaderLeft); }
 			);
-#pragma endregion
-
-		/*	glDisable(GL_STENCIL_TEST);
-
-			glStencilFunc(GL_NOTEQUAL, 0x1, 0xFF);
-			glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);*/
-			//glClearColor(1, 0, 0, 1.0f);
-			//glClear(GL_COLOR_BUFFER_BIT);
-
-			//glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			/*glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
-			glStencilMask(0xFF);*/
-
-#pragma region right
-			Line right = config.camera.GetRight(&lines[i]);
-
-			Line rm;
-			rm.Start = right.Start;
-			rm.Start.z = lines[i].Start.z;
-			rm.End = right.End;
-			rm.End.z = lines[i].End.z;
-			auto whitePartOfShaderRight = FindWhitePartOfShader(rm.Start, rm.End, config.whiteZ, config.whiteZPrecision, config);
-			DrawLine(
-				right,
-				[right, whitePartOfShaderRight, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShaderRight); }
-			);
-#pragma endregion
-			//glDisable(GL_STENCIL_TEST);
-
 		}
+#pragma endregion
 
-		glDepthMask(GL_TRUE);
+//#pragma region right
+//		for (size_t i = 0; i < lineCount; i++)
+//		{
+//			Line right = config.camera.GetRight(&lines[i]);
+//
+//			Line rm;
+//			rm.Start = right.Start;
+//			rm.Start.z = lines[i].Start.z;
+//			rm.End = right.End;
+//			rm.End.z = lines[i].End.z;
+//			auto whitePartOfShaderRight = FindWhitePartOfShader(rm.Start, rm.End, config.whiteZ, config.whiteZPrecision, config);
+//			DrawLine(
+//				right,
+//				[right, whitePartOfShaderRight, this] { UpdateWhitePartOfShader(right.ShaderProgram, whitePartOfShaderRight); }
+//			);
+//		}
+//#pragma endregion
+//
 
+		glStencilMask(0x00);
 
-		//glDisable(GL_STENCIL_TEST);
+		glStencilFunc(GL_EQUAL, 0x1, 0xFF);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+		//glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+		DrawSquare(whiteSquare);
+		//glLineWidth(500);
+
+		glDisable(GL_STENCIL_TEST);
+
 
 	}
+
 
 
 	void DrawLine(Line line, function<void()> updateWhitePartOfShader)
@@ -175,6 +177,47 @@ public:
 		glDrawArrays(GL_LINES, 0, 2);
 	}
 
+	void DrawSquare(WhiteSquare &square)
+	{
+		// left top
+		glBindBuffer(GL_ARRAY_BUFFER, square.VBOLeftTop);
+
+		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.leftTop, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(square.ShaderProgramLeftTop);
+
+		glBindVertexArray(square.VAOLeftTop); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+
+		// right bottom
+		glBindBuffer(GL_ARRAY_BUFFER, square.VBORightBottom);
+
+		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.rightBottom, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(square.ShaderProgramRightBottom);
+
+		glBindVertexArray(square.VAORightBottom); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	}
+
+
 	void UpdateWhitePartOfShader(GLuint shader, WhitePartOfShader whitePartOfShader)
 	{
 		// i for integer. I guess bool suits int more but it works in any case.
@@ -183,6 +226,15 @@ public:
 		glUniform1i(glGetUniformLocation(shader, "isX"), whitePartOfShader.isX);
 		glUniform1f(glGetUniformLocation(shader, "min"), whitePartOfShader.min);
 		glUniform1f(glGetUniformLocation(shader, "max"), whitePartOfShader.max);
+	}
+
+
+	bool Init()
+	{
+		if (!whiteSquare.Init())
+			return false;
+
+		return true;
 	}
 };
 
@@ -199,7 +251,8 @@ int main(int, char**)
 	CameraPropertiesWindow cameraPropertiesWindow;
 	CrossPropertiesWindow crossPropertiesWindow;
 
-	if (!gui.Init() 
+	if (false
+		|| !gui.Init() 
 		|| !customRenderWindow.Init()
 		|| !cameraPropertiesWindow.Init()
 		|| !crossPropertiesWindow.Init())
@@ -219,7 +272,7 @@ int main(int, char**)
 
 	if (!cross.Init())
 		return false;
-
+	!renderPipeline.Init();
 	crossPropertiesWindow.Cross = &cross;
 
 
