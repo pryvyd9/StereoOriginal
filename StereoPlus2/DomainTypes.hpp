@@ -25,23 +25,82 @@ struct StereoLine
 	GLuint ShaderLeft, ShaderRight;
 };
 
+struct Triangle
+{
+	glm::vec3 p1, p2, p3;
+
+	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 3;
+
+	GLuint VBO, VAO;
+	GLuint ShaderProgram;
+};
+
+// Created for the sole purpose of crutching the broken 
+// Line - triangle drawing mechanism.
+// When you draw line/triangle and then change to other type then 
+// First triangle and First line with the last frame shader's vertices get mixed.
+// Dunno how it happens nor how to fix it. 
+// Will return to it after some more immediate tasks are done.
+struct ZeroLine
+{
+	Line line;
+
+	bool Init()
+	{
+		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
+		auto fragmentShaderSource = GLLoader::ReadShader("shaders/zero.frag");
+
+		line.ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
+
+		glGenVertexArrays(1, &line.VAO);
+		glGenBuffers(1, &line.VBO);
+
+		line.Start = line.End = glm::vec3(-1000);
+
+		return true;
+	}
+};
+struct ZeroTriangle
+{
+	Triangle triangle;
+
+	bool Init()
+	{
+		for (size_t i = 0; i < 9; i++)
+		{
+			((float*)&triangle)[i] = -1000;
+		}
+
+		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
+		auto fragmentShaderSource = GLLoader::ReadShader("shaders/zero.frag");
+
+		triangle.ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
+
+		glGenVertexArrays(1, &triangle.VAO);
+		glGenBuffers(1, &triangle.VBO);
+
+		return true;
+	}
+};
+
+
 class WhiteSquare
 {
 public:
 
 	float leftTop[9] = {
 		-1, -1, 0,
-		-1,  1, 0,
 		 1, -1, 0,
+		-1,  1, 0,
 	};
 
 	float rightBottom[9] = {
 		 1, -1, 0,
-		-1,  1, 0,
 		 1,  1, 0,
+		-1,  1, 0,
 	};
 
-	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 3;
+	static const uint_fast8_t VerticesSize = sizeof(leftTop);
 
 	GLuint VBOLeftTop, VAOLeftTop;
 	GLuint VBORightBottom, VAORightBottom;

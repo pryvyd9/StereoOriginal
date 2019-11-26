@@ -112,5 +112,8 @@
     <None Include="shaders\WhiteSquare.frag">
       <Filter>shaders</Filter>
     </None>
+    <None Include="zero.frag">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
