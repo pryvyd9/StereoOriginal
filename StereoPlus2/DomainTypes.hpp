@@ -151,7 +151,7 @@ class Cross
 		glGenBuffers(1, &line.VBORight);
 	}
 
-	bool Draw()
+	bool CreateLines()
 	{
 		const char* vertexShaderSource = this->vertexShaderSource.c_str();
 		const char* fragmentShaderSourceLeft = this->fragmentShaderSourceLeft.c_str();
@@ -204,7 +204,7 @@ public:
 	{
 		lines.clear();
 
-		return Draw();
+		return CreateLines();
 	}
 
 
@@ -214,7 +214,7 @@ public:
 		fragmentShaderSourceLeft = GLLoader::ReadShader("shaders/Left.frag");
 		fragmentShaderSourceRight = GLLoader::ReadShader("shaders/Right.frag");
 
-		return Draw();
+		return CreateLines();
 	}
 };
 
@@ -307,6 +307,9 @@ public:
 	void Move(glm::vec3 value)
 	{
 		//position += value;
+		viewCenter.x += value.x;
+		viewCenter.y += value.y;
+
 		transformVec += value;
 	}
 

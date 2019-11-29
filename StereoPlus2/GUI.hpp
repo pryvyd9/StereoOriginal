@@ -2,29 +2,106 @@
 #include "GLLoader.hpp"
 #include "Window.hpp"
 
+class Input
+{
+	glm::vec2 mouseOldPos = glm::vec2(0);
+	glm::vec2 mouseNewPos = glm::vec2(0);
+
+public:
+	GLFWwindow* window;
+
+	std::vector<std::function<void()>> handlers;
+
+	bool IsPressed(GLuint key)
+	{
+		return glfwGetKey(window, key) == GLFW_PRESS;
+	}
+
+	glm::vec2 MousePosition() {
+		return mouseNewPos;
+	}
+
+	glm::vec2 MouseMoveDirection() {
+		return glm::length(mouseNewPos - mouseOldPos) == 0 ? glm::vec2(0) : glm::normalize(mouseNewPos - mouseOldPos);
+	}
+
+	float MouseSpeed() {
+		return glm::length(mouseNewPos - mouseOldPos);
+	}
+
+	void ProcessInput()
+	{
+		// Update mouse position
+		mouseOldPos = mouseNewPos;
+		mouseNewPos = ImGui::GetMousePos();
+		
+		for (auto handler : handlers)
+		{
+			handler();
+		}
+	}
+};
+
+class KeyBinding
+{
+	void AddHandler(std::function<void()> func) {
+		input->handlers.push_back(func);
+	}
+
+public:
+	Input* input;
+	Cross* cross;
+
+	float crossMovementSpeed = 0.01;
+
+	/*void MoveCursor() {
+		if (input->IsPressed(GLFW_KEY_LEFT_ALT)) {
+			cross->Position += input->MouseMoveDirection() * crossMovementSpeed;
+		}
+	}*/
+
+
+
+	bool Init() {
+		/*AddHandler([cross, input] {
+			if (input->IsPressed(GLFW_KEY_LEFT_ALT)) {
+				cross->Position += input->MouseMoveDirection() * crossMovementSpeed;
+			}
+		});*/
+
+
+		/*AddHandler([] {
+			
+			});*/
+
+		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
+			if (i->IsPressed(GLFW_KEY_LEFT_ALT)) {
+				auto m = i->MouseMoveDirection() * sp;
+				c->Position.x += m.x;
+				c->Position.y -= m.y;
+				c->Refresh();
+			}
+				//c->Position += glm::vec3(i->MouseMoveDirection() * sp, 0);
+			});
+
+		
+
+		return true;
+	}
+};
+
 class GUI
 {
-	
-
-
 #pragma region Private
 
-	// It seems to be garbage collected or something.
-	// When trying to free it it fails some imgui internal free function.
-	ImGuiIO* io;
-
-	const char* glsl_version;
-
-	static void glfw_error_callback(int error, const char* description)
-	{
-		fprintf(stderr, "Glfw Error %d: %s\n", error, description);
-	}
 
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
 	void processInput(GLFWwindow* window)
 	{
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		input.ProcessInput();
+
+		/*if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
 
 		float cameraSpeed = 0.01;
@@ -45,64 +122,20 @@ class GUI
 			sceneConfig->camera.MoveForward(cameraSpeed);
 
 		if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
-			sceneConfig->camera.MoveBack(cameraSpeed);
+			sceneConfig->camera.MoveBack(cameraSpeed);*/
 	}
 
 
-	bool InitGL()
-	{
-		// Setup window
-		glfwSetErrorCallback(glfw_error_callback);
-		if (!glfwInit())
-			return 1;
-
-		// Decide GL+GLSL versions
-#if __APPLE__
-	// GL 3.2 + GLSL 150
-		const char* glsl_version = "#version 150";
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
-#else
-	// GL 3.0 + GLSL 130
-		glsl_version = "#version 130";
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
-#endif
-
-	// Create window with graphics context
-		window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
-		if (window == NULL)
-			return false;
-		glfwMakeContextCurrent(window);
-		glfwSwapInterval(1); // Enable vsync
-
-		// Initialize OpenGL loader
-#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
-		bool err = gl3wInit() != 0;
-#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLEW)
-		bool err = glewInit() != GLEW_OK;
-#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD)
-		bool err = gladLoadGL() == 0;
-#else
-		bool err = false; // If you use IMGUI_IMPL_OPENGL_LOADER_CUSTOM, your loader is likely to requires some form of initialization.
-#endif
-		if (err)
-		{
-			fprintf(stderr, "Failed to initialize OpenGL loader!\n");
-			return false;
-		}
-
-		return true;
-	}
 
 #pragma endregion
 public:
+	// It seems to be garbage collected or something.
+	// When trying to free it it fails some imgui internal free function.
+	ImGuiIO* io;
+	const char* glsl_version;
 	GLFWwindow* window;
-
+	Input input;
+	KeyBinding keyBinding;
 	SceneConfiguration* sceneConfig;
 
 	std::vector<Window*> windows;
@@ -118,7 +151,10 @@ public:
 
 	bool Init()
 	{
-		if (!InitGL())
+		keyBinding.input = &input;
+		input.window = window;
+
+		if (!keyBinding.Init())
 			return false;
 
 		// Setup Dear ImGui context

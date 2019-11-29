@@ -193,6 +193,13 @@ public:
 		{
 			Cross->Refresh();
 		}
+		////glm::vec2 pos = ImGui::GetCursorScreenPos();
+		//glm::vec2 pos = ImGui::GetMousePos();
+
+		//std::cout << pos.x << " " << pos.y << std::endl;
+		////ImGui::Text
+		//ImGui::InputFloat2("mousePos", (float*)&pos, "%f", 0);
+
 
 	/*	ImGui::InputFloat2("view center", (float*)& Camera->viewCenter, "%f", 0);
 		ImGui::InputFloat2("viewsize", (float*)Camera->viewSize, "%f", 0);
