@@ -139,11 +139,6 @@ public:
 
 	void Pipeline(StereoLine * lines, size_t lineCount, SceneConfiguration & config)
 	{
-		if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
-		{
-			int j = 0;
-		}
-
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 
@@ -161,28 +156,8 @@ public:
 		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 		glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
 
-		//Line right = config.camera.GetRight(&lines[0]);
-		//DrawLine(right);
-
 		DrawLine(config.camera.GetRight(&lines[0]));
-		/*if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
-		{
-			DrawLine(config.camera.GetRight(&lines[1]));
-		}*/
-
-
-		//if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
-		//{
-		//	for (size_t i = 0; i < lineCount; i++)
-		//	{
-		//		// Lines have to be rendered left - right - left - right...
-		//		// This is due to the bug of messing shaders.
-		//		DrawLine(config.camera.GetLeft(&lines[i]));
-		//		DrawLine(config.camera.GetRight(&lines[i]));
-		//	}
-		//}
-		//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
+	
 		for (size_t i = 0; i < lineCount; i++)
 		{
 			// Lines have to be rendered left - right - left - right...
@@ -190,7 +165,6 @@ public:
 			DrawLine(config.camera.GetLeft(&lines[i]));
 			DrawLine(config.camera.GetRight(&lines[i]));
 		}
-		//glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.
@@ -200,13 +174,7 @@ public:
 			DrawLine(zeroLine.line);
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		}
-		//for (size_t i = 0; i < lineCount; i++)
-		//{
-		//	// Lines have to be rendered left - right - left - right...
-		//	// This is due to the bug of messing shaders.
-		//	DrawLine(config.camera.GetLeft(&lines[i]));
-		//	DrawLine(config.camera.GetRight(&lines[i]));
-		//}
+	
 		glStencilMask(0x00);
 		glStencilFunc(GL_LESS, 0x1, 0xFF);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -222,8 +190,6 @@ public:
 
 		glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
-
-
 	}
 
 
@@ -394,7 +360,7 @@ int main(int, char**)
 		return false;
 
 	customRenderWindow.customRenderFunc = [&cross, &config, &gui, &renderPipeline] {
-		renderPipeline.Pipeline(&cross.lines[0], cross.lines.size(), config);
+		renderPipeline.Pipeline(&cross.lines[0], 3, config);
 
 		return true;
 	};
