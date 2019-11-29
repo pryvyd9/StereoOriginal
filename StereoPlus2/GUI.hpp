@@ -7,6 +7,8 @@ class Input
 	glm::vec2 mouseOldPos = glm::vec2(0);
 	glm::vec2 mouseNewPos = glm::vec2(0);
 
+	bool isMouseBoundlessMode = false;
+
 public:
 	GLFWwindow* window;
 
@@ -29,12 +31,36 @@ public:
 		return glm::length(mouseNewPos - mouseOldPos);
 	}
 
+	void SetMouseBoundlessMode(bool enable) {
+		if (enable == isMouseBoundlessMode)
+			return;
+	
+		if (enable)
+		{
+			if (glfwRawMouseMotionSupported())
+				glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		}
+		else
+		{
+			// We can disable raw mouse motion mode even if it's not supported
+			// so we don't bother with checking it.
+			glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			isMouseBoundlessMode = enable;
+		}
+
+		isMouseBoundlessMode = enable;
+	}
+
 	void ProcessInput()
 	{
 		// Update mouse position
 		mouseOldPos = mouseNewPos;
 		mouseNewPos = ImGui::GetMousePos();
-		
+
 		for (auto handler : handlers)
 		{
 			handler();
@@ -63,26 +89,21 @@ public:
 
 
 	bool Init() {
-		/*AddHandler([cross, input] {
-			if (input->IsPressed(GLFW_KEY_LEFT_ALT)) {
-				cross->Position += input->MouseMoveDirection() * crossMovementSpeed;
-			}
-		});*/
-
-
-		/*AddHandler([] {
-			
-			});*/
 
 		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
-			if (i->IsPressed(GLFW_KEY_LEFT_ALT)) {
+			bool isAltPressed = i->IsPressed(GLFW_KEY_LEFT_ALT);
+			i->SetMouseBoundlessMode(isAltPressed);
+			if (isAltPressed) {
+				if (glfwRawMouseMotionSupported())
+					glfwSetInputMode(i->window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
 				auto m = i->MouseMoveDirection() * sp;
 				c->Position.x += m.x;
 				c->Position.y -= m.y;
 				c->Refresh();
+				//glfwSetInputMode(i->window, GLFW_CURSOR, GLFW_TRUE);
 			}
-				//c->Position += glm::vec3(i->MouseMoveDirection() * sp, 0);
-			});
+		});
 
 		
 

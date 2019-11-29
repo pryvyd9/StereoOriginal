@@ -135,6 +135,7 @@ class Cross
 	std::string vertexShaderSource;
 	std::string fragmentShaderSourceLeft;
 	std::string fragmentShaderSourceRight;
+	bool isCreated = false;
 
 
 	void CreateShaders(StereoLine& line, const char* vertexShaderSource, const char* fragmentShaderSourceLeft, const char* fragmentShaderSourceRight)
@@ -220,9 +221,9 @@ public:
 	glm::vec3 Position = glm::vec3(0);
 
 	StereoLine lines[3];
+	const uint_fast8_t lineCount = 3;
 
 	float size = 0.8;
-	bool isCreated = false;
 
 	bool Refresh()
 	{

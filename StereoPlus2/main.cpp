@@ -360,7 +360,7 @@ int main(int, char**)
 		return false;
 
 	customRenderWindow.customRenderFunc = [&cross, &config, &gui, &renderPipeline] {
-		renderPipeline.Pipeline(&cross.lines[0], 3, config);
+		renderPipeline.Pipeline(cross.lines, cross.lineCount, config);
 
 		return true;
 	};
