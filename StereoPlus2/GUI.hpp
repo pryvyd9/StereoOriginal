@@ -8,6 +8,7 @@ class Input
 	glm::vec2 mouseNewPos = glm::vec2(0);
 
 	bool isMouseBoundlessMode = false;
+	bool isRawMouseMotionSupported;
 
 public:
 	GLFWwindow* window;
@@ -37,7 +38,7 @@ public:
 	
 		if (enable)
 		{
-			if (glfwRawMouseMotionSupported())
+			if (isRawMouseMotionSupported)
 				glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -49,7 +50,6 @@ public:
 			glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
 
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			isMouseBoundlessMode = enable;
 		}
 
 		isMouseBoundlessMode = enable;
@@ -66,6 +66,13 @@ public:
 			handler();
 		}
 	}
+
+	bool Init() {
+		isRawMouseMotionSupported = glfwRawMouseMotionSupported();
+
+		return true;
+	}
+
 };
 
 class KeyBinding
@@ -80,32 +87,64 @@ public:
 
 	float crossMovementSpeed = 0.01;
 
-	/*void MoveCursor() {
-		if (input->IsPressed(GLFW_KEY_LEFT_ALT)) {
-			cross->Position += input->MouseMoveDirection() * crossMovementSpeed;
-		}
-	}*/
-
-
-
-	bool Init() {
-
+	void MoveCross() {
+		// Move cross with mouse and Alt/Alt+Ctrl
 		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
-			bool isAltPressed = i->IsPressed(GLFW_KEY_LEFT_ALT);
-			i->SetMouseBoundlessMode(isAltPressed);
-			if (isAltPressed) {
-				if (glfwRawMouseMotionSupported())
-					glfwSetInputMode(i->window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+			bool isAltPressed = i->IsPressed(GLFW_KEY_LEFT_ALT) || i->IsPressed(GLFW_KEY_RIGHT_ALT);
 
-				auto m = i->MouseMoveDirection() * sp;
+			// Enable or disable Mouose boundless mode 
+			// regardless of whether we move the cross or not.
+			i->SetMouseBoundlessMode(isAltPressed);
+
+			if (isAltPressed) {
+				bool isHighPrecisionMode = i->IsPressed(GLFW_KEY_LEFT_CONTROL);
+
+				auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
 				c->Position.x += m.x;
 				c->Position.y -= m.y;
 				c->Refresh();
-				//glfwSetInputMode(i->window, GLFW_CURSOR, GLFW_TRUE);
 			}
 		});
 
-		
+		// Move cross with arrows/arrows+Ctrl
+		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
+			glm::vec2 movement = glm::vec2(
+				-i->IsPressed(GLFW_KEY_LEFT) + i->IsPressed(GLFW_KEY_RIGHT),
+				-i->IsPressed(GLFW_KEY_UP) + i->IsPressed(GLFW_KEY_DOWN));
+
+			if (movement.x != 0 || movement.y != 0)
+			{
+				bool isHighPrecisionMode = i->IsPressed(GLFW_KEY_LEFT_CONTROL);
+
+				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
+
+				c->Position.x += movement.x;
+				c->Position.y -= movement.y;
+				c->Refresh();
+			}
+		});
+
+		// Move cross with numpad/numpad+Ctrl
+		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
+			glm::vec3 movement = glm::vec3(
+				-i->IsPressed(GLFW_KEY_KP_4) + i->IsPressed(GLFW_KEY_KP_6),
+				-i->IsPressed(GLFW_KEY_KP_2) + i->IsPressed(GLFW_KEY_KP_8),
+				-i->IsPressed(GLFW_KEY_KP_1) + i->IsPressed(GLFW_KEY_KP_9));
+
+			if (movement.x != 0 || movement.y != 0 || movement.z != 0)
+			{
+				bool isHighPrecisionMode = i->IsPressed(GLFW_KEY_LEFT_CONTROL);
+
+				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
+
+				c->Position += movement;
+				c->Refresh();
+			}
+		});
+	}
+
+	bool Init() {
+		MoveCross();
 
 		return true;
 	}
@@ -175,7 +214,8 @@ public:
 		keyBinding.input = &input;
 		input.window = window;
 
-		if (!keyBinding.Init())
+		if (!input.Init()
+			|| !keyBinding.Init())
 			return false;
 
 		// Setup Dear ImGui context
