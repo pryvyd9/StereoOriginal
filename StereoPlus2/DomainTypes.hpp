@@ -223,7 +223,7 @@ public:
 	StereoLine lines[3];
 	const uint_fast8_t lineCount = 3;
 
-	float size = 0.8;
+	float size = 0.1;
 
 	bool Refresh()
 	{
