@@ -175,7 +175,6 @@ public:
 			if (i->IsDown(GLFW_KEY_A))
 			{
 				axeMode = !axeMode;
-				std::cout << axeMode << std::endl;
 			}
 		});
 
@@ -318,18 +317,12 @@ public:
 class GUI
 {
 #pragma region Private
-
-
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
 	void processInput(GLFWwindow* window)
 	{
 		input.ProcessInput();
-
 	}
-
-
-
 #pragma endregion
 public:
 	// It seems to be garbage collected or something.
