@@ -331,40 +331,40 @@ public:
 		return line;
 	}
 
-#pragma region Move
-
-	void Move(glm::vec3 value)
-	{
-		//position += value;
-		viewCenter.x += value.x;
-		viewCenter.y += value.y;
-
-		transformVec += value;
-	}
-
-	void MoveLeft(float value) {
-		Move(left * value);
-	}
-
-	void MoveRight(float value) {
-		Move(-left * value);
-	}
-
-	void MoveUp(float value) {
-		Move(up * value);
-	}
-
-	void MoveDown(float value) {
-		Move(-up * value);
-	}
-
-	void MoveForward(float value) {
-		Move(forward * value);
-	}
-
-	void MoveBack(float value) {
-		Move(-forward * value);
-	}
-
-#pragma endregion
+//#pragma region Move
+//
+//	void Move(glm::vec3 value)
+//	{
+//		//position += value;
+//		viewCenter.x += value.x;
+//		viewCenter.y += value.y;
+//
+//		transformVec += value;
+//	}
+//
+//	void MoveLeft(float value) {
+//		Move(left * value);
+//	}
+//
+//	void MoveRight(float value) {
+//		Move(-left * value);
+//	}
+//
+//	void MoveUp(float value) {
+//		Move(up * value);
+//	}
+//
+//	void MoveDown(float value) {
+//		Move(-up * value);
+//	}
+//
+//	void MoveForward(float value) {
+//		Move(forward * value);
+//	}
+//
+//	void MoveBack(float value) {
+//		Move(-forward * value);
+//	}
+//
+//#pragma endregion
 };

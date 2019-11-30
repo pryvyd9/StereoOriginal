@@ -1,24 +1,71 @@
 #pragma once
 #include "GLLoader.hpp"
 #include "Window.hpp"
+#include <map>
 
+struct KeyStatus {
+	bool isPressed = false;
+	bool isDown = false;
+	bool isUp = false;
+};
+
+// First frame keys are never Up or Down
+// as we need to check previous state in order to infer those.
 class Input
 {
 	glm::vec2 mouseOldPos = glm::vec2(0);
 	glm::vec2 mouseNewPos = glm::vec2(0);
 
 	bool isMouseBoundlessMode = false;
-	bool isRawMouseMotionSupported;
+	bool isRawMouseMotionSupported = false;
+
+	std::map<GLuint, KeyStatus*> keyStatuses;
+
+	void UpdateStatus(GLuint key, KeyStatus* status) {
+		bool isPressed = glfwGetKey(window, key) == GLFW_PRESS;
+
+		status->isDown = isPressed && !status->isPressed;
+		status->isUp = !isPressed && status->isPressed;
+		status->isPressed = isPressed;
+	}
+
+	void EnsureKeyStatusExists(GLuint key) {
+		if (keyStatuses.find(key) != keyStatuses.end())
+			return;
+
+		KeyStatus* status = new KeyStatus();
+		keyStatuses.insert({ key, status });
+		UpdateStatus(key, status);
+	}
+
 
 public:
 	GLFWwindow* window;
 
 	std::vector<std::function<void()>> handlers;
 
+
 	bool IsPressed(GLuint key)
 	{
-		return glfwGetKey(window, key) == GLFW_PRESS;
+		EnsureKeyStatusExists(key);
+
+		return keyStatuses[key]->isPressed;
 	}
+
+	bool IsDown(GLuint key)
+	{
+		EnsureKeyStatusExists(key);
+
+		return keyStatuses[key]->isDown;
+	}
+
+	bool IsUp(GLuint key)
+	{
+		EnsureKeyStatusExists(key);
+
+		return keyStatuses[key]->isUp;
+	}
+
 
 	glm::vec2 MousePosition() {
 		return mouseNewPos;
@@ -61,6 +108,13 @@ public:
 		mouseOldPos = mouseNewPos;
 		mouseNewPos = ImGui::GetMousePos();
 
+		// Update key statuses
+		for (auto node : keyStatuses)
+		{
+			UpdateStatus(node.first, node.second);
+		}
+
+		// Handle OnInput actions
 		for (auto handler : handlers)
 		{
 			handler();
@@ -73,6 +127,12 @@ public:
 		return true;
 	}
 
+	~Input() {
+		for (auto node : keyStatuses)
+		{
+			delete node.second;
+		}
+	}
 };
 
 class KeyBinding
@@ -81,6 +141,8 @@ class KeyBinding
 		input->handlers.push_back(func);
 	}
 
+
+	bool isAxeModeEnabled;
 public:
 	Input* input;
 	Cross* cross;
@@ -88,8 +150,109 @@ public:
 	float crossMovementSpeed = 0.01;
 
 	void MoveCross() {
-		// Move cross with mouse and Alt/Alt+Ctrl
-		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
+		// Simple mouse control
+		//AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
+		//	bool isAltPressed = i->IsPressed(GLFW_KEY_LEFT_ALT) || i->IsPressed(GLFW_KEY_RIGHT_ALT);
+
+		//	// Enable or disable Mouose boundless mode 
+		//	// regardless of whether we move the cross or not.
+		//	i->SetMouseBoundlessMode(isAltPressed);
+
+		//	if (isAltPressed) {
+		//		bool isHighPrecisionMode = i->IsPressed(GLFW_KEY_LEFT_CONTROL);
+
+		//		auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
+		//		c->Position.x += m.x;
+		//		c->Position.y -= m.y;
+		//		c->Refresh();
+		//	}
+		//});
+
+#pragma region Advanced mouse+keyboard control
+
+		// Axe mode switch A
+		AddHandler([i = input, c = cross, sp = crossMovementSpeed, &axeMode = isAxeModeEnabled] {
+			if (i->IsDown(GLFW_KEY_A))
+			{
+				axeMode = !axeMode;
+				std::cout << axeMode << std::endl;
+			}
+		});
+
+		// Advanced mouse+keyboard control
+		AddHandler([i = input, c = cross, sp = crossMovementSpeed, &axeMode = isAxeModeEnabled] {
+			if (axeMode)
+			{
+				// alt x y
+				// ctrl x z
+				// shift y z
+
+				glm::vec3 axes = glm::vec3(
+					(i->IsPressed(GLFW_KEY_LEFT_ALT) || i->IsPressed(GLFW_KEY_RIGHT_ALT)) + (i->IsPressed(GLFW_KEY_LEFT_CONTROL) || i->IsPressed(GLFW_KEY_RIGHT_CONTROL)),
+					(i->IsPressed(GLFW_KEY_LEFT_ALT) || i->IsPressed(GLFW_KEY_RIGHT_ALT)) + (i->IsPressed(GLFW_KEY_LEFT_SHIFT) || i->IsPressed(GLFW_KEY_RIGHT_SHIFT)),
+					(i->IsPressed(GLFW_KEY_LEFT_CONTROL) || i->IsPressed(GLFW_KEY_RIGHT_CONTROL)) + (i->IsPressed(GLFW_KEY_LEFT_SHIFT) || i->IsPressed(GLFW_KEY_RIGHT_SHIFT))
+				);
+
+				bool isZero = axes.x == 0 && axes.y == 0 && axes.z == 0;
+				// If all three keys are down then it's impossible to move anywhere.
+				bool isBlocked = axes.x == 2 && axes.y == 2 && axes.z == 2;
+
+				bool mustReturn = isBlocked || isZero;
+
+				// Enable or disable Mouose boundless mode 
+				// regardless of whether we move the cross or not.
+				i->SetMouseBoundlessMode(!mustReturn);
+
+				if (mustReturn)
+				{
+					return;
+				}
+
+				bool isAxeLocked = axes.x == 2 || axes.y == 2 || axes.z == 2;
+				if (isAxeLocked)
+				{
+					int lockedAxeIndex = axes.x == 2 ? 0 : axes.y == 2 ? 1 : 2;
+
+					// Cross position.
+					float* destination = &c->Position[lockedAxeIndex]; 
+
+					axes -= 1;
+
+					// Enable or disable Mouose boundless mode 
+					// regardless of whether we move the cross or not.
+					i->SetMouseBoundlessMode(true);
+
+					auto m = i->MouseMoveDirection() * sp;
+
+					*destination += m.x;
+
+					c->Refresh();
+
+					return;
+				}
+				
+				int lockedPlane[2];
+				{
+					int i = 0;
+					if (axes.x != 0) lockedPlane[i++] = 0;
+					if (axes.y != 0) lockedPlane[i++] = 1;
+					if (axes.z != 0) lockedPlane[i++] = 2;
+				}
+
+				// Enable or disable Mouse boundless mode 
+				// regardless of whether we move the cross or not.
+				i->SetMouseBoundlessMode(true);
+
+				auto m = i->MouseMoveDirection() * sp;
+
+				c->Position[lockedPlane[0]] += m.x;
+				c->Position[lockedPlane[1]] -= m.y;
+
+				c->Refresh();
+
+				return;
+			}
+			
 			bool isAltPressed = i->IsPressed(GLFW_KEY_LEFT_ALT) || i->IsPressed(GLFW_KEY_RIGHT_ALT);
 
 			// Enable or disable Mouose boundless mode 
@@ -105,6 +268,8 @@ public:
 				c->Refresh();
 			}
 		});
+
+#pragma endregion
 
 		// Move cross with arrows/arrows+Ctrl
 		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
@@ -161,28 +326,6 @@ class GUI
 	{
 		input.ProcessInput();
 
-		/*if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(window, true);
-
-		float cameraSpeed = 0.01;
-
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-			sceneConfig->camera.MoveRight(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-			sceneConfig->camera.MoveLeft(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-			sceneConfig->camera.MoveUp(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-			sceneConfig->camera.MoveDown(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
-			sceneConfig->camera.MoveForward(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
-			sceneConfig->camera.MoveBack(cameraSpeed);*/
 	}
 
 
