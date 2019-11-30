@@ -387,9 +387,14 @@ class GUI
 		// Main window docking space cannot be closed.
 		bool open = true;
 		ImGui::Begin("MainWindowDockspace", &open, window_flags);
-		ImGui::PopStyleVar();
-
-		ImGui::PopStyleVar(2);
+		
+		// This place is a mystery for me.
+		// Need to investigate it.
+		// 2 is a magic number for now.
+		{
+			ImGui::PopStyleVar();
+			ImGui::PopStyleVar(2);
+		}
 
 		// DockSpace
 		ImGuiIO& io = ImGui::GetIO();
