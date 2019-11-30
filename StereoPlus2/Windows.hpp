@@ -187,23 +187,14 @@ public:
 
 	virtual bool Design()
 	{
-		ImGui::Begin("Cross Properties");                          // Create a window called "Hello, world!" and append into it.
+		ImGui::Begin("Cross Properties");
 		if (ImGui::InputFloat3("position", (float*)& Cross->Position, "%f", 0)
 			|| ImGui::SliderFloat("size", (float*)& Cross->size, 1e-3, 10, "%.3f", 2))
 		{
 			Cross->Refresh();
 		}
+	
 
-	/*	ImGui::InputFloat2("view center", (float*)& Camera->viewCenter, "%f", 0);
-		ImGui::InputFloat2("viewsize", (float*)Camera->viewSize, "%f", 0);
-
-		ImGui::InputFloat3("transformVec", (float*)& Camera->transformVec, "%f", 0);
-		ImGui::InputFloat3("left", (float*)& Camera->left, "%f", 0);
-		ImGui::InputFloat3("up", (float*)& Camera->up, "%f", 0);
-		ImGui::InputFloat3("forward", (float*)& Camera->forward, "%f", 0);
-
-		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& Camera->eyeToCenterDistance, 0, 1, "%.2f", 1);
-		ImGui::InputFloat("eyeToCenterDistance", (float*)& Camera->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);*/
 
 		ImGui::End();
 		return true;

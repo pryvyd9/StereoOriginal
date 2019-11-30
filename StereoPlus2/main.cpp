@@ -26,8 +26,70 @@ class RenderScenePipeline {
 
 	ZeroLine zeroLine;
 	ZeroTriangle zeroTriangle;
-public:
 
+	
+
+	static void glfw_error_callback(int error, const char* description)
+	{
+		fprintf(stderr, "Glfw Error %d: %s\n", error, description);
+	}
+
+
+	bool InitGL()
+	{
+		// Setup window
+		glfwSetErrorCallback(glfw_error_callback);
+		if (!glfwInit())
+			return 1;
+
+		// Decide GL+GLSL versions
+#if __APPLE__
+	// GL 3.2 + GLSL 150
+		const char* glsl_version = "#version 150";
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
+#else
+	// GL 3.0 + GLSL 130
+		glsl_version = "#version 130";
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+#endif
+
+	// Create window with graphics context
+		window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+		if (window == NULL)
+			return false;
+		glfwMakeContextCurrent(window);
+		glfwSwapInterval(1); // Enable vsync
+
+		// Initialize OpenGL loader
+#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+		bool err = gl3wInit() != 0;
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLEW)
+		bool err = glewInit() != GLEW_OK;
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD)
+		bool err = gladLoadGL() == 0;
+#else
+		bool err = false; // If you use IMGUI_IMPL_OPENGL_LOADER_CUSTOM, your loader is likely to requires some form of initialization.
+#endif
+		if (err)
+		{
+			fprintf(stderr, "Failed to initialize OpenGL loader!\n");
+			return false;
+		}
+
+		return true;
+	}
+
+public:
+	GLFWwindow* window;
+
+
+	const char* glsl_version;
 	float LineThickness = 1;
 	glm::vec4 backgroundColor = glm::vec4(0,0,0,1);
 
@@ -77,6 +139,7 @@ public:
 
 	void Pipeline(StereoLine * lines, size_t lineCount, SceneConfiguration & config)
 	{
+		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 
 		// This is required before clearing Stencil buffer.
@@ -84,7 +147,7 @@ public:
 		// ~ is bitwise negation 
 		glStencilMask(~0);
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glLineWidth(LineThickness);
 
 		glEnable(GL_STENCIL_TEST);
@@ -93,21 +156,16 @@ public:
 		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 		glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
 
-		Line right = config.camera.GetRight(&lines[0]);
-		DrawLine(right);
-
+		DrawLine(config.camera.GetRight(&lines[0]));
+	
 		for (size_t i = 0; i < lineCount; i++)
 		{
-			Line left = config.camera.GetLeft(&lines[i]);
-			Line right = config.camera.GetRight(&lines[i]);
-
 			// Lines have to be rendered left - right - left - right...
 			// This is due to the bug of messing shaders.
-			DrawLine(left);
-			DrawLine(right);
+			DrawLine(config.camera.GetLeft(&lines[i]));
+			DrawLine(config.camera.GetRight(&lines[i]));
 		}
 
-		
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.
 		{
@@ -116,7 +174,7 @@ public:
 			DrawLine(zeroLine.line);
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		}
-
+	
 		glStencilMask(0x00);
 		glStencilFunc(GL_LESS, 0x1, 0xFF);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -131,30 +189,11 @@ public:
 		DrawSquare(whiteSquare);
 
 		glDisable(GL_STENCIL_TEST);
-
-
+		glEnable(GL_DEPTH_TEST);
 	}
 
-	//void DrawZeroLine()
-	//{
-	//
-	//	glBindBuffer(GL_ARRAY_BUFFER, zeroLine.line.VBO);
-	//	glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
 
-	//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	//	glEnableVertexAttribArray(GL_POINTS);
-	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-	//	// Apply shader
-	//	glUseProgram(line.ShaderProgram);
-
-	//	glBindVertexArray(line.VAO);
-	//	glDrawArrays(GL_LINES, 0, 2);
-	//}
-
-	void DrawLine(Line &line)
+	void DrawLine(Line line)
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
 		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
@@ -257,7 +296,8 @@ public:
 
 	bool Init()
 	{
-		if (!whiteSquare.Init()
+		if (!InitGL()
+			|| !whiteSquare.Init()
 			|| !zeroLine.Init()
 			|| !zeroTriangle.Init())
 			return false;
@@ -279,13 +319,12 @@ int main(int, char**)
 	CameraPropertiesWindow cameraPropertiesWindow;
 	CrossPropertiesWindow crossPropertiesWindow;
 
-	if (false
-		|| !gui.Init() 
-		|| !customRenderWindow.Init()
-		|| !cameraPropertiesWindow.Init()
-		|| !crossPropertiesWindow.Init())
+
+	if (!renderPipeline.Init())
 		return false;
 
+	gui.window = renderPipeline.window;
+	gui.glsl_version = renderPipeline.glsl_version;
 
 	SceneConfiguration config;
 	config.whiteZ = 0;
@@ -298,18 +337,30 @@ int main(int, char**)
 
 	Cross cross;
 
+
 	if (!cross.Init())
 		return false;
-	!renderPipeline.Init();
+
 	crossPropertiesWindow.Cross = &cross;
+	gui.keyBinding.cross = &cross;
+	
+
+
 
 
 	gui.windows.push_back((Window*)& customRenderWindow);
 	gui.windows.push_back((Window*)& cameraPropertiesWindow);
 	gui.windows.push_back((Window*)& crossPropertiesWindow);
 
+	if (false
+		|| !gui.Init()
+		|| !customRenderWindow.Init()
+		|| !cameraPropertiesWindow.Init()
+		|| !crossPropertiesWindow.Init())
+		return false;
+
 	customRenderWindow.customRenderFunc = [&cross, &config, &gui, &renderPipeline] {
-		renderPipeline.Pipeline(&cross.lines[0], cross.lines.size(), config);
+		renderPipeline.Pipeline(cross.lines, cross.lineCount, config);
 
 		return true;
 	};

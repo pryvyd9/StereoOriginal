@@ -135,6 +135,7 @@ class Cross
 	std::string vertexShaderSource;
 	std::string fragmentShaderSourceLeft;
 	std::string fragmentShaderSourceRight;
+	bool isCreated = false;
 
 
 	void CreateShaders(StereoLine& line, const char* vertexShaderSource, const char* fragmentShaderSourceLeft, const char* fragmentShaderSourceRight)
@@ -151,44 +152,67 @@ class Cross
 		glGenBuffers(1, &line.VBORight);
 	}
 
-	bool Draw()
+	bool CreateLines()
 	{
 		const char* vertexShaderSource = this->vertexShaderSource.c_str();
 		const char* fragmentShaderSourceLeft = this->fragmentShaderSourceLeft.c_str();
 		const char* fragmentShaderSourceRight = this->fragmentShaderSourceRight.c_str();
 
 		{
-			StereoLine line;
-			line.Start = Position;
-			line.End = Position;
-			line.Start.x -= size;
-			line.End.x += size;
 
-			CreateShaders(line, vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(line);
-			lines.push_back(line);
+			lines[0].Start = Position;
+			lines[0].End = Position;
+			lines[0].Start.x -= size;
+			lines[0].End.x += size;
+
+			CreateShaders(lines[0], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
+			CreateBuffers(lines[0]);
 		}
 		{
-			StereoLine line;
-			line.Start = Position;
-			line.End = Position;
-			line.Start.y -= size;
-			line.End.y += size;
 
-			CreateShaders(line, vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(line);
-			lines.push_back(line);
+			lines[1].Start = Position;
+			lines[1].End = Position;
+			lines[1].Start.y -= size;
+			lines[1].End.y += size;
+
+			CreateShaders(lines[1], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
+			CreateBuffers(lines[1]);
+
 		}
 		{
-			StereoLine line;
-			line.Start = Position;
-			line.End = Position;
-			line.Start.z -= size;
-			line.End.z += size;
+			lines[2].Start = Position;
+			lines[2].End = Position;
+			lines[2].Start.z -= size;
+			lines[2].End.z += size;
 
-			CreateShaders(line, vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(line);
-			lines.push_back(line);
+			CreateShaders(lines[2], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
+			CreateBuffers(lines[2]);
+
+		}
+		return true;
+	}
+
+
+	bool RefreshLines()
+	{
+		{
+			lines[0].Start = Position;
+			lines[0].End = Position;
+			lines[0].Start.x -= size;
+			lines[0].End.x += size;
+		}
+		{
+
+			lines[1].Start = Position;
+			lines[1].End = Position;
+			lines[1].Start.y -= size;
+			lines[1].End.y += size;
+		}
+		{
+			lines[2].Start = Position;
+			lines[2].End = Position;
+			lines[2].Start.z -= size;
+			lines[2].End.z += size;
 		}
 		return true;
 	}
@@ -196,15 +220,20 @@ class Cross
 public:
 	glm::vec3 Position = glm::vec3(0);
 
-	std::vector<StereoLine> lines;
+	StereoLine lines[3];
+	const uint_fast8_t lineCount = 3;
 
 	float size = 0.8;
 
 	bool Refresh()
 	{
-		lines.clear();
+		if (!isCreated)
+		{
+			isCreated = true;
+			return CreateLines();
+		}
 
-		return Draw();
+		return RefreshLines();
 	}
 
 
@@ -214,7 +243,7 @@ public:
 		fragmentShaderSourceLeft = GLLoader::ReadShader("shaders/Left.frag");
 		fragmentShaderSourceRight = GLLoader::ReadShader("shaders/Right.frag");
 
-		return Draw();
+		return CreateLines();
 	}
 };
 
@@ -302,37 +331,40 @@ public:
 		return line;
 	}
 
-#pragma region Move
-
-	void Move(glm::vec3 value)
-	{
-		//position += value;
-		transformVec += value;
-	}
-
-	void MoveLeft(float value) {
-		Move(left * value);
-	}
-
-	void MoveRight(float value) {
-		Move(-left * value);
-	}
-
-	void MoveUp(float value) {
-		Move(up * value);
-	}
-
-	void MoveDown(float value) {
-		Move(-up * value);
-	}
-
-	void MoveForward(float value) {
-		Move(forward * value);
-	}
-
-	void MoveBack(float value) {
-		Move(-forward * value);
-	}
-
-#pragma endregion
+//#pragma region Move
+//
+//	void Move(glm::vec3 value)
+//	{
+//		//position += value;
+//		viewCenter.x += value.x;
+//		viewCenter.y += value.y;
+//
+//		transformVec += value;
+//	}
+//
+//	void MoveLeft(float value) {
+//		Move(left * value);
+//	}
+//
+//	void MoveRight(float value) {
+//		Move(-left * value);
+//	}
+//
+//	void MoveUp(float value) {
+//		Move(up * value);
+//	}
+//
+//	void MoveDown(float value) {
+//		Move(-up * value);
+//	}
+//
+//	void MoveForward(float value) {
+//		Move(forward * value);
+//	}
+//
+//	void MoveBack(float value) {
+//		Move(-forward * value);
+//	}
+//
+//#pragma endregion
 };
