@@ -149,6 +149,10 @@ public:
 
 	float crossMovementSpeed = 0.01;
 
+	float crossScaleSpeed = 0.01;
+	float crossMinSize = 0.001;
+	float crossMaxSize = 1;
+
 	void MoveCross() {
 		// Simple mouse control
 		//AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
@@ -307,8 +311,40 @@ public:
 		});
 	}
 
-	bool Init() {
+	void Cross() {
 		MoveCross();
+
+		// Resize cross.
+		AddHandler([i = input, c = cross, &sp = crossScaleSpeed, &min = crossMinSize, &max = crossMaxSize] {
+			bool isScaleUp = i->IsPressed(GLFW_KEY_KP_3);
+			bool isScaleDown = i->IsPressed(GLFW_KEY_KP_7);
+
+			if (isScaleUp == isScaleDown)
+				return;
+
+			if (isScaleUp)
+			{
+				float newSize = c->size *= 1 + sp;
+				if (max < newSize)
+					c->size = max;
+				else
+					c->size = newSize;
+			}
+			else
+			{
+				float newSize = c->size *= 1 - sp;
+				if (newSize < min)
+					c->size = min;
+				else
+					c->size = newSize;
+			}
+
+			c->Refresh();
+		});
+	}
+
+	bool Init() {
+		Cross();
 
 		return true;
 	}
