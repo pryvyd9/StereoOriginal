@@ -174,11 +174,10 @@ public:
 			DrawLine(zeroLine.line);
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		}
-	
+
 		glStencilMask(0x00);
 		glStencilFunc(GL_LESS, 0x1, 0xFF);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
 
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.

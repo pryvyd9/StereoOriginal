@@ -495,12 +495,8 @@ public:
 			return false;
 
 		for (Window* window : windows)
-		{
 			if (!window->Design())
-			{
 				return false;
-			}
-		}
 
 		return true;
 	}
@@ -524,9 +520,7 @@ public:
 			ImGui::NewFrame();
 
 			if (!Design())
-			{
 				return false;
-			}
 
 			// Rendering
 			ImGui::Render();
@@ -557,13 +551,9 @@ public:
 	bool OnExit()
 	{
 		for (Window* window : windows)
-		{
 			if (!window->OnExit())
-			{
 				return false;
-			}
-		}
-
+		
 		// Cleanup
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();

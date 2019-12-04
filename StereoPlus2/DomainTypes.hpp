@@ -264,33 +264,41 @@ public:
 
 	float eyeToCenterDistance = 0.5;
 
+	// Preserve aspect ratio
+	// From [0;1] to ([0;viewSize->x];[0;viewSize->y])
+	glm::vec3 PreserveAspectRatio(glm::vec3 pos) {
+		return glm::vec3(
+			pos.x * viewSize->y / viewSize->x,
+			pos.y,
+			pos.z
+		);
+	}
+
+	glm::vec3 GetLeft(glm::vec3 pos) {
+		float denominator = position.z - pos.z - transformVec.z;
+		return glm::vec3(
+			(pos.x * position.z - (pos.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator,
+			(position.z * (transformVec.y - pos.y) + position.y * (pos.z + transformVec.z)) / denominator,
+			0
+		);
+	}
+
+	glm::vec3 GetRight(glm::vec3 pos) {
+		float denominator = position.z - pos.z - transformVec.z;
+		return glm::vec3(
+			(pos.x * position.z - (pos.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator,
+			(position.z * (transformVec.y - pos.y) + position.y * (pos.z + transformVec.z)) / denominator,
+			0
+		);
+	}
+
 
 	Line GetLeft(StereoLine* stereoLine)
 	{
 		Line line;
 
-		glm::vec3 S = stereoLine->Start;
-
-		float denominator = position.z - S.z - transformVec.z;
-
-		float SleftX = (S.x * position.z - (S.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator;
-		float Sy = (position.z * (transformVec.y - S.y) + position.y * (S.z + transformVec.z)) / denominator;
-
-		line.Start.x = SleftX;
-		line.Start.y = Sy;
-		line.Start.z = 0;
-
-		glm::vec3 E = stereoLine->End;
-
-		denominator = position.z - E.z - transformVec.z;
-
-		float EleftX = (E.x * position.z - (E.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator;
-		float Ey = (position.z * (transformVec.y - E.y) + position.y * (E.z + transformVec.z)) / denominator;
-
-		line.End.x = EleftX;
-		line.End.y = Ey;
-		line.End.z = 0;
-
+		line.Start = PreserveAspectRatio(GetLeft(stereoLine->Start));
+		line.End = PreserveAspectRatio(GetLeft(stereoLine->End));
 		line.VAO = stereoLine->VAOLeft;
 		line.VBO = stereoLine->VBOLeft;
 		line.ShaderProgram = stereoLine->ShaderLeft;
@@ -302,28 +310,8 @@ public:
 	{
 		Line line;
 
-		glm::vec3 S = stereoLine->Start;
-
-		float denominator = position.z - S.z - transformVec.z;
-
-		float SrightX = (S.x * position.z - (S.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator;
-		float Sy = (position.z * (transformVec.y - S.y) + position.y * (S.z + transformVec.z)) / denominator;
-
-		line.Start.x = SrightX;
-		line.Start.y = Sy;
-		line.Start.z = 0;
-
-		glm::vec3 E = stereoLine->End;
-
-		denominator = position.z - E.z - transformVec.z;
-
-		float ErightX = (E.x * position.z - (E.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator;
-		float Ey = (position.z * (transformVec.y - E.y) + position.y * (E.z + transformVec.z)) / denominator;
-
-		line.End.x = ErightX;
-		line.End.y = Ey;
-		line.End.z = 0;
-
+		line.Start = PreserveAspectRatio(GetRight(stereoLine->Start));
+		line.End = PreserveAspectRatio(GetRight(stereoLine->End));
 		line.VAO = stereoLine->VAORight;
 		line.VBO = stereoLine->VBORight;
 		line.ShaderProgram = stereoLine->ShaderRight;
