@@ -151,20 +151,29 @@ public:
 		glLineWidth(LineThickness);
 
 		glEnable(GL_STENCIL_TEST);
-
-		glStencilMask(0xFF);
-		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
-		glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
+			   
+		glStencilMask(0x2);
+		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 
 		DrawLine(config.camera.GetRight(&lines[0]));
-	
+
 		for (size_t i = 0; i < lineCount; i++)
 		{
 			// Lines have to be rendered left - right - left - right...
 			// This is due to the bug of messing shaders.
+			glStencilMask(0x1);
+			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 			DrawLine(config.camera.GetLeft(&lines[i]));
+
+			glStencilMask(0x2);
+			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 			DrawLine(config.camera.GetRight(&lines[i]));
 		}
+
+
 
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.
@@ -176,7 +185,7 @@ public:
 		}
 	
 		glStencilMask(0x00);
-		glStencilFunc(GL_LESS, 0x1, 0xFF);
+		glStencilFunc(GL_EQUAL, 0x1 | 0x2, 0xFF);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
 
