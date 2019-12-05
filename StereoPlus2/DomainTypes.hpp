@@ -1,6 +1,17 @@
 #pragma once
 #include "GLLoader.hpp"
 
+class SceneObject {
+public:
+	std::string Name;
+};
+
+class GroupObject : SceneObject {
+public:
+	std::vector<SceneObject*> children;
+
+};
+
 struct Line
 {
 	glm::vec3 Start, End;
@@ -12,7 +23,7 @@ struct Line
 	GLuint ShaderProgram;
 };
 
-struct StereoLine
+struct StereoLine : SceneObject
 {
 	glm::vec3 Start, End;
 
@@ -130,7 +141,7 @@ public:
 	//glm::vec3 rightBottom = glm::vec3(-1, -1, 0);
 };
 
-class Cross
+class Cross : public SceneObject
 {
 	std::string vertexShaderSource;
 	std::string fragmentShaderSourceLeft;
@@ -249,7 +260,7 @@ public:
 
 
 
-class StereoCamera
+class StereoCamera : public SceneObject
 {
 public:
 	glm::vec2* viewSize = nullptr;
@@ -355,4 +366,13 @@ public:
 //	}
 //
 //#pragma endregion
+};
+
+
+class Scene {
+public:
+	std::vector<SceneObject*> objects;
+	StereoCamera* camera;
+	Cross* cross;
+
 };

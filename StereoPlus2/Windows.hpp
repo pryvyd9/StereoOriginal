@@ -175,33 +175,78 @@ public:
 	}
 };
 
-class CrossPropertiesWindow : Window
+template<typename T>
+class SceneObjectPropertiesWindow : Window
 {
 public:
-	Cross* Cross;
+	T* Object;
 
 	virtual bool Init()
 	{
+		if (!std::is_base_of<SceneObject, T>::value)
+		{
+			std::cout << "Unsupported type" << std::endl;
+
+			return false;
+		}
+
 		return true;
 	}
 
 	virtual bool Design()
 	{
-		ImGui::Begin("Cross Properties");
-		if (ImGui::InputFloat3("position", (float*)& Cross->Position, "%f", 0)
-			|| ImGui::SliderFloat("size", (float*)& Cross->size, 1e-3, 10, "%.3f", 2))
-		{
-			Cross->Refresh();
-		}
-	
+		ImGui::Begin(("Properties " + GetName(Object)).c_str());
 
+		if (!DesignProperties(Object))
+			return false;
 
 		ImGui::End();
+
 		return true;
 	}
 
 	virtual bool OnExit()
 	{
+		return true;
+	}
+
+	std::string GetName(SceneObject* obj) {
+		return obj->Name;
+	}
+
+	template<typename T>
+	bool DesignProperties(T * obj) {
+		return false;
+	}
+
+	template<>
+	bool DesignProperties(StereoLine * obj) {
+		return false;
+	}
+
+	template<>
+	bool DesignProperties(Cross * obj) {
+		if (ImGui::InputFloat3("position", (float*)& obj->Position, "%f", 0)
+			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
+		{
+			obj->Refresh();
+		}
+		return true;
+	}
+
+	template<>
+	bool DesignProperties(StereoCamera* obj) {
+		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
+		ImGui::InputFloat2("view center", (float*)& obj->viewCenter, "%f", 0);
+		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
+
+		ImGui::InputFloat3("transformVec", (float*)& obj->transformVec, "%f", 0);
+		ImGui::InputFloat3("left", (float*)& obj->left, "%f", 0);
+		ImGui::InputFloat3("up", (float*)& obj->up, "%f", 0);
+		ImGui::InputFloat3("forward", (float*)& obj->forward, "%f", 0);
+
+		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& obj->eyeToCenterDistance, 0, 1, "%.2f", 1);
+		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
 		return true;
 	}
 };

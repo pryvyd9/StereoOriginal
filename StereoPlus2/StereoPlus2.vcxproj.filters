@@ -98,6 +98,9 @@
     <ClInclude Include="SceneConfig.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">
