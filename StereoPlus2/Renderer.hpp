@@ -1,7 +1,6 @@
 #pragma once
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
-#include "SceneConfig.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
 #include <vector>
@@ -102,7 +101,7 @@ public:
 	// or top and bottom limits of white in y.
 	// Z here is relative to camera
 	// >0 is close to camera and <0 is far from camera
-	WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision, SceneConfiguration& config) {
+	WhitePartOfShader FindWhitePartOfShader(glm::vec3 start, glm::vec3 end, float whiteZ, float precision, Scene& config) {
 		WhitePartOfShader res;
 
 		/*start += config.camera.transformVec;
@@ -138,7 +137,7 @@ public:
 		return res;
 	}
 
-	void Pipeline(StereoLine * lines, size_t lineCount, SceneConfiguration & config)
+	void Pipeline(StereoLine * lines, size_t lineCount, Scene & config)
 	{
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
@@ -157,7 +156,7 @@ public:
 		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 
-		DrawLine(config.camera.GetRight(&lines[0]));
+		DrawLine(config.camera->GetRight(&lines[0]));
 
 		for (size_t i = 0; i < lineCount; i++)
 		{
@@ -166,12 +165,12 @@ public:
 			glStencilMask(0x1);
 			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLine(config.camera.GetLeft(&lines[i]));
+			DrawLine(config.camera->GetLeft(&lines[i]));
 
 			glStencilMask(0x2);
 			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLine(config.camera.GetRight(&lines[i]));
+			DrawLine(config.camera->GetRight(&lines[i]));
 		}
 
 

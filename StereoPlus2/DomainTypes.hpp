@@ -8,8 +8,7 @@ public:
 
 class GroupObject : SceneObject {
 public:
-	std::vector<SceneObject*> children;
-
+	std::vector<SceneObject*> Children;
 };
 
 struct Line
@@ -371,8 +370,12 @@ public:
 
 class Scene {
 public:
-	std::vector<SceneObject*> objects;
+	std::vector<SceneObject> objects;
+	GroupObject* root;
 	StereoCamera* camera;
 	Cross* cross;
 
+	float whiteZ = 0;
+	float whiteZPrecision = 0.1;
+	GLFWwindow* window;
 };

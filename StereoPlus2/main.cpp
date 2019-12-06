@@ -1,6 +1,5 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
-#include "SceneConfig.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
 #include "Renderer.hpp"
@@ -28,7 +27,11 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 
-	//Scene scene;
+	Scene scene;
+
+	StereoCamera camera;
+	cameraPropertiesWindow.Object = &camera;
+	scene.camera = &camera;
 
 	if (!renderPipeline.Init())
 		return false;
@@ -36,14 +39,12 @@ int main(int, char**)
 	gui.window = renderPipeline.window;
 	gui.glsl_version = renderPipeline.glsl_version;
 
-	SceneConfiguration config;
-	config.whiteZ = 0;
-	config.whiteZPrecision = 0.1;
-	config.window = gui.window;
-	config.camera.viewSize = &customRenderWindow.renderSize;
+	scene.whiteZ = 0;
+	scene.whiteZPrecision = 0.1;
+	scene.window = gui.window;
+	scene.camera->viewSize = &customRenderWindow.renderSize;
 
-	cameraPropertiesWindow.Object = &config.camera;
-	gui.sceneConfig = &config;
+	gui.scene = &scene;
 
 	Cross cross;
 	cross.Name = "Cross";
@@ -65,8 +66,8 @@ int main(int, char**)
 		|| !crossPropertiesWindow.Init())
 		return false;
 
-	customRenderWindow.customRenderFunc = [&cross, &config, &gui, &renderPipeline] {
-		renderPipeline.Pipeline(cross.lines, cross.lineCount, config);
+	customRenderWindow.customRenderFunc = [&cross, &scene, &gui, &renderPipeline] {
+		renderPipeline.Pipeline(cross.lines, cross.lineCount, scene);
 
 		return true;
 	};
