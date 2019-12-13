@@ -3,7 +3,7 @@
 
 class SceneObject {
 public:
-	std::string Name;
+	std::string Name = "noname";
 };
 
 class GroupObject : SceneObject {

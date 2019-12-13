@@ -26,6 +26,7 @@ int main(int, char**)
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
+	SceneObjectInspectorWindow inspectorWindow;
 
 	Scene scene;
 
@@ -58,12 +59,14 @@ int main(int, char**)
 	gui.windows.push_back((Window*)& customRenderWindow);
 	gui.windows.push_back((Window*)& cameraPropertiesWindow);
 	gui.windows.push_back((Window*)& crossPropertiesWindow);
+	gui.windows.push_back((Window*)& inspectorWindow);
 
 	if (false
 		|| !gui.Init()
 		|| !customRenderWindow.Init()
 		|| !cameraPropertiesWindow.Init()
-		|| !crossPropertiesWindow.Init())
+		|| !crossPropertiesWindow.Init()
+		|| !inspectorWindow.Init())
 		return false;
 
 	customRenderWindow.customRenderFunc = [&cross, &scene, &gui, &renderPipeline] {
