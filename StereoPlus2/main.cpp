@@ -13,33 +13,13 @@
 using namespace std;
 
 
-#include <set>
-
-void test() {
-
-	std::set<int> vec;
-
-	vec.emplace(1);
-	vec.emplace(2);
-	vec.emplace(3);
-	vec.emplace(4);
-	vec.emplace(4);
-	vec.emplace(4);
-
-	//auto b = vec.begin() + 2;
-
-	////auto er1 = (std::vector<int>*)vec.begin()._Verify_offset;
-
-	//auto h = *(b)._Ptr;
-	//vec.insert(vec.begin() +1, 5);
-	//vec.erase(b);
-}
 
 bool LoadScene(Scene* scene) {
 
 	scene->objects.push_back(new GroupObject());
 	scene->objects.push_back(new GroupObject());
 	scene->objects.push_back(new GroupObject());
+	scene->objects.push_back(new StereoLine());
 	scene->objects.push_back(new StereoLine());
 	scene->objects.push_back(new StereoLine());
 
@@ -50,8 +30,10 @@ bool LoadScene(Scene* scene) {
 	scene->objects[2]->Name = "Group2";
 	((GroupObject*)scene->objects[2])->Children.push_back(scene->objects[3]);
 	((GroupObject*)scene->objects[2])->Children.push_back(scene->objects[4]);
+	((GroupObject*)scene->objects[2])->Children.push_back(scene->objects[5]);
 	scene->objects[3]->Name = "Obj1";
 	scene->objects[4]->Name = "Obj2";
+	scene->objects[5]->Name = "Obj3";
 
 	scene->root = (GroupObject*) scene->objects[0];
 
@@ -60,7 +42,6 @@ bool LoadScene(Scene* scene) {
 
 int main(int, char**)
 {
-	test();
 	Renderer renderPipeline;
 
 	GUI gui;

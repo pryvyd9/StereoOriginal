@@ -245,8 +245,11 @@ public:
 
 	GroupObject* rootObject;
 	float indent = 1;
-	float centerSizeHalf = 4;
+	float centerSizeHalf = 3;
 
+	// We divide height by this number. 
+	// For some reason height/2 isn't center.
+	const float magicNumber = 1.25;
 
 	virtual bool Init()
 	{
@@ -259,8 +262,8 @@ public:
 		glm::vec2 size = ImGui::GetItemRectSize();
 		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
 
-		// vertical center centered relative position
-		float vertPos = mouseScreenPos.y - nodeScreenPos.y - size.y / 2;
+		// vertical center centered relative position.
+		float vertPos = mouseScreenPos.y - nodeScreenPos.y + size.y / magicNumber;
 
 		if (positionMask == Center)
 			return Center;
@@ -310,6 +313,11 @@ public:
 			target.push_back(item);
 			pointer.source->erase(pointer.source->begin() + pointer.pos);
 			return true;
+		}
+
+		if ((pos & Bottom) == Bottom)
+		{
+			targetPos++;
 		}
 
 		if (pointer.source == &target && targetPos < pointer.pos)
@@ -403,7 +411,11 @@ public:
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_NAME", target_flags))
 			{
-				ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), GetPosition(Center));
+				Position relativePosition = GetPosition(Any);
+				if (relativePosition == Center)
+					ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), relativePosition);
+				else
+					ScheduleMove(&source, 0, GetBuffer(payload->Data), relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
