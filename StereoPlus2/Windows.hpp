@@ -415,7 +415,7 @@ public:
 				if (relativePosition == Center)
 					ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), relativePosition);
 				else
-					ScheduleMove(&source, 0, GetBuffer(payload->Data), relativePosition);
+					ScheduleMove(&source, pos, GetBuffer(payload->Data), relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
