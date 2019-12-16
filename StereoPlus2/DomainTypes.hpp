@@ -1,5 +1,43 @@
 #pragma once
 #include "GLLoader.hpp"
+#include <set>
+
+enum ObjectType {
+	Group,
+	Leaf,
+};
+
+class SceneObject {
+public:
+	std::string Name = "noname";
+	virtual ObjectType GetType() = 0;
+};
+
+struct ObjectPointer {
+	std::vector<SceneObject*>* source;
+	int pos;
+};
+
+struct ObjectPointerComparator {
+	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
+		return lhs.pos < rhs.pos || lhs.source < rhs.source;
+	}
+};
+
+class GroupObject : public SceneObject {
+public:
+	std::vector<SceneObject*> Children;
+	virtual ObjectType GetType() {
+		return Group;
+	}
+};
+
+class LeafObject : public SceneObject {
+public:
+	virtual ObjectType GetType() {
+		return Leaf;
+	}
+};
 
 struct Line
 {
@@ -12,7 +50,7 @@ struct Line
 	GLuint ShaderProgram;
 };
 
-struct StereoLine
+struct StereoLine : LeafObject
 {
 	glm::vec3 Start, End;
 
@@ -130,7 +168,7 @@ public:
 	//glm::vec3 rightBottom = glm::vec3(-1, -1, 0);
 };
 
-class Cross
+class Cross : public LeafObject
 {
 	std::string vertexShaderSource;
 	std::string fragmentShaderSourceLeft;
@@ -249,7 +287,7 @@ public:
 
 
 
-class StereoCamera
+class StereoCamera : public LeafObject
 {
 public:
 	glm::vec2* viewSize = nullptr;
@@ -355,4 +393,29 @@ public:
 //	}
 //
 //#pragma endregion
+};
+
+
+
+
+class Scene {
+public:
+	// Stores all objects.
+	std::vector<SceneObject*> objects;
+
+	//std::set<ObjectPointer> selectedObjects;
+	std::set<ObjectPointer, ObjectPointerComparator> selectedObjects;
+	GroupObject* root;
+	StereoCamera* camera;
+	Cross* cross;
+
+	float whiteZ = 0;
+	float whiteZPrecision = 0.1;
+	GLFWwindow* window;
+
+
+	~Scene() {
+		for (auto o : objects)
+			delete o;
+	}
 };

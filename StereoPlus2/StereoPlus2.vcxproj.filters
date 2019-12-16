@@ -95,7 +95,7 @@
     <ClInclude Include="GLLoader.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="SceneConfig.hpp">
+    <ClInclude Include="Renderer.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

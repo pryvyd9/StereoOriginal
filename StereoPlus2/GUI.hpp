@@ -429,7 +429,7 @@ public:
 	GLFWwindow* window;
 	Input input;
 	KeyBinding keyBinding;
-	SceneConfiguration* sceneConfig;
+	Scene* scene;
 
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;
