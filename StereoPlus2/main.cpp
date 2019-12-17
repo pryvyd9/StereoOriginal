@@ -3,11 +3,6 @@
 #include "GUI.hpp"
 #include "Windows.hpp"
 #include "Renderer.hpp"
-#include <vector>
-#include <string>
-#include <fstream>
-#include <iostream>
-#include <glm/gtc/quaternion.hpp>
 #include <functional>
 
 using namespace std;
@@ -23,7 +18,7 @@ bool LoadScene(Scene* scene) {
 	scene->objects.push_back(new StereoLine());
 	scene->objects.push_back(new StereoLine());
 
-	scene->objects[0]->Name = "Group0";
+	scene->objects[0]->Name = "Root";
 	((GroupObject*) scene->objects[0])->Children.push_back(scene->objects[1]);
 	((GroupObject*) scene->objects[0])->Children.push_back(scene->objects[2]);
 	scene->objects[1]->Name = "Group1";
@@ -50,6 +45,11 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
+
+	DrawingInstrumentWindow<StereoPolygonalChain> polyLineDrawingWindow;
+	DrawingInstrument<StereoPolygonalChain> polyLineDrawingInstrument;
+
+	polyLineDrawingWindow.instrument = &polyLineDrawingInstrument;
 
 	Scene scene;
 
@@ -85,17 +85,15 @@ int main(int, char**)
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
 	
-	gui.windows.push_back((Window*)& customRenderWindow);
-	gui.windows.push_back((Window*)& cameraPropertiesWindow);
-	gui.windows.push_back((Window*)& crossPropertiesWindow);
-	gui.windows.push_back((Window*)& inspectorWindow);
+	gui.windows = {
+		(Window*)& customRenderWindow,
+		(Window*)& cameraPropertiesWindow,
+		(Window*)& crossPropertiesWindow,
+		(Window*)& inspectorWindow,
+		(Window*)& polyLineDrawingWindow,
+	};
 
-	if (false
-		|| !gui.Init()
-		|| !customRenderWindow.Init()
-		|| !cameraPropertiesWindow.Init()
-		|| !crossPropertiesWindow.Init()
-		|| !inspectorWindow.Init())
+	if (!gui.Init())
 		return false;
 
 	customRenderWindow.customRenderFunc = [&cross, &scene, &gui, &renderPipeline] {

@@ -504,3 +504,85 @@ public:
 		return true;
 	}
 };
+
+template<typename T>
+class DrawingInstrumentWindow : Window
+{
+public:
+	DrawingInstrument<T>* instrument = nullptr;
+
+	virtual bool Init() {
+		return true;
+	}
+	virtual bool Design() {
+		ImGui::Begin(GetName<T>().c_str());
+
+		ImGui::Text(
+			instrument != nullptr && instrument->obj != nullptr
+			? instrument->obj->Name.c_str()
+			: "Empty"
+		);
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			ImGuiDragDropFlags target_flags = 0;
+			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_NAME", target_flags))
+			{
+				auto objectPointers = GetBuffer(payload->Data);
+				
+				if (objectPointers->size() > 1) {
+					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+				}
+				else {
+					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
+
+					instrument->ApplyObject((*objectPointer.source)[objectPointer.pos]);
+				}
+
+				// Clear selected scene object buffer.
+				objectPointers->clear();
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+
+	template<typename T>
+	std::string GetName() {
+		return "Noname";
+	}
+
+	template<>
+	std::string GetName<StereoPolygonalChain>() {
+		return "Polygonal Chain";
+	}
+
+	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+	}
+
+};
+//
+//template<>
+//class DrawingInstrumentWindow<StereoPolygonalChain> : Window
+//{
+//public:
+//	DrawingInstrument
+//	virtual bool Init() {
+//		return true;
+//	}
+//	virtual bool Design() {
+//		return false;
+//	}
+//	virtual bool OnExit() {
+//		return false;
+//	}
+//};

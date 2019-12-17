@@ -485,6 +485,10 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		//IM_ASSERT(font != NULL);
 
+		for (auto window : windows)
+			if (!window->Init())
+				return false;
+
 		return true;
 	}
 

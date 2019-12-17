@@ -2,6 +2,8 @@
 #include "GLLoader.hpp"
 #include <set>
 
+#pragma region Entities
+
 enum ObjectType {
 	Group,
 	Leaf,
@@ -43,7 +45,6 @@ struct Line
 {
 	glm::vec3 Start, End;
 
-	//static const uint_fast8_t CoordinateCount = 6;
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
 	GLuint VBO, VAO;
@@ -54,13 +55,31 @@ struct StereoLine : LeafObject
 {
 	glm::vec3 Start, End;
 
-	//static const uint_fast8_t CoordinateCount = 6;
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
-	//GLuint VBO, VAO;
 	GLuint VBOLeft, VAOLeft;
 	GLuint VBORight, VAORight;
 	GLuint ShaderLeft, ShaderRight;
+};
+
+struct StereoPolygonalChain {
+	std::vector<glm::vec3> Points;
+
+	GLuint VBOLeft, VAOLeft;
+	GLuint VBORight, VAORight;
+	GLuint ShaderLeft, ShaderRight;
+
+	StereoPolygonalChain(StereoPolygonalChain& copy) {
+		for (auto p : copy.Points)
+			Points.push_back(p);
+
+		VBOLeft = copy.VBOLeft;
+		VAOLeft = copy.VAOLeft;
+		VBORight = copy.VBORight;
+		VAORight = copy.VAORight;
+		ShaderLeft = copy.ShaderLeft;
+		ShaderRight = copy.ShaderRight;
+	}
 };
 
 struct Triangle
@@ -161,11 +180,6 @@ public:
 
 		return true;
 	}
-
-	//glm::vec3 leftTop = glm::vec3(-1, -1, 0);
-	//glm::vec3 leftBottom = glm::vec3(-1, 1, 0);
-	//glm::vec3 rightTop = glm::vec3(-1, -1, 0);
-	//glm::vec3 rightBottom = glm::vec3(-1, -1, 0);
 };
 
 class Cross : public LeafObject
@@ -403,7 +417,7 @@ public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
-	//std::set<ObjectPointer> selectedObjects;
+	// Scene selected object buffer.
 	std::set<ObjectPointer, ObjectPointerComparator> selectedObjects;
 	GroupObject* root;
 	StereoCamera* camera;
@@ -419,3 +433,98 @@ public:
 			delete o;
 	}
 };
+
+#pragma endregion
+
+#pragma region Instruments
+
+
+template<typename T>
+class DrawingInstrument {
+public:
+	SceneObject* obj = nullptr;
+
+	bool Start() {
+
+	}
+
+	void ApplyObject(SceneObject* obj) {
+		this->obj = obj;
+	}
+
+	void ApplyPosition(glm::vec3 pos) {
+
+	}
+
+	void ConfirmPoint() {
+		//obj->Points.push_back(pointPos);
+	}
+
+	void RemoveLastPoint() {
+		//obj->Points.pop_back();
+	}
+
+	void Finish() {
+
+	}
+
+	void Abort() {
+	/*	obj->Points.clear();
+
+		for (auto p : originalPoints)
+			obj->Points.push_back(p);*/
+	}
+};
+
+//template<>
+//class DrawingInstrument<StereoPolygonalChain>{
+//	std::vector<glm::vec3> originalPoints;
+//
+//	StereoPolygonalChain* obj;
+//
+//	glm::vec3 pointPos;
+//
+//public:
+//
+//	void Start() {
+//
+//	}
+//
+//	void ApplyObject(StereoPolygonalChain* obj) {
+//		originalPoints.clear();
+//
+//		for (auto p : obj->Points)
+//			originalPoints.push_back(p);
+//
+//		this->obj = obj;
+//	}
+//
+//	void ApplyPosition(glm::vec3 pos) {
+//		pointPos = pos;
+//		obj->Points.data[obj->Points.size() - 1] = pos;
+//	}
+//
+//	void ConfirmPoint() {
+//		obj->Points.push_back(pointPos);
+//	}
+//
+//	void RemoveLastPoint() {
+//		obj->Points.pop_back();
+//	}
+//
+//	void Finish() {
+//
+//	}
+//
+//	void Abort() {
+//		obj->Points.clear();
+//
+//		for (auto p : originalPoints)
+//			obj->Points.push_back(p);
+//	}
+//};
+
+//class StereoPolygonalChain
+
+#pragma endregion
+
