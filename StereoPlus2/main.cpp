@@ -40,15 +40,19 @@ void testCreationTool(Scene* scene) {
 
 	tool.BindScene(scene);
 	tool.BindSource(&((GroupObject*)scene->objects[1])->Children);
+	tool.initFunc = [] (SceneObject * o) {
+		o->Name = "CreatedByCreatingTool";
+		return true;
+	};
 
 	SceneObject** obj;
 	tool.Create(&obj);
 	
 	Command::ExecuteAll();
 
-	tool.Rollback();
+	/*tool.Rollback();
 	Command::ExecuteAll();
-
+*/
 }
 
 
@@ -64,13 +68,13 @@ bool LoadScene(Scene* scene) {
 	scene->objects[0]->Name = "Root";
 	((GroupObject*) scene->objects[0])->Children.push_back(scene->objects[1]);
 	((GroupObject*) scene->objects[0])->Children.push_back(scene->objects[2]);
-	scene->objects[1]->Name = "Group1";
-	scene->objects[2]->Name = "Group2";
+	scene->objects[1]->Name = "Group";
+	scene->objects[2]->Name = "Group";
 	((GroupObject*)scene->objects[2])->Children.push_back(scene->objects[3]);
 	((GroupObject*)scene->objects[2])->Children.push_back(scene->objects[4]);
 	((GroupObject*)scene->objects[2])->Children.push_back(scene->objects[5]);
 	scene->objects[3]->Name = "Obj1";
-	scene->objects[4]->Name = "Obj2";
+	scene->objects[4]->Name = "Obj1";
 	scene->objects[5]->Name = "Obj3";
 
 	scene->root = (GroupObject*) scene->objects[0];
@@ -94,6 +98,8 @@ int main(int, char**)
 
 	polyLineDrawingWindow.instrument = &polyLineDrawingInstrument;
 
+	CreatingToolWindow creatingToolWindow;
+
 	Scene scene;
 
 	if (!LoadScene(&scene))
@@ -104,6 +110,9 @@ int main(int, char**)
 
 	inspectorWindow.rootObject = scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
+
+	creatingToolWindow.scene = &scene;
+	//creatingToolWindow.stereoLineTool = &scene;
 
 	StereoCamera camera;
 	cameraPropertiesWindow.Object = &camera;
@@ -137,6 +146,7 @@ int main(int, char**)
 		(Window*)& crossPropertiesWindow,
 		(Window*)& inspectorWindow,
 		(Window*)& polyLineDrawingWindow,
+		(Window*)& creatingToolWindow,
 	};
 
 	if (!gui.Init())

@@ -4,6 +4,7 @@
 #include <functional>
 #include "DomainTypes.hpp"
 #include <set>
+#include <sstream>
 
 class CustomRenderWindow : Window
 {
@@ -221,6 +222,12 @@ public:
 class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 {
 	MoveCommand* moveCommand;
+
+	static int& GetID() {
+		static int val = 0;
+		return val;
+	}
+
 public:
 	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
 
@@ -292,6 +299,8 @@ public:
 
 
 	bool DesignRootNode(GroupObject* t) {
+		ImGui::PushID(GetID()++);
+
 		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf;
 		bool open = ImGui::TreeNodeEx(t->Name.c_str(), target_flags);
 
@@ -311,10 +320,15 @@ public:
 			if (!DesignTreeNode(t->Children[i], t->Children, i))
 			{
 				ImGui::TreePop();
+				ImGui::PopID();
+
 				return false;
 			}
 
 		ImGui::TreePop();
+		ImGui::PopID();
+
+		return true;
 	}
 
 	bool DesignTreeNode(SceneObject* t, std::vector<SceneObject*>& source, int pos) {
@@ -331,6 +345,8 @@ public:
 	}
 
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
+		ImGui::PushID(GetID()++);
+
 		ImGui::Indent(indent);
 		bool open = ImGui::TreeNode(t->Name.c_str());
 
@@ -374,6 +390,8 @@ public:
 				if (!DesignTreeNode(t->Children[i], t->Children, i))
 				{
 					ImGui::TreePop();
+					ImGui::PopID();
+
 					return false;
 				}
 					   
@@ -382,10 +400,14 @@ public:
 
 	
 		ImGui::Unindent(indent);
+		ImGui::PopID();
+
 		return true;
 	}
 
 	bool DesignTreeLeaf(LeafObject* t, std::vector<SceneObject*>& source, int pos) {
+		ImGui::PushID(GetID()++);
+
 		ImGui::Indent(indent);
 
 		ImGui::Selectable(t->Name.c_str());
@@ -422,6 +444,8 @@ public:
 
 
 		ImGui::Unindent(indent);
+		ImGui::PopID();
+
 		return true;
 	}
 
@@ -430,6 +454,9 @@ public:
 	virtual bool Design()
 	{
 		ImGui::Begin("Object inspector");                         
+
+		// Reset elements' IDs.
+		GetID() = 0;
 
 		DesignRootNode(rootObject);
 
@@ -445,14 +472,42 @@ public:
 
 
 class CreatingToolWindow : Window {
-
+	CreatingTool<StereoLine> stereoLineTool;
 public:
+	Scene* scene = nullptr;
+
 	virtual bool Init() {
+		if (scene == nullptr)
+		{
+			std::cout << "Scene wasn't assigned" << std::endl;
+			return false;
+		}
+
+		stereoLineTool.BindScene(scene);
+		stereoLineTool.BindSource(&((GroupObject*)scene->objects[0])->Children);
+		stereoLineTool.initFunc = [](SceneObject * o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "CreatedByCreatingTool" << id++;
+			o->Name = ss.str();
+			return true;
+		};
+
 		return true;
 	}
+
 	virtual bool Design() {
+		ImGui::Begin("Creating tool window");
+
+		if (ImGui::Button("StereoLine")) {
+			stereoLineTool.Create(nullptr);
+		}
+
+		ImGui::End();
+
 		return true;
 	}
+	
 	virtual bool OnExit() {
 		return true;
 	}
@@ -523,20 +578,3 @@ public:
 	}
 
 };
-
-//
-//template<>
-//class DrawingInstrumentWindow<StereoPolygonalChain> : Window
-//{
-//public:
-//	DrawingInstrument
-//	virtual bool Init() {
-//		return true;
-//	}
-//	virtual bool Design() {
-//		return false;
-//	}
-//	virtual bool OnExit() {
-//		return false;
-//	}
-//};

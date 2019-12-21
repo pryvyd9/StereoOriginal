@@ -661,6 +661,8 @@ class CreatingTool : Tool, public ISceneHolder {
 		return val;
 	}
 public:
+	std::function<bool(SceneObject*)> initFunc;
+
 	bool BindSource(std::vector<SceneObject*>* source) {
 		this->source = source;
 		return true;
@@ -668,16 +670,24 @@ public:
 	bool Create(SceneObject*** createdObj) {
 		currentCreatedId = GetNextFreeId()++;
 		GetCreatedObjects()[currentCreatedId] = nullptr;
-		*createdObj = &GetCreatedObjects()[currentCreatedId];
+		
+		if (createdObj != nullptr)
+		{
+			*createdObj = &GetCreatedObjects()[currentCreatedId];
+		}
 
 		auto command = new CreateCommand();
 		if (!command->BindScene(scene))
 			return false;
 
 		command->source = source;
+
 		int id = currentCreatedId;
-		command->func = [id]{
+		auto initFunc = this->initFunc;
+
+		command->func = [id, initFunc]{
 			T* obj = new T();
+			initFunc(obj);
 			GetCreatedObjects()[id] = obj;
 			return obj; 
 		};
