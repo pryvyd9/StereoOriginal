@@ -547,6 +547,9 @@ public:
 
 			glfwSwapBuffers(window);
 
+			if (!Command::ExecuteAll())
+				return false;
+
 		}
 
 		return true;

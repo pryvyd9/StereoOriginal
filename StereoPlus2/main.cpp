@@ -8,6 +8,49 @@
 using namespace std;
 
 
+void testCreation(Scene* scene) {
+	CreateCommand* cmd = new CreateCommand();
+
+	cmd->BindScene(scene);
+	cmd->source = &((GroupObject*)scene->objects[1])->Children;
+
+	StereoLine* obj;
+	cmd->func = [&obj]{
+		obj = new StereoLine();
+		obj->Name = "CreatedObject";
+		return obj;
+	};
+
+
+	
+	
+
+	auto dcmd = new DeleteCommand();
+
+	dcmd->BindScene(scene);
+	dcmd->source = &((GroupObject*)scene->objects[1])->Children;
+	dcmd->target = (SceneObject**)&obj;
+	Command::ExecuteAll();
+	//Command::ExecuteAll();
+
+}
+
+void testCreationTool(Scene* scene) {
+	CreatingTool<StereoLine> tool;
+
+	tool.BindScene(scene);
+	tool.BindSource(&((GroupObject*)scene->objects[1])->Children);
+
+	SceneObject** obj;
+	tool.Create(&obj);
+	
+	Command::ExecuteAll();
+
+	tool.Rollback();
+	Command::ExecuteAll();
+
+}
+
 
 bool LoadScene(Scene* scene) {
 
@@ -46,7 +89,7 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
 
-	DrawingInstrumentWindow<StereoPolygonalChain> polyLineDrawingWindow;
+	EditingToolWindow<StereoPolygonalChain> polyLineDrawingWindow;
 	DrawingInstrument<StereoPolygonalChain> polyLineDrawingInstrument;
 
 	polyLineDrawingWindow.instrument = &polyLineDrawingInstrument;
@@ -55,6 +98,9 @@ int main(int, char**)
 
 	if (!LoadScene(&scene))
 		return false;
+
+	//testCreation(&scene);
+	//testCreationTool(&scene);
 
 	inspectorWindow.rootObject = scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
