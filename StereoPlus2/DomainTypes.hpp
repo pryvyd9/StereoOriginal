@@ -10,6 +10,9 @@
 enum ObjectType {
 	Group,
 	Leaf,
+
+	StereoLineT,
+	StereoPolyLineT,
 };
 
 class SceneObject {
@@ -63,16 +66,20 @@ struct StereoLine : LeafObject
 	GLuint VBOLeft, VAOLeft;
 	GLuint VBORight, VAORight;
 	GLuint ShaderLeft, ShaderRight;
+
+	virtual ObjectType GetType() {
+		return StereoLineT;
+	}
 };
 
-struct StereoPolygonalChain {
+struct StereoPolyLine {
 	std::vector<glm::vec3> Points;
 
 	GLuint VBOLeft, VAOLeft;
 	GLuint VBORight, VAORight;
 	GLuint ShaderLeft, ShaderRight;
 
-	StereoPolygonalChain(StereoPolygonalChain& copy) {
+	StereoPolyLine(StereoPolyLine& copy) {
 		for (auto p : copy.Points)
 			Points.push_back(p);
 
@@ -82,6 +89,10 @@ struct StereoPolygonalChain {
 		VAORight = copy.VAORight;
 		ShaderLeft = copy.ShaderLeft;
 		ShaderRight = copy.ShaderRight;
+	}
+
+	virtual ObjectType GetType() {
+		return StereoPolyLineT;
 	}
 };
 
@@ -275,7 +286,8 @@ class Cross : public LeafObject
 public:
 	glm::vec3 Position = glm::vec3(0);
 
-	StereoLine lines[3];
+	//StereoLine lines[3];
+	StereoLine* lines;
 	const uint_fast8_t lineCount = 3;
 
 	float size = 0.1;
@@ -294,11 +306,17 @@ public:
 
 	bool Init()
 	{
+		lines = new StereoLine[lineCount];
+
 		vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
 		fragmentShaderSourceLeft = GLLoader::ReadShader("shaders/Left.frag");
 		fragmentShaderSourceRight = GLLoader::ReadShader("shaders/Right.frag");
 
 		return CreateLines();
+	}
+
+	~Cross() {
+		delete[] lines;
 	}
 };
 

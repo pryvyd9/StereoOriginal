@@ -137,7 +137,7 @@ public:
 		return res;
 	}
 
-	void Pipeline(StereoLine * lines, size_t lineCount, Scene & config)
+	void Pipeline(StereoLine ** lines, size_t lineCount, Scene & config)
 	{
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
@@ -156,7 +156,7 @@ public:
 		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 
-		DrawLine(config.camera->GetRight(&lines[0]));
+		DrawLine(config.camera->GetRight(&(*lines)[0]));
 
 		for (size_t i = 0; i < lineCount; i++)
 		{
@@ -165,12 +165,12 @@ public:
 			glStencilMask(0x1);
 			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLine(config.camera->GetLeft(&lines[i]));
+			DrawLine(config.camera->GetLeft(&(*lines)[i]));
 
 			glStencilMask(0x2);
 			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLine(config.camera->GetRight(&lines[i]));
+			DrawLine(config.camera->GetRight(&(*lines)[i]));
 		}
 
 

@@ -8,6 +8,48 @@
 using namespace std;
 
 
+class LineConverter {
+public:
+	static size_t GetLineCount(SceneObject* obj) {
+		switch (obj->GetType()) {
+		case StereoLineT:
+			return 1;
+		case StereoPolyLineT:
+		{
+			auto size = ((StereoPolyLine*)obj)->Points.size();
+			return size > 0 ? size - 1 : 0;
+		}
+		default:
+			return 0;
+		}
+	}
+
+	static void Convert(SceneObject* obj, StereoLine** objs) {
+		switch (obj->GetType()) {
+		case StereoLineT:
+			*objs = ((StereoLine*)obj);
+			break;
+		case StereoPolyLineT:
+			auto polyLine = (StereoPolyLine*)obj;
+
+			for (size_t i = 1; i < polyLine->Points.size(); i++)
+			{
+				objs[i]->Start = polyLine->Points[i - 1];
+				objs[i]->End = polyLine->Points[i];
+				objs[i]->ShaderLeft = polyLine->ShaderLeft;
+				objs[i]->ShaderRight = polyLine->ShaderRight;
+				objs[i]->VAOLeft = polyLine->VAOLeft;
+				objs[i]->VAORight = polyLine->VAORight;
+				objs[i]->VBOLeft = polyLine->VBOLeft;
+				objs[i]->VBORight = polyLine->VBORight;
+			}
+			break;
+		}
+	}
+
+
+};
+
 void testCreation(Scene* scene) {
 	CreateCommand* cmd = new CreateCommand();
 
@@ -84,17 +126,13 @@ bool LoadScene(Scene* scene) {
 
 int main(int, char**)
 {
-	Renderer renderPipeline;
-
-	GUI gui;
-
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
 
-	EditingToolWindow<StereoPolygonalChain> polyLineDrawingWindow;
-	DrawingInstrument<StereoPolygonalChain> polyLineDrawingInstrument;
+	EditingToolWindow<StereoPolyLine> polyLineDrawingWindow;
+	DrawingInstrument<StereoPolyLine> polyLineDrawingInstrument;
 
 	polyLineDrawingWindow.instrument = &polyLineDrawingInstrument;
 
@@ -112,14 +150,24 @@ int main(int, char**)
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
 	creatingToolWindow.scene = &scene;
-	//creatingToolWindow.stereoLineTool = &scene;
 
 	StereoCamera camera;
 	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
 
+	Renderer renderPipeline;
 	if (!renderPipeline.Init())
 		return false;
+
+	GUI gui;
+	gui.windows = {
+		(Window*)& customRenderWindow,
+		(Window*)& cameraPropertiesWindow,
+		(Window*)& crossPropertiesWindow,
+		(Window*)& inspectorWindow,
+		(Window*)& polyLineDrawingWindow,
+		(Window*)& creatingToolWindow,
+	};
 
 	gui.window = renderPipeline.window;
 	gui.glsl_version = renderPipeline.glsl_version;
@@ -140,20 +188,32 @@ int main(int, char**)
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
 	
-	gui.windows = {
-		(Window*)& customRenderWindow,
-		(Window*)& cameraPropertiesWindow,
-		(Window*)& crossPropertiesWindow,
-		(Window*)& inspectorWindow,
-		(Window*)& polyLineDrawingWindow,
-		(Window*)& creatingToolWindow,
-	};
-
 	if (!gui.Init())
 		return false;
 
-	customRenderWindow.customRenderFunc = [&cross, &scene, &gui, &renderPipeline] {
-		renderPipeline.Pipeline(cross.lines, cross.lineCount, scene);
+	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
+		auto sizes = new size_t[scene.objects.size()];
+		size_t sizeSum = 0;
+		for (size_t i = 0; i < scene.objects.size(); i++)
+		{
+			sizeSum += (sizes[i] = LineConverter::GetLineCount(scene.objects[i]));
+		}
+
+		auto convertedObjects = new StereoLine[sizeSum];
+		for (size_t i = 0, k = 0; i < scene.objects.size(); k += sizes[i++])
+		{
+			if (sizes[i] <= 0)
+				continue;
+
+			LineConverter::Convert(scene.objects[i], (&convertedObjects + k));
+		}
+
+
+		renderPipeline.Pipeline(&convertedObjects, sizeSum, scene);
+		renderPipeline.Pipeline(&cross.lines, cross.lineCount, scene);
+
+		delete[] sizes;
+		delete[] convertedObjects;
 
 		return true;
 	};

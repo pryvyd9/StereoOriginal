@@ -569,7 +569,7 @@ public:
 	}
 
 	template<>
-	std::string GetName<StereoPolygonalChain>() {
+	std::string GetName<StereoPolyLine>() {
 		return "Polygonal Chain";
 	}
 
