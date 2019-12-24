@@ -3,6 +3,8 @@
 #include "Window.hpp"
 #include <functional>
 #include "DomainTypes.hpp"
+#include "Commands.hpp"
+#include "Tools.hpp"
 #include <set>
 #include <sstream>
 
@@ -337,6 +339,8 @@ public:
 		case Group: 
 			return DesignTreeNode((GroupObject*)t, source, pos);
 		case Leaf:
+		case StereoLineT:
+		case StereoPolyLineT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		}
 

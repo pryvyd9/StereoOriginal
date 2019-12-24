@@ -24,24 +24,24 @@ public:
 		}
 	}
 
-	static void Convert(SceneObject* obj, StereoLine** objs) {
+	static void Convert(SceneObject* obj, StereoLine* objs) {
 		switch (obj->GetType()) {
 		case StereoLineT:
-			*objs = ((StereoLine*)obj);
+			*objs = *((StereoLine*)obj);
 			break;
 		case StereoPolyLineT:
 			auto polyLine = (StereoPolyLine*)obj;
 
 			for (size_t i = 1; i < polyLine->Points.size(); i++)
 			{
-				objs[i]->Start = polyLine->Points[i - 1];
-				objs[i]->End = polyLine->Points[i];
-				objs[i]->ShaderLeft = polyLine->ShaderLeft;
+				objs[i].Start = polyLine->Points[i - 1];
+				objs[i].End = polyLine->Points[i];
+				/*objs[i]->ShaderLeft = polyLine->ShaderLeft;
 				objs[i]->ShaderRight = polyLine->ShaderRight;
 				objs[i]->VAOLeft = polyLine->VAOLeft;
 				objs[i]->VAORight = polyLine->VAORight;
 				objs[i]->VBOLeft = polyLine->VBOLeft;
-				objs[i]->VBORight = polyLine->VBORight;
+				objs[i]->VBORight = polyLine->VBORight;*/
 			}
 			break;
 		}
@@ -196,7 +196,7 @@ int main(int, char**)
 		size_t sizeSum = 0;
 		for (size_t i = 0; i < scene.objects.size(); i++)
 		{
-			sizeSum += (sizes[i] = LineConverter::GetLineCount(scene.objects[i]));
+			sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
 		}
 
 		auto convertedObjects = new StereoLine[sizeSum];
@@ -205,15 +205,17 @@ int main(int, char**)
 			if (sizes[i] <= 0)
 				continue;
 
-			LineConverter::Convert(scene.objects[i], (&convertedObjects + k));
+			LineConverter::Convert(scene.objects[i], convertedObjects + k);
 		}
-
 
 		renderPipeline.Pipeline(&convertedObjects, sizeSum, scene);
 		renderPipeline.Pipeline(&cross.lines, cross.lineCount, scene);
 
-		delete[] sizes;
-		delete[] convertedObjects;
+		// Free memory after the lines are drawn.
+		auto rel1cmd = new FuncCommand();
+		rel1cmd->func = [sizes, convertedObjects] {
+			delete[] sizes, convertedObjects;
+		};
 
 		return true;
 	};

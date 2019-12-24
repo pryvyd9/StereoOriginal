@@ -27,6 +27,7 @@ class Renderer {
 	ZeroLine zeroLine;
 	ZeroTriangle zeroTriangle;
 
+	GLuint VAOLeft, VAORight, VBOLeft, VBORight, ShaderLeft, ShaderRight;
 
 
 	static void glfw_error_callback(int error, const char* description)
@@ -84,6 +85,43 @@ class Renderer {
 
 		return true;
 	}
+
+	
+
+	void CreateShaders()
+	{
+		std::string vertexShaderSource1		  = GLLoader::ReadShader("shaders/.vert");
+		std::string fragmentShaderSourceLeft1 = GLLoader::ReadShader("shaders/Left.frag");
+		std::string fragmentShaderSourceRight1 = GLLoader::ReadShader("shaders/Right.frag");
+
+		const char* vertexShaderSource = vertexShaderSource1.c_str();
+		const char* fragmentShaderSourceLeft = fragmentShaderSourceLeft1.c_str();
+		const char* fragmentShaderSourceRight = fragmentShaderSourceRight1.c_str();
+
+		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
+		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
+	}
+
+	void CreateBuffers()
+	{
+		glGenVertexArrays(1, &VAOLeft);
+		glGenBuffers(1, &VBOLeft);
+		glGenVertexArrays(1, &VAORight);
+		glGenBuffers(1, &VBORight);
+	}
+
+	//void BindLeft(Line* line) {
+	//	line->VBO = VBOLeft;
+	//	line->VAO = VAOLeft;
+	//	line->ShaderProgram = ShaderLeft;
+	//}
+
+	//void BindRight(Line* line) {
+	//	line->VBO = VBORight;
+	//	line->VAO = VAORight;
+	//	line->ShaderProgram = ShaderRight;
+	//}
+
 
 public:
 	GLFWwindow* window;
@@ -155,8 +193,8 @@ public:
 		glStencilMask(0x2);
 		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-
-		DrawLine(config.camera->GetRight(&(*lines)[0]));
+		DrawLineRight(config.camera->GetRight(&(*lines)[0]));
+		//DrawLine(config.camera->GetRight(&(*lines)[0]));
 
 		for (size_t i = 0; i < lineCount; i++)
 		{
@@ -165,15 +203,18 @@ public:
 			glStencilMask(0x1);
 			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLine(config.camera->GetLeft(&(*lines)[i]));
+			DrawLineLeft(config.camera->GetLeft(&(*lines)[i]));
 
 			glStencilMask(0x2);
 			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLine(config.camera->GetRight(&(*lines)[i]));
+			DrawLineRight(config.camera->GetRight(&(*lines)[i]));
 		}
 
-
+		glStencilMask(0x1);
+		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		DrawLineLeft(config.camera->GetLeft(&(*lines)[lineCount-1]));
 
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.
@@ -198,6 +239,41 @@ public:
 
 		glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
+	}
+
+	void DrawLineLeft(Line line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(ShaderLeft);
+
+		glBindVertexArray(VAOLeft);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+	void DrawLineRight(Line line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(ShaderRight);
+
+		glBindVertexArray(VAORight);
+		glDrawArrays(GL_LINES, 0, 2);
 	}
 
 
@@ -309,6 +385,9 @@ public:
 			|| !zeroLine.Init()
 			|| !zeroTriangle.Init())
 			return false;
+
+		CreateShaders();
+		CreateBuffers();
 
 		return true;
 	}

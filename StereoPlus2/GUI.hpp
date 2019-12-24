@@ -1,5 +1,6 @@
 #pragma once
 #include "GLLoader.hpp"
+#include "Commands.hpp"
 #include "Window.hpp"
 #include <map>
 
