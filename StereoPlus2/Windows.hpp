@@ -428,7 +428,8 @@ public:
 			item.source = &source;
 			item.pos = pos;
 			selectedObjectsBuffer->emplace(item);
-
+			
+			//SceneObjectClipBoard::Push(selectedObjectsBuffer);
 			ImGui::SetDragDropPayload("SceneObjects", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
 
 			ImGui::EndDragDropSource();
@@ -476,7 +477,8 @@ public:
 
 
 class CreatingToolWindow : Window {
-	CreatingTool<StereoLine> stereoLineTool;
+	CreatingTool<StereoLine> lineTool;
+	CreatingTool<StereoPolyLine> polyLineTool;
 public:
 	Scene* scene = nullptr;
 
@@ -487,12 +489,22 @@ public:
 			return false;
 		}
 
-		stereoLineTool.BindScene(scene);
-		stereoLineTool.BindSource(&((GroupObject*)scene->objects[0])->Children);
-		stereoLineTool.initFunc = [](SceneObject * o) {
+		lineTool.BindScene(scene);
+		lineTool.BindSource(&((GroupObject*)scene->objects[0])->Children);
+		lineTool.initFunc = [](SceneObject * o) {
 			static int id = 0;
 			std::stringstream ss;
-			ss << "CreatedByCreatingTool" << id++;
+			ss << "Line" << id++;
+			o->Name = ss.str();
+			return true;
+		};
+
+		polyLineTool.BindScene(scene);
+		polyLineTool.BindSource(&((GroupObject*)scene->objects[0])->Children);
+		polyLineTool.initFunc = [](SceneObject * o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "PolyLine" << id++;
 			o->Name = ss.str();
 			return true;
 		};
@@ -503,8 +515,12 @@ public:
 	virtual bool Design() {
 		ImGui::Begin("Creating tool window");
 
-		if (ImGui::Button("StereoLine")) {
-			stereoLineTool.Create(nullptr);
+		if (ImGui::Button("Line")) {
+			lineTool.Create(nullptr);
+		}
+
+		if (ImGui::Button("PolyLine")) {
+			polyLineTool.Create(nullptr);
 		}
 
 		ImGui::End();
@@ -517,21 +533,29 @@ public:
 	}
 };
 
+
 template<typename T>
-class EditingToolWindow : Window
+class PointPenToolWindow : Window
 {
 public:
-	DrawingInstrument<T>* instrument = nullptr;
+	SceneObject* target = nullptr;
+	PointPenEditingTool<T>* tool = nullptr;
 
 	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+
 		return true;
 	}
 	virtual bool Design() {
 		ImGui::Begin(GetName<T>().c_str());
 
 		ImGui::Text(
-			instrument != nullptr && instrument->obj != nullptr
-			? instrument->obj->Name.c_str()
+			target != nullptr
+			? target->Name.c_str()
 			: "Empty"
 		);
 
@@ -543,14 +567,15 @@ public:
 			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
 			{
 				auto objectPointers = GetBuffer(payload->Data);
-				
+
 				if (objectPointers->size() > 1) {
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				}
 				else {
 					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
 
-					instrument->ApplyObject((*objectPointer.source)[objectPointer.pos]);
+					target = (*objectPointer.source)[objectPointer.pos];
+					tool->SelectTarget(target);
 				}
 
 				// Clear selected scene object buffer.
@@ -574,7 +599,7 @@ public:
 
 	template<>
 	std::string GetName<StereoPolyLine>() {
-		return "Polygonal Chain";
+		return "PolyLine";
 	}
 
 	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
@@ -582,3 +607,74 @@ public:
 	}
 
 };
+
+
+
+//template<typename T>
+//class EditingToolWindow : Window
+//{
+//public:
+//	//DrawingInstrument<T>* instrument = nullptr;
+//	SceneObject* target = nullptr;
+//	LineDrawingEditingTool* tool;
+//
+//	virtual bool Init() {
+//		return true;
+//	}
+//	virtual bool Design() {
+//		ImGui::Begin(GetName<T>().c_str());
+//
+//		ImGui::Text(
+//			target != nullptr
+//			? target->Name.c_str()
+//			: "Empty"
+//		);
+//
+//		if (ImGui::BeginDragDropTarget())
+//		{
+//			ImGuiDragDropFlags target_flags = 0;
+//			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+//			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+//			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+//			{
+//				auto objectPointers = GetBuffer(payload->Data);
+//				
+//				if (objectPointers->size() > 1) {
+//					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+//				}
+//				else {
+//					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
+//
+//					target = (*objectPointer.source)[objectPointer.pos];
+//					tool->ApplyObject(target);
+//				}
+//
+//				// Clear selected scene object buffer.
+//				objectPointers->clear();
+//			}
+//			ImGui::EndDragDropTarget();
+//		}
+//
+//		ImGui::End();
+//
+//		return true;
+//	}
+//	virtual bool OnExit() {
+//		return true;
+//	}
+//
+//	template<typename T>
+//	std::string GetName() {
+//		return "Noname";
+//	}
+//
+//	template<>
+//	std::string GetName<StereoPolyLine>() {
+//		return "PolyLine";
+//	}
+//
+//	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+//		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+//	}
+//
+//};

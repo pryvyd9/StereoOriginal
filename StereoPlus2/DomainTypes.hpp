@@ -64,8 +64,10 @@ struct StereoLine : LeafObject
 	}
 };
 
-struct StereoPolyLine {
+struct StereoPolyLine : LeafObject {
 	std::vector<glm::vec3> Points;
+
+	StereoPolyLine() {}
 
 	StereoPolyLine(StereoPolyLine& copy) {
 		for (auto p : copy.Points)
@@ -179,89 +181,32 @@ public:
 
 class Cross : public LeafObject
 {
-	/*std::string vertexShaderSource;
-	std::string fragmentShaderSourceLeft;
-	std::string fragmentShaderSourceRight;*/
 	bool isCreated = false;
-
-
-	//void CreateShaders(StereoLine& line, const char* vertexShaderSource, const char* fragmentShaderSourceLeft, const char* fragmentShaderSourceRight)
-	//{
-	//	line.ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-	//	line.ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-	//}
-
-	//void CreateBuffers(StereoLine& line)
-	//{
-	//	glGenVertexArrays(1, &line.VAOLeft);
-	//	glGenBuffers(1, &line.VBOLeft);
-	//	glGenVertexArrays(1, &line.VAORight);
-	//	glGenBuffers(1, &line.VBORight);
-	//}
 
 	bool CreateLines()
 	{
-	/*	const char* vertexShaderSource = this->vertexShaderSource.c_str();
-		const char* fragmentShaderSourceLeft = this->fragmentShaderSourceLeft.c_str();
-		const char* fragmentShaderSourceRight = this->fragmentShaderSourceRight.c_str();*/
+		lines[0].Start = Position;
+		lines[0].End = Position;
+		lines[0].Start.x -= size;
+		lines[0].End.x += size;
 
-		{
+		lines[1].Start = Position;
+		lines[1].End = Position;
+		lines[1].Start.y -= size;
+		lines[1].End.y += size;
 
-			lines[0].Start = Position;
-			lines[0].End = Position;
-			lines[0].Start.x -= size;
-			lines[0].End.x += size;
+		lines[2].Start = Position;
+		lines[2].End = Position;
+		lines[2].Start.z -= size;
+		lines[2].End.z += size;
 
-			/*CreateShaders(lines[0], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(lines[0]);*/
-		}
-		{
-
-			lines[1].Start = Position;
-			lines[1].End = Position;
-			lines[1].Start.y -= size;
-			lines[1].End.y += size;
-
-			/*CreateShaders(lines[1], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(lines[1]);*/
-
-		}
-		{
-			lines[2].Start = Position;
-			lines[2].End = Position;
-			lines[2].Start.z -= size;
-			lines[2].End.z += size;
-
-			/*CreateShaders(lines[2], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(lines[2]);*/
-
-		}
 		return true;
 	}
 
 
 	bool RefreshLines()
 	{
-		{
-			lines[0].Start = Position;
-			lines[0].End = Position;
-			lines[0].Start.x -= size;
-			lines[0].End.x += size;
-		}
-		{
-
-			lines[1].Start = Position;
-			lines[1].End = Position;
-			lines[1].Start.y -= size;
-			lines[1].End.y += size;
-		}
-		{
-			lines[2].Start = Position;
-			lines[2].End = Position;
-			lines[2].Start.z -= size;
-			lines[2].End.z += size;
-		}
-		return true;
+		return CreateLines();
 	}
 
 public:
@@ -451,3 +396,42 @@ public:
 			delete o;
 	}
 };
+
+
+//class ClipBoard {
+//
+//}
+
+//class SceneObjectClipBoard {
+//	static std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+//		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+//	}
+//
+//	static char* defaultName = "SceneObjects";
+//public:
+//
+//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(const char* name, ImGuiDragDropFlags target_flags) {
+//		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload(name, target_flags))
+//		{
+//			return GetBuffer(payload->Data);
+//		}
+//
+//		return nullptr;
+//	}
+//
+//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(ImGuiDragDropFlags target_flags) {
+//		return Pull(defaultName, target_flags);
+//	}
+//
+//	static void Pop(const char* name, ImGuiDragDropFlags target_flags) {
+//		Pull(name, target_flags)->clear();
+//	}
+//
+//	static void Pop(std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
+//		buffer->clear();
+//	}
+//
+//	static void Push(const char* name, std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
+//		ImGui::SetDragDropPayload(name, &buffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
+//	}
+//};

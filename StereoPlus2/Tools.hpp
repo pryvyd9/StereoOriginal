@@ -3,12 +3,31 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
 #include "Commands.hpp"
+#include "Input.hpp"
 #include <map>
+#include <stack>
+
 
 
 class Tool {
+protected:
+	struct Change {
+		SceneObject* reference, * stateCopy;
+	};
+	static std::stack<Change>& GetChanges() {
+		static auto val = std::stack<Change>();
+		return val;
+	}
 public:
-	virtual bool Rollback() = 0;
+	virtual bool Rollback() {
+		if (GetChanges().size() <= 0)
+			return true;
+		
+		auto change = GetChanges().top();
+		change.reference = change.stateCopy;
+		
+		return true;
+	}
 };
 
 template<typename T>
@@ -43,10 +62,9 @@ public:
 		currentCreatedId = GetNextFreeId()++;
 		GetCreatedObjects()[currentCreatedId] = nullptr;
 
+		// If passed nullptr then we should ignore created object.
 		if (createdObj != nullptr)
-		{
 			*createdObj = &GetCreatedObjects()[currentCreatedId];
-		}
 
 		auto command = new CreateCommand();
 		if (!command->BindScene(scene))
@@ -54,13 +72,10 @@ public:
 
 		command->source = source;
 
-		int id = currentCreatedId;
-		auto initFunc = this->initFunc;
-
-		command->func = [id, initFunc] {
+		command->func = [=] {
 			T* obj = new T();
 			initFunc(obj);
-			GetCreatedObjects()[id] = obj;
+			GetCreatedObjects()[currentCreatedId] = obj;
 			return obj;
 		};
 
@@ -81,13 +96,73 @@ public:
 
 
 class EditingTool : Tool {
-
+	KeyBinding* keyBinding = nullptr;
 public:
-
 	virtual bool SelectTarget(SceneObject* obj) = 0;
 	virtual bool ReleaseTarget() = 0;
-	virtual bool Rollback() = 0;
+	
+	virtual bool BindInput(KeyBinding* keyBinding) {
+		this->keyBinding = keyBinding;
+		return true;
+	}
 };
+
+template<typename T>
+class PointPenEditingTool : EditingTool {
+	SceneObject* target = nullptr;
+	std::vector<glm::vec3> pointsSelected;
+	std::vector<glm::vec3*> selectedPoints;
+
+
+	template<typename T>
+	bool SelectPoint() {
+		std::cout << "Not Supported PointPenEditingTool template type" << std::endl;
+		return false;
+	}
+
+	template<>
+	bool SelectPoint<StereoPolyLine>() {
+		if (selectedPoints.size() > 0)
+			selectedPoints.clear();
+
+		selectedPoints.push_back(&((StereoPolyLine*)target)->Points.back());
+		return true;
+	}
+
+public:
+	virtual bool SelectTarget(SceneObject* obj) {
+		target = (T*)obj;
+		return true;
+	}
+	virtual bool ReleaseTarget() {
+		target = nullptr;
+		return true;
+	}
+	virtual bool BindInput(KeyBinding* keyBinding) {
+		//keyBinding->AddHandler([](Input * input) {
+		//	if (input->IsPressed(GLFW_MOUSE_BUTTON_))
+		//	//if (input->IsPressed(GLFW_MOUSE_BUTTON_LEFT))
+		//	{
+		//		int i = 0;
+		//	}
+		//});
+		
+		return EditingTool::BindInput(keyBinding);
+	}
+
+
+
+	bool SelectPoint() {
+		return SelectPoint<T>();
+	}
+
+	bool AddPoint() {
+		return true;
+	}
+	
+};
+
+
 
 
 
@@ -128,52 +203,3 @@ public:
 	}
 };
 
-//template<>
-//class DrawingInstrument<StereoPolygonalChain>{
-//	std::vector<glm::vec3> originalPoints;
-//
-//	StereoPolygonalChain* obj;
-//
-//	glm::vec3 pointPos;
-//
-//public:
-//
-//	void Start() {
-//
-//	}
-//
-//	void ApplyObject(StereoPolygonalChain* obj) {
-//		originalPoints.clear();
-//
-//		for (auto p : obj->Points)
-//			originalPoints.push_back(p);
-//
-//		this->obj = obj;
-//	}
-//
-//	void ApplyPosition(glm::vec3 pos) {
-//		pointPos = pos;
-//		obj->Points.data[obj->Points.size() - 1] = pos;
-//	}
-//
-//	void ConfirmPoint() {
-//		obj->Points.push_back(pointPos);
-//	}
-//
-//	void RemoveLastPoint() {
-//		obj->Points.pop_back();
-//	}
-//
-//	void Finish() {
-//
-//	}
-//
-//	void Abort() {
-//		obj->Points.clear();
-//
-//		for (auto p : originalPoints)
-//			obj->Points.push_back(p);
-//	}
-//};
-
-//class StereoPolygonalChain
