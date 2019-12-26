@@ -136,6 +136,7 @@ bool LoadScene(Scene* scene) {
 	p1->Points.push_back(glm::vec3(0, 0.2, 1));
 	p1->Points.push_back(glm::vec3(0, -0.2, 1.2));
 	p1->Points.push_back(glm::vec3(-0.5, -0.2, 0.8));
+	p1->Name = "PolyLine1";
 
 	g2->Name = "Group2";
 	g2->Children.push_back(s1);
@@ -164,26 +165,21 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	auto sizes = new size_t[scene.objects.size()];
 	size_t sizeSum = 0;
 	for (size_t i = 0; i < scene.objects.size(); i++)
-	{
 		sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
-	}
 
 	// We will put cross' lines there too.
 	sizeSum += cross.lineCount;
 
 	auto convertedObjects = new StereoLine[sizeSum];
 	size_t k = 0;
-	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
-	{
-		if (sizes[i] <= 0)
-			continue;
 
-		LineConverter::Convert(scene.objects[i], convertedObjects + k);
-	}
+	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
+		if (sizes[i] > 0)
+			LineConverter::Convert(scene.objects[i], convertedObjects + k);
+
+	// Put cross' lines
 	for (size_t i = 0; i < cross.lineCount; i++, k++)
-	{
 		convertedObjects[k] = cross.lines[i];
-	}
 
 	renderPipeline.Pipeline(&convertedObjects, sizeSum, scene);
 	//renderPipeline.Pipeline(&cross.lines, cross.lineCount, scene);
@@ -203,15 +199,10 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
+	
+	PointPenEditingTool<StereoPolyLineT> lineDrawingEditingTool;
 
-	//PointPenToolWindow<StereoPolyLine> polyLineDrawingWindow;
-	//DrawingInstrument<StereoPolyLine> polyLineDrawingInstrument;
-
-	//polyLineDrawingWindow.instrument = &polyLineDrawingInstrument;
-
-	PointPenEditingTool<StereoPolyLine> lineDrawingEditingTool;
-
-	PointPenToolWindow<StereoPolyLine> pointPenToolWindow;
+	PointPenToolWindow<StereoPolyLineT> pointPenToolWindow;
 	pointPenToolWindow.tool = &lineDrawingEditingTool;
 
 	CreatingToolWindow creatingToolWindow;
@@ -265,7 +256,8 @@ int main(int, char**)
 
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
-	
+	lineDrawingEditingTool.BindCross(&cross);
+
 	if (!gui.Init())
 		return false;
 

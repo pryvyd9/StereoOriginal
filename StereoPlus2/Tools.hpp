@@ -107,14 +107,15 @@ public:
 	}
 };
 
-template<typename T>
+template<ObjectType type>
 class PointPenEditingTool : EditingTool {
+	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
-	std::vector<glm::vec3> pointsSelected;
-	std::vector<glm::vec3*> selectedPoints;
 
+	//std::vector<glm::vec3> pointsSelected;
+	std::vector<glm::vec3*> existingPointsSelected;
 
-	template<typename T>
+	/*template<typename T>
 	bool SelectPoint() {
 		std::cout << "Not Supported PointPenEditingTool template type" << std::endl;
 		return false;
@@ -127,11 +128,84 @@ class PointPenEditingTool : EditingTool {
 
 		selectedPoints.push_back(&((StereoPolyLine*)target)->Points.back());
 		return true;
+	}*/
+
+	template<ObjectType type>
+	void ProcessInput(Input* input) {
+		std::cout << "Unsupported Editing Tool target Type" << std::endl;
+	}
+	template<>
+	void ProcessInput<StereoPolyLineT>(Input* input) {
+		if (input->IsPressed(Key::Enter))
+		{
+			auto selectedPointCount = existingPointsSelected.size();
+
+			if (existingPointsSelected.size() == 0)
+			{
+				SelectPoint<StereoPolyLine>(input);
+			}
+
+			AddPoint<StereoPolyLine>(input);
+
+			int i = 0;
+
+			return;
+		}
+
+		if (existingPointsSelected.size() > 1)
+		{
+			*existingPointsSelected.back() = cross->Position;
+		}
+		
+	}
+
+	template<typename T>
+	void SelectPoint(Input* input) {
+		std::cout << "Unsupported Editing Tool target Type" << std::endl;
+	}
+	template<>
+	void SelectPoint<StereoPolyLine>(Input* input) {
+		auto target = (StereoPolyLine*)this->target;
+
+		auto crossViewSurfacePos = glm::vec2(cross->Position.x, cross->Position.y);
+
+		auto closestPoint = &target->Points[0];
+		auto viewSurfacePos = *(glm::vec2*)closestPoint;
+		double minDistance = glm::distance(crossViewSurfacePos, viewSurfacePos);
+
+		for (size_t i = 1; i < target->Points.size(); i++)
+		{
+			viewSurfacePos = *(glm::vec2*)&target->Points[i];
+			auto currentDistance = glm::distance(crossViewSurfacePos, viewSurfacePos);
+			if (minDistance > currentDistance)
+				closestPoint = &target->Points[0];
+		}
+
+		existingPointsSelected.push_back(closestPoint);
+	}
+
+	template<typename T>
+	void AddPoint(Input* input) {
+		std::cout << "Unsupported Editing Tool target Type" << std::endl;
+	}
+	template<>
+	void AddPoint<StereoPolyLine>(Input* input) {
+		auto target = (StereoPolyLine*)this->target;
+		auto h = &target->Points.back();
+
+		target->Points.push_back(cross->Position);
+
+		existingPointsSelected.push_back(&target->Points.back());
 	}
 
 public:
 	virtual bool SelectTarget(SceneObject* obj) {
-		target = (T*)obj;
+		if (obj->GetType() != type)
+		{
+			std::cout << "Invalid Object passed to PointPenEditingTool" << std::endl;
+			return true;
+		}
+		target = obj;
 		return true;
 	}
 	virtual bool ReleaseTarget() {
@@ -139,22 +213,22 @@ public:
 		return true;
 	}
 	virtual bool BindInput(KeyBinding* keyBinding) {
-		//keyBinding->AddHandler([](Input * input) {
-		//	if (input->IsPressed(GLFW_MOUSE_BUTTON_))
-		//	//if (input->IsPressed(GLFW_MOUSE_BUTTON_LEFT))
-		//	{
-		//		int i = 0;
-		//	}
-		//});
-		
+		keyBinding->AddHandler([this](Input * input) { this->ProcessInput<type>(input); });
+
 		return EditingTool::BindInput(keyBinding);
 	}
-
-
-
-	bool SelectPoint() {
-		return SelectPoint<T>();
+	bool BindCross(Cross* cross) {
+		this->cross = cross;
+		return true;
 	}
+	/*bool BindSceneObjects(std::vector<SceneObject*>* sceneObjects) {
+		this->sceneObjects = sceneObjects;
+		return true;
+	}*/
+
+	/*bool SelectPoint() {
+		return SelectPoint<T>();
+	}*/
 
 	bool AddPoint() {
 		return true;

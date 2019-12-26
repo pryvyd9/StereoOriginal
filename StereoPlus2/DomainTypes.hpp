@@ -255,7 +255,7 @@ public:
 	glm::vec2 viewCenter = glm::vec2(0, 0);
 	glm::vec3 transformVec = glm::vec3(0, 0, 0);
 
-	glm::vec3 position = glm::vec3(0, 3, -10);
+	glm::vec3 position = glm::vec3(0, 0, -10);
 	glm::vec3 left = glm::vec3(1, 0, 0);
 	glm::vec3 up = glm::vec3(0, 1, 0);
 	glm::vec3 forward = glm::vec3(0, 0, -1);

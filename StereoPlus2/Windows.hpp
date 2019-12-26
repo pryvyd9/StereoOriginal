@@ -534,12 +534,12 @@ public:
 };
 
 
-template<typename T>
+template<ObjectType type>
 class PointPenToolWindow : Window
 {
 public:
 	SceneObject* target = nullptr;
-	PointPenEditingTool<T>* tool = nullptr;
+	PointPenEditingTool<type>* tool = nullptr;
 
 	virtual bool Init() {
 		if (tool == nullptr)
@@ -551,7 +551,7 @@ public:
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin(GetName<T>().c_str());
+		ImGui::Begin(GetName(type).c_str());
 
 		ImGui::Text(
 			target != nullptr
@@ -592,15 +592,26 @@ public:
 		return true;
 	}
 
-	template<typename T>
-	std::string GetName() {
-		return "Noname";
-	}
 
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case Group:
+		case Leaf:
+		case StereoLineT:
+			return "noname";
+		case StereoPolyLineT:
+			return "PolyLine";
+		default:
+			return "noname";
+		}
+		
+	}
+/*
 	template<>
 	std::string GetName<StereoPolyLine>() {
 		return "PolyLine";
-	}
+	}*/
 
 	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
 		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
