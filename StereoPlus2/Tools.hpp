@@ -136,12 +136,20 @@ class PointPenEditingTool : EditingTool {
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT>(Input* input) {
+		if (input->IsPressed(Key::Escape))
+		{
+			ReleaseTarget();
+			return;
+		}
+
+
 		if (input->IsPressed(Key::Enter))
 		{
 			auto selectedPointCount = existingPointsSelected.size();
 
 			if (existingPointsSelected.size() == 0)
 			{
+				
 				SelectPoint<StereoPolyLine>(input);
 			}
 
@@ -167,7 +175,12 @@ class PointPenEditingTool : EditingTool {
 	void SelectPoint<StereoPolyLine>(Input* input) {
 		auto target = (StereoPolyLine*)this->target;
 
+
 		auto crossViewSurfacePos = glm::vec2(cross->Position.x, cross->Position.y);
+		if (target->Points.size() == 0)
+		{
+			target->Points.push_back(cross->Position);
+		}
 
 		auto closestPoint = &target->Points[0];
 		auto viewSurfacePos = *(glm::vec2*)closestPoint;
@@ -209,9 +222,24 @@ public:
 		return true;
 	}
 	virtual bool ReleaseTarget() {
-		target = nullptr;
+		ReleaseTarget<type>();
+		
 		return true;
 	}
+	template<ObjectType type>
+	void ReleaseTarget() {
+
+	}
+
+	template<>
+	void ReleaseTarget <StereoPolyLineT>() {
+		auto target = (StereoPolyLine*)this->target;
+		target->Points.pop_back();
+		target = nullptr;
+
+		existingPointsSelected.clear();
+	}
+
 	virtual bool BindInput(KeyBinding* keyBinding) {
 		keyBinding->AddHandler([this](Input * input) { this->ProcessInput<type>(input); });
 
