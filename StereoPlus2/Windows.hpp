@@ -548,16 +548,14 @@ public:
 			return false;
 		}
 
+		tool->onTargetReleased.push_back([t = &target] { *t = nullptr; });
+
 		return true;
 	}
 	virtual bool Design() {
 		ImGui::Begin(GetName(type).c_str());
 
-		ImGui::Text(
-			target != nullptr
-			? target->Name.c_str()
-			: "Empty"
-		);
+		ImGui::Text(GetName(type, target).c_str());
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -574,8 +572,12 @@ public:
 				else {
 					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
 
-					target = (*objectPointer.source)[objectPointer.pos];
-					tool->SelectTarget(target);
+					auto target = (*objectPointer.source)[objectPointer.pos];
+					
+					if (!tool->SelectTarget(target))
+						return false;
+
+					this->target = target;
 				}
 
 				// Clear selected scene object buffer.
@@ -605,13 +607,13 @@ public:
 		default:
 			return "noname";
 		}
-		
 	}
-/*
-	template<>
-	std::string GetName<StereoPolyLine>() {
-		return "PolyLine";
-	}*/
+	std::string GetName(ObjectType type, SceneObject* obj) {
+		return
+			target != nullptr && type == obj->GetType()
+			? target->Name 
+			: "Empty";
+	}
 
 	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
 		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
@@ -620,72 +622,3 @@ public:
 };
 
 
-
-//template<typename T>
-//class EditingToolWindow : Window
-//{
-//public:
-//	//DrawingInstrument<T>* instrument = nullptr;
-//	SceneObject* target = nullptr;
-//	LineDrawingEditingTool* tool;
-//
-//	virtual bool Init() {
-//		return true;
-//	}
-//	virtual bool Design() {
-//		ImGui::Begin(GetName<T>().c_str());
-//
-//		ImGui::Text(
-//			target != nullptr
-//			? target->Name.c_str()
-//			: "Empty"
-//		);
-//
-//		if (ImGui::BeginDragDropTarget())
-//		{
-//			ImGuiDragDropFlags target_flags = 0;
-//			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-//			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-//			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
-//			{
-//				auto objectPointers = GetBuffer(payload->Data);
-//				
-//				if (objectPointers->size() > 1) {
-//					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
-//				}
-//				else {
-//					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
-//
-//					target = (*objectPointer.source)[objectPointer.pos];
-//					tool->ApplyObject(target);
-//				}
-//
-//				// Clear selected scene object buffer.
-//				objectPointers->clear();
-//			}
-//			ImGui::EndDragDropTarget();
-//		}
-//
-//		ImGui::End();
-//
-//		return true;
-//	}
-//	virtual bool OnExit() {
-//		return true;
-//	}
-//
-//	template<typename T>
-//	std::string GetName() {
-//		return "Noname";
-//	}
-//
-//	template<>
-//	std::string GetName<StereoPolyLine>() {
-//		return "PolyLine";
-//	}
-//
-//	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-//		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
-//	}
-//
-//};

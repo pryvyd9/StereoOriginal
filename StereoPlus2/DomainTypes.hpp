@@ -3,6 +3,7 @@
 
 #include <set>
 
+
 enum ObjectType {
 	Group,
 	Leaf,
@@ -250,15 +251,40 @@ public:
 
 class StereoCamera : public LeafObject
 {
+	/*struct ScreenWorldConverter {
+		glm::vec3 GetLeft(glm::vec3 pos) {
+			float denominator = position.z - pos.z - transformVec.z;
+			return glm::vec3(
+				(pos.x * position.z - (pos.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator,
+				(position.z * (transformVec.y - pos.y) + position.y * (pos.z + transformVec.z)) / denominator,
+				0
+			);
+		}
+
+		glm::vec3 GetRight(glm::vec3 pos) {
+			float denominator = position.z - pos.z - transformVec.z;
+			return glm::vec3(
+				(pos.x * position.z - (pos.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator,
+				(position.z * (transformVec.y - pos.y) + position.y * (pos.z + transformVec.z)) / denominator,
+				0
+			);
+		}
+
+
+
+	}converter;*/
+
+
+
 public:
 	glm::vec2* viewSize = nullptr;
 	glm::vec2 viewCenter = glm::vec2(0, 0);
 	glm::vec3 transformVec = glm::vec3(0, 0, 0);
 
 	glm::vec3 position = glm::vec3(0, 3, -10);
-	glm::vec3 left = glm::vec3(1, 0, 0);
-	glm::vec3 up = glm::vec3(0, 1, 0);
-	glm::vec3 forward = glm::vec3(0, 0, -1);
+	//glm::vec3 left = glm::vec3(1, 0, 0);
+	//glm::vec3 up = glm::vec3(0, 1, 0);
+	//glm::vec3 forward = glm::vec3(0, 0, -1);
 
 
 	float eyeToCenterDistance = 0.5;
@@ -291,6 +317,9 @@ public:
 		);
 	}
 
+	//glm::vec3 GetWorld(glm::vec3 screenPos) {
+
+	//}
 
 	Line GetLeft(StereoLine* stereoLine)
 	{

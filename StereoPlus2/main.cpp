@@ -117,6 +117,8 @@ void testCreationTool(Scene* scene) {
 //}
 
 
+
+
 bool LoadScene(Scene* scene) {
 
 	auto root = new GroupObject();
@@ -134,8 +136,8 @@ bool LoadScene(Scene* scene) {
 	g1->Name = "Group1";
 	g1->Children.push_back(p1);
 	p1->Points.push_back(glm::vec3(0, 0.2, 1));
-	p1->Points.push_back(glm::vec3(0, -0.2, 1.2));
-	p1->Points.push_back(glm::vec3(-0.5, -0.2, 0.8));
+	p1->Points.push_back(glm::vec3(0, -0.2, 1));
+	p1->Points.push_back(glm::vec3(-0.5, -0.2, 1));
 	p1->Name = "PolyLine1";
 
 	g2->Name = "Group2";
@@ -182,7 +184,6 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 		convertedObjects[k] = cross.lines[i];
 
 	renderPipeline.Pipeline(&convertedObjects, sizeSum, scene);
-	//renderPipeline.Pipeline(&cross.lines, cross.lineCount, scene);
 
 	// Free memory after the lines are drawn.
 	auto rel1cmd = new FuncCommand();

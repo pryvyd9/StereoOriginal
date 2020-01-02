@@ -51,6 +51,7 @@ namespace Key {
 	const KeyPair N7 = KeyboardKey(GLFW_KEY_KP_7);
 	const KeyPair N8 = KeyboardKey(GLFW_KEY_KP_8);
 	const KeyPair N9 = KeyboardKey(GLFW_KEY_KP_9);
+	const KeyPair NEnter = KeyboardKey(GLFW_KEY_KP_ENTER);
 
 	// Special
 	const KeyPair ControlLeft	= KeyboardKey(GLFW_KEY_LEFT_CONTROL	);
@@ -119,9 +120,9 @@ class Input
 public:
 	GLFWwindow* window;
 
-	std::vector<std::function<void()>> handlers;
+	std::map<size_t, std::function<void()>> handlers;
 
-
+	// Is pressed
 	bool IsPressed(Key::KeyPair key)
 	{
 		EnsureKeyStatusExists(key);
@@ -129,6 +130,7 @@ public:
 		return keyStatuses[key]->isPressed;
 	}
 
+	// Was pressed down
 	bool IsDown(Key::KeyPair key)
 	{
 		EnsureKeyStatusExists(key);
@@ -136,6 +138,7 @@ public:
 		return keyStatuses[key]->isDown;
 	}
 
+	// Was lift up
 	bool IsUp(Key::KeyPair key)
 	{
 		EnsureKeyStatusExists(key);
@@ -193,7 +196,7 @@ public:
 		// Handle OnInput actions
 		for (auto handler : handlers)
 		{
-			handler();
+			handler.second();
 		}
 	}
 
@@ -213,8 +216,18 @@ public:
 
 class KeyBinding
 {
-	void AddHandler(std::function<void()> func) {
-		input->handlers.push_back(func);
+	size_t AddHandler(std::function<void()> func) {
+
+		static size_t id = 0;
+
+		auto cmd = new FuncCommand();
+		cmd->func = [id = id, input = input, func = func] {
+			input->handlers[id] = func;
+		};
+
+		//input->handlers[id] = func;
+
+		return id++;
 	}
 
 
@@ -229,8 +242,16 @@ public:
 	float crossMinSize = 0.001;
 	float crossMaxSize = 1;
 
-	void AddHandler(std::function<void(Input*)> func) {
-		input->handlers.push_back([i = input, func] { func(i); });
+	size_t AddHandler(std::function<void(Input*)> func) {
+		return AddHandler([i = input, func] { func(i); });
+	}
+
+	void RemoveHandler(size_t id) {
+		auto cmd = new FuncCommand();
+		cmd->func = [id = id, input = input] {
+			input->handlers.erase(id);
+		};
+		//input->handlers.erase(id);
 	}
 
 

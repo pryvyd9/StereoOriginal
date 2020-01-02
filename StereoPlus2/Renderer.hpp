@@ -190,11 +190,14 @@ public:
 
 		glEnable(GL_STENCIL_TEST);
 
-		glStencilMask(0x2);
-		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawLineRight(config.camera->GetRight(&(*lines)[0]));
-		//DrawLine(config.camera->GetRight(&(*lines)[0]));
+		// Crutch
+		{
+			glStencilMask(0x2);
+			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineRight(config.camera->GetRight(&(*lines)[0]));
+			//DrawLine(config.camera->GetRight(&(*lines)[0]));
+		}
 
 		for (size_t i = 0; i < lineCount; i++)
 		{
@@ -210,11 +213,14 @@ public:
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 			DrawLineRight(config.camera->GetRight(&(*lines)[i]));
 		}
-
-		glStencilMask(0x1);
-		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawLineLeft(config.camera->GetLeft(&(*lines)[lineCount-1]));
+		
+		// Crutch
+		{
+			glStencilMask(0x1);
+			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineLeft(config.camera->GetLeft(&(*lines)[lineCount - 1]));
+		}
 
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.

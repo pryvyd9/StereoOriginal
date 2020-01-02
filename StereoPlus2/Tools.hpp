@@ -6,7 +6,7 @@
 #include "Input.hpp"
 #include <map>
 #include <stack>
-
+#include <vector>
 
 
 class Tool {
@@ -96,6 +96,7 @@ public:
 
 
 class EditingTool : Tool {
+protected:
 	KeyBinding* keyBinding = nullptr;
 public:
 	virtual bool SelectTarget(SceneObject* obj) = 0;
@@ -108,27 +109,15 @@ public:
 };
 
 template<ObjectType type>
-class PointPenEditingTool : EditingTool {
+class PointPenEditingTool : public EditingTool {
+	size_t handlerId;
+
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
 
-	//std::vector<glm::vec3> pointsSelected;
+
 	std::vector<glm::vec3*> existingPointsSelected;
 
-	/*template<typename T>
-	bool SelectPoint() {
-		std::cout << "Not Supported PointPenEditingTool template type" << std::endl;
-		return false;
-	}
-
-	template<>
-	bool SelectPoint<StereoPolyLine>() {
-		if (selectedPoints.size() > 0)
-			selectedPoints.clear();
-
-		selectedPoints.push_back(&((StereoPolyLine*)target)->Points.back());
-		return true;
-	}*/
 
 	template<ObjectType type>
 	void ProcessInput(Input* input) {
@@ -136,14 +125,14 @@ class PointPenEditingTool : EditingTool {
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT>(Input* input) {
-		if (input->IsPressed(Key::Escape))
+		if (input->IsDown(Key::Escape))
 		{
 			ReleaseTarget();
 			return;
 		}
 
 
-		if (input->IsPressed(Key::Enter))
+		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
 		{
 			auto selectedPointCount = existingPointsSelected.size();
 
@@ -164,6 +153,8 @@ class PointPenEditingTool : EditingTool {
 		{
 			*existingPointsSelected.back() = cross->Position;
 		}
+
+		
 		
 	}
 
@@ -212,20 +203,41 @@ class PointPenEditingTool : EditingTool {
 	}
 
 public:
+	std::vector<std::function<void()>> onTargetReleased;
+
+
 	virtual bool SelectTarget(SceneObject* obj) {
+		if (target != nullptr && !ReleaseTarget())
+			return false;
+
+		if (keyBinding == nullptr)
+		{
+			std::cout << "KeyBinding wasn't assigned" << std::endl;
+			return false;
+		}
+
 		if (obj->GetType() != type)
 		{
 			std::cout << "Invalid Object passed to PointPenEditingTool" << std::endl;
 			return true;
 		}
 		target = obj;
+
+		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput<type>(input); });
+
 		return true;
 	}
 	virtual bool ReleaseTarget() {
 		ReleaseTarget<type>();
-		
+
+		for (auto func : onTargetReleased)
+			func();
+
+		keyBinding->RemoveHandler(handlerId);
+
 		return true;
 	}
+
 	template<ObjectType type>
 	void ReleaseTarget() {
 
@@ -234,74 +246,23 @@ public:
 	template<>
 	void ReleaseTarget <StereoPolyLineT>() {
 		auto target = (StereoPolyLine*)this->target;
-		target->Points.pop_back();
-		target = nullptr;
+		
+		if (target->Points.size() > 0)
+			target->Points.pop_back();
+
+		this->target = nullptr;
 
 		existingPointsSelected.clear();
 	}
 
-	virtual bool BindInput(KeyBinding* keyBinding) {
-		keyBinding->AddHandler([this](Input * input) { this->ProcessInput<type>(input); });
-
-		return EditingTool::BindInput(keyBinding);
-	}
 	bool BindCross(Cross* cross) {
 		this->cross = cross;
 		return true;
 	}
-	/*bool BindSceneObjects(std::vector<SceneObject*>* sceneObjects) {
-		this->sceneObjects = sceneObjects;
-		return true;
-	}*/
-
-	/*bool SelectPoint() {
-		return SelectPoint<T>();
-	}*/
 
 	bool AddPoint() {
 		return true;
 	}
 	
-};
-
-
-
-
-
-template<typename T>
-class DrawingInstrument {
-public:
-	SceneObject* obj = nullptr;
-
-	bool Start() {
-
-	}
-
-	void ApplyObject(SceneObject* obj) {
-		this->obj = obj;
-	}
-
-	void ApplyPosition(glm::vec3 pos) {
-
-	}
-
-	void ConfirmPoint() {
-		//obj->Points.push_back(pointPos);
-	}
-
-	void RemoveLastPoint() {
-		//obj->Points.pop_back();
-	}
-
-	void Finish() {
-
-	}
-
-	void Abort() {
-		/*	obj->Points.clear();
-
-			for (auto p : originalPoints)
-				obj->Points.push_back(p);*/
-	}
 };
 
