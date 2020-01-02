@@ -1,124 +1,100 @@
 #pragma once
 #include "GLLoader.hpp"
+#include "Commands.hpp"
 #include "Window.hpp"
+#include "Input.hpp"
+#include <map>
+
+
 
 class GUI
 {
-	
-
-
 #pragma region Private
-
-	// It seems to be garbage collected or something.
-	// When trying to free it it fails some imgui internal free function.
-	ImGuiIO* io;
-
-	const char* glsl_version;
-
-	static void glfw_error_callback(int error, const char* description)
-	{
-		fprintf(stderr, "Glfw Error %d: %s\n", error, description);
-	}
-
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
-	void processInput(GLFWwindow* window)
+	void ProcessInput(GLFWwindow* window)
 	{
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(window, true);
-
-		float cameraSpeed = 0.01;
-
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-			sceneConfig->camera.MoveRight(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-			sceneConfig->camera.MoveLeft(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-			sceneConfig->camera.MoveUp(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-			sceneConfig->camera.MoveDown(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
-			sceneConfig->camera.MoveForward(cameraSpeed);
-
-		if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
-			sceneConfig->camera.MoveBack(cameraSpeed);
+		input.ProcessInput();
 	}
 
-
-	bool InitGL()
+	bool DesignMainWindowDockingSpace()
 	{
-		// Setup window
-		glfwSetErrorCallback(glfw_error_callback);
-		if (!glfwInit())
-			return 1;
+		// We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
+		// because it would be confusing to have two docking targets within each others.
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+		ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->Pos);
+		ImGui::SetNextWindowSize(viewport->Size);
+		ImGui::SetNextWindowViewport(viewport->ID);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
-		// Decide GL+GLSL versions
-#if __APPLE__
-	// GL 3.2 + GLSL 150
-		const char* glsl_version = "#version 150";
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
-#else
-	// GL 3.0 + GLSL 130
-		glsl_version = "#version 130";
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
-#endif
-
-	// Create window with graphics context
-		window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
-		if (window == NULL)
-			return false;
-		glfwMakeContextCurrent(window);
-		glfwSwapInterval(1); // Enable vsync
-
-		// Initialize OpenGL loader
-#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
-		bool err = gl3wInit() != 0;
-#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLEW)
-		bool err = glewInit() != GLEW_OK;
-#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD)
-		bool err = gladLoadGL() == 0;
-#else
-		bool err = false; // If you use IMGUI_IMPL_OPENGL_LOADER_CUSTOM, your loader is likely to requires some form of initialization.
-#endif
-		if (err)
+		// Important: note that we proceed even if Begin() returns false (aka window is collapsed).
+		// This is because we want to keep our DockSpace() active. If a DockSpace() is inactive,
+		// all active windows docked into it will lose their parent and become undocked.
+		// We cannot preserve the docking relationship between an active window and an inactive docking, otherwise
+		// any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		
+		// Main window docking space cannot be closed.
+		bool open = true;
+		ImGui::Begin("MainWindowDockspace", &open, window_flags);
+		
+		// This place is a mystery for me.
+		// Need to investigate it.
+		// 2 is a magic number for now.
 		{
-			fprintf(stderr, "Failed to initialize OpenGL loader!\n");
-			return false;
+			ImGui::PopStyleVar();
+			ImGui::PopStyleVar(2);
 		}
+
+		// DockSpace
+		ImGuiIO& io = ImGui::GetIO();
+		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+
+		if (ImGui::BeginMenuBar())
+		{
+			if (ImGui::BeginMenu("File"))
+			{
+				if (ImGui::MenuItem("Open", "", false)) std::cout << "not implemented" << std::endl;
+				if (ImGui::MenuItem("Save", "", false)) std::cout << "not implemented" << std::endl;
+				if (ImGui::MenuItem("Exit", "", false)) return false;
+
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenuBar();
+		}
+
+		ImGui::End();
 
 		return true;
 	}
 
 #pragma endregion
 public:
+	// It seems to be garbage collected or something.
+	// When trying to free it it fails some imgui internal free function.
+	ImGuiIO* io;
+	const char* glsl_version;
 	GLFWwindow* window;
-
-	SceneConfiguration* sceneConfig;
+	Input input;
+	KeyBinding keyBinding;
+	Scene* scene;
 
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;
-	// TEST TEST TEST
-	// Our state
-	bool show_demo_window = true;
-	bool show_another_window = false;
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-	glm::vec2 renderSize = glm::vec3(1);
-
-
 
 	bool Init()
 	{
-		if (!InitGL())
+		keyBinding.input = &input;
+		input.window = window;
+
+		if (!input.Init()
+			|| !keyBinding.Init())
 			return false;
 
 		// Setup Dear ImGui context
@@ -163,58 +139,22 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		//IM_ASSERT(font != NULL);
 
+		for (auto window : windows)
+			if (!window->Init())
+				return false;
+
 		return true;
 	}
 
-
-
 	bool Design()
 	{
+		// Show main window docking space
+		if (!DesignMainWindowDockingSpace())
+			return false;
 
 		for (Window* window : windows)
-		{
 			if (!window->Design())
-			{
 				return false;
-			}
-		}
-
-		//// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-		//if (show_demo_window)
-		//	ImGui::ShowDemoWindow(&show_demo_window);
-
-		//// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-		//{
-		//	static float f = 0.0f;
-		//	static int counter = 0;
-
-		//	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-		//	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-		//	ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-		//	ImGui::Checkbox("Another Window", &show_another_window);
-
-		//	ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-		//	ImGui::ColorEdit3("clear color", (float*)& clear_color); // Edit 3 floats representing a color
-
-		//	if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-		//		counter++;
-		//	ImGui::SameLine();
-		//	ImGui::Text("counter = %d", counter);
-
-		//	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-		//	ImGui::End();
-		//}
-
-		//// 3. Show another simple window.
-		//if (show_another_window)
-		//{
-		//	ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-		//	ImGui::Text("Hello from another window!");
-		//	if (ImGui::Button("Close Me"))
-		//		show_another_window = false;
-		//	ImGui::End();
-		//}
 
 		return true;
 	}
@@ -230,6 +170,7 @@ public:
 			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
 			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 			glfwPollEvents();
+			ProcessInput(window);
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL3_NewFrame();
@@ -237,16 +178,13 @@ public:
 			ImGui::NewFrame();
 
 			if (!Design())
-			{
 				return false;
-			}
 
 			// Rendering
 			ImGui::Render();
 			int display_w, display_h;
 			glfwGetFramebufferSize(window, &display_w, &display_h);
 			glViewport(0, 0, display_w, display_h);
-			glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 			glClear(GL_COLOR_BUFFER_BIT);
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -263,7 +201,9 @@ public:
 
 			glfwSwapBuffers(window);
 
-			processInput(window);
+			if (!Command::ExecuteAll())
+				return false;
+
 		}
 
 		return true;
@@ -272,13 +212,9 @@ public:
 	bool OnExit()
 	{
 		for (Window* window : windows)
-		{
 			if (!window->OnExit())
-			{
 				return false;
-			}
-		}
-
+		
 		// Cleanup
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
@@ -290,8 +226,6 @@ public:
 		return true;
 	}
 
-	GUI() 
-	{
-	}
+	
 };
 

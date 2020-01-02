@@ -127,7 +127,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CustomRenderWindow.hpp" />
+    <ClCompile Include="Windows.hpp">
+      <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MinimalRebuild>
+    </ClCompile>
     <ClCompile Include="include\GL\gl3w.c" />
     <ClCompile Include="include\imgui\imgui.cpp" />
     <ClCompile Include="include\imgui\imgui_demo.cpp" />
@@ -138,6 +140,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Commands.hpp" />
     <ClInclude Include="DomainTypes.hpp" />
     <ClInclude Include="GLLoader.hpp" />
     <ClInclude Include="GUI.hpp" />
@@ -151,13 +154,17 @@
     <ClInclude Include="include\imgui\imstb_rectpack.h" />
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
-    <ClInclude Include="SceneConfig.hpp" />
+    <ClInclude Include="Input.hpp" />
+    <ClInclude Include="Renderer.hpp" />
+    <ClInclude Include="Tools.hpp" />
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert" />
     <None Include="shaders\Left.frag" />
     <None Include="shaders\Right.frag" />
+    <None Include="shaders\WhiteSquare.frag" />
+    <None Include="shaders\zero.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

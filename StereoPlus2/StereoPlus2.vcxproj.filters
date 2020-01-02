@@ -48,7 +48,7 @@
     <ClCompile Include="include\GL\gl3w.c">
       <Filter>gl3w</Filter>
     </ClCompile>
-    <ClCompile Include="CustomRenderWindow.hpp">
+    <ClCompile Include="Windows.hpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -95,8 +95,17 @@
     <ClInclude Include="GLLoader.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="SceneConfig.hpp">
+    <ClInclude Include="Renderer.hpp">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Commands.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Tools.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Input.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -107,6 +116,12 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\Right.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\WhiteSquare.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\zero.frag">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
