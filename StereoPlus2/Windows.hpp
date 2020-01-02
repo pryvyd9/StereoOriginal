@@ -210,9 +210,7 @@ public:
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
 
 		ImGui::InputFloat3("transformVec", (float*)& obj->transformVec, "%f", 0);
-		ImGui::InputFloat3("left", (float*)& obj->left, "%f", 0);
-		ImGui::InputFloat3("up", (float*)& obj->up, "%f", 0);
-		ImGui::InputFloat3("forward", (float*)& obj->forward, "%f", 0);
+
 
 		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& obj->eyeToCenterDistance, 0, 1, "%.2f", 1);
 		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
