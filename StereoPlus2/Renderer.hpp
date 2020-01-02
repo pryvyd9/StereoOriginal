@@ -190,13 +190,21 @@ public:
 
 		glEnable(GL_STENCIL_TEST);
 
+		// Anti aliasing
+		{
+			//glEnable(GL_LINE_SMOOTH);
+			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			//glEnable(GL_BLEND);
+			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+		}
+
+
 		// Crutch
 		{
 			glStencilMask(0x2);
 			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 			DrawLineRight(config.camera->GetRight(&(*lines)[0]));
-			//DrawLine(config.camera->GetRight(&(*lines)[0]));
 		}
 
 		for (size_t i = 0; i < lineCount; i++)
@@ -242,6 +250,9 @@ public:
 		}
 
 		DrawSquare(whiteSquare);
+
+		// Anti aliasing
+		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
 
 		glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
