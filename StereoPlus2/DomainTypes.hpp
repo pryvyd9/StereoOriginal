@@ -1,10 +1,15 @@
 #pragma once
 #include "GLLoader.hpp"
+
 #include <set>
+
 
 enum ObjectType {
 	Group,
 	Leaf,
+
+	StereoLineT,
+	StereoPolyLineT,
 };
 
 class SceneObject {
@@ -43,7 +48,6 @@ struct Line
 {
 	glm::vec3 Start, End;
 
-	//static const uint_fast8_t CoordinateCount = 6;
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
 	GLuint VBO, VAO;
@@ -54,13 +58,26 @@ struct StereoLine : LeafObject
 {
 	glm::vec3 Start, End;
 
-	//static const uint_fast8_t CoordinateCount = 6;
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
-	//GLuint VBO, VAO;
-	GLuint VBOLeft, VAOLeft;
-	GLuint VBORight, VAORight;
-	GLuint ShaderLeft, ShaderRight;
+	virtual ObjectType GetType() {
+		return StereoLineT;
+	}
+};
+
+struct StereoPolyLine : LeafObject {
+	std::vector<glm::vec3> Points;
+
+	StereoPolyLine() {}
+
+	StereoPolyLine(StereoPolyLine& copy) {
+		for (auto p : copy.Points)
+			Points.push_back(p);
+	}
+
+	virtual ObjectType GetType() {
+		return StereoPolyLineT;
+	}
 };
 
 struct Triangle
@@ -161,104 +178,42 @@ public:
 
 		return true;
 	}
-
-	//glm::vec3 leftTop = glm::vec3(-1, -1, 0);
-	//glm::vec3 leftBottom = glm::vec3(-1, 1, 0);
-	//glm::vec3 rightTop = glm::vec3(-1, -1, 0);
-	//glm::vec3 rightBottom = glm::vec3(-1, -1, 0);
 };
 
 class Cross : public LeafObject
 {
-	std::string vertexShaderSource;
-	std::string fragmentShaderSourceLeft;
-	std::string fragmentShaderSourceRight;
 	bool isCreated = false;
-
-
-	void CreateShaders(StereoLine& line, const char* vertexShaderSource, const char* fragmentShaderSourceLeft, const char* fragmentShaderSourceRight)
-	{
-		line.ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-		line.ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-	}
-
-	void CreateBuffers(StereoLine& line)
-	{
-		glGenVertexArrays(1, &line.VAOLeft);
-		glGenBuffers(1, &line.VBOLeft);
-		glGenVertexArrays(1, &line.VAORight);
-		glGenBuffers(1, &line.VBORight);
-	}
 
 	bool CreateLines()
 	{
-		const char* vertexShaderSource = this->vertexShaderSource.c_str();
-		const char* fragmentShaderSourceLeft = this->fragmentShaderSourceLeft.c_str();
-		const char* fragmentShaderSourceRight = this->fragmentShaderSourceRight.c_str();
+		lines[0].Start = Position;
+		lines[0].End = Position;
+		lines[0].Start.x -= size;
+		lines[0].End.x += size;
 
-		{
+		lines[1].Start = Position;
+		lines[1].End = Position;
+		lines[1].Start.y -= size;
+		lines[1].End.y += size;
 
-			lines[0].Start = Position;
-			lines[0].End = Position;
-			lines[0].Start.x -= size;
-			lines[0].End.x += size;
+		lines[2].Start = Position;
+		lines[2].End = Position;
+		lines[2].Start.z -= size;
+		lines[2].End.z += size;
 
-			CreateShaders(lines[0], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(lines[0]);
-		}
-		{
-
-			lines[1].Start = Position;
-			lines[1].End = Position;
-			lines[1].Start.y -= size;
-			lines[1].End.y += size;
-
-			CreateShaders(lines[1], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(lines[1]);
-
-		}
-		{
-			lines[2].Start = Position;
-			lines[2].End = Position;
-			lines[2].Start.z -= size;
-			lines[2].End.z += size;
-
-			CreateShaders(lines[2], vertexShaderSource, fragmentShaderSourceLeft, fragmentShaderSourceRight);
-			CreateBuffers(lines[2]);
-
-		}
 		return true;
 	}
 
 
 	bool RefreshLines()
 	{
-		{
-			lines[0].Start = Position;
-			lines[0].End = Position;
-			lines[0].Start.x -= size;
-			lines[0].End.x += size;
-		}
-		{
-
-			lines[1].Start = Position;
-			lines[1].End = Position;
-			lines[1].Start.y -= size;
-			lines[1].End.y += size;
-		}
-		{
-			lines[2].Start = Position;
-			lines[2].End = Position;
-			lines[2].Start.z -= size;
-			lines[2].End.z += size;
-		}
-		return true;
+		return CreateLines();
 	}
 
 public:
 	glm::vec3 Position = glm::vec3(0);
 
-	StereoLine lines[3];
+	StereoLine* lines;
 	const uint_fast8_t lineCount = 3;
 
 	float size = 0.1;
@@ -277,11 +232,13 @@ public:
 
 	bool Init()
 	{
-		vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
-		fragmentShaderSourceLeft = GLLoader::ReadShader("shaders/Left.frag");
-		fragmentShaderSourceRight = GLLoader::ReadShader("shaders/Right.frag");
+		lines = new StereoLine[lineCount];
 
 		return CreateLines();
+	}
+
+	~Cross() {
+		delete[] lines;
 	}
 };
 
@@ -295,10 +252,6 @@ public:
 	glm::vec3 transformVec = glm::vec3(0, 0, 0);
 
 	glm::vec3 position = glm::vec3(0, 3, -10);
-	glm::vec3 left = glm::vec3(1, 0, 0);
-	glm::vec3 up = glm::vec3(0, 1, 0);
-	glm::vec3 forward = glm::vec3(0, 0, -1);
-
 
 	float eyeToCenterDistance = 0.5;
 
@@ -330,16 +283,12 @@ public:
 		);
 	}
 
-
 	Line GetLeft(StereoLine* stereoLine)
 	{
 		Line line;
 
 		line.Start = PreserveAspectRatio(GetLeft(stereoLine->Start));
 		line.End = PreserveAspectRatio(GetLeft(stereoLine->End));
-		line.VAO = stereoLine->VAOLeft;
-		line.VBO = stereoLine->VBOLeft;
-		line.ShaderProgram = stereoLine->ShaderLeft;
 
 		return line;
 	}
@@ -350,9 +299,6 @@ public:
 
 		line.Start = PreserveAspectRatio(GetRight(stereoLine->Start));
 		line.End = PreserveAspectRatio(GetRight(stereoLine->End));
-		line.VAO = stereoLine->VAORight;
-		line.VBO = stereoLine->VBORight;
-		line.ShaderProgram = stereoLine->ShaderRight;
 
 		return line;
 	}
@@ -403,7 +349,7 @@ public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
-	//std::set<ObjectPointer> selectedObjects;
+	// Scene selected object buffer.
 	std::set<ObjectPointer, ObjectPointerComparator> selectedObjects;
 	GroupObject* root;
 	StereoCamera* camera;
@@ -413,9 +359,70 @@ public:
 	float whiteZPrecision = 0.1;
 	GLFWwindow* window;
 
+	bool Insert(std::vector<SceneObject*>* source, SceneObject* obj) {
+		objects.push_back(obj);
+		source->push_back(obj);
+		return true;
+	}
+
+	bool Delete(std::vector<SceneObject*>* source, SceneObject* obj) {
+		for (size_t i = 0; i < source->size(); i++)
+			if ((*source)[i] == obj)
+			{
+				for (size_t j = 0; i < objects.size(); j++)
+					if (objects[j] == obj) {
+						source->erase(source->begin() + i);
+						objects.erase(objects.begin() + j);
+						delete obj;
+						return true;
+					}
+			}
+
+		std::cout << "The object for deletion was not found" << std::endl;
+		return false;
+	}
 
 	~Scene() {
 		for (auto o : objects)
 			delete o;
 	}
 };
+
+
+//class ClipBoard {
+//
+//}
+
+//class SceneObjectClipBoard {
+//	static std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+//		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+//	}
+//
+//	static char* defaultName = "SceneObjects";
+//public:
+//
+//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(const char* name, ImGuiDragDropFlags target_flags) {
+//		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload(name, target_flags))
+//		{
+//			return GetBuffer(payload->Data);
+//		}
+//
+//		return nullptr;
+//	}
+//
+//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(ImGuiDragDropFlags target_flags) {
+//		return Pull(defaultName, target_flags);
+//	}
+//
+//	static void Pop(const char* name, ImGuiDragDropFlags target_flags) {
+//		Pull(name, target_flags)->clear();
+//	}
+//
+//	static void Pop(std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
+//		buffer->clear();
+//	}
+//
+//	static void Push(const char* name, std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
+//		ImGui::SetDragDropPayload(name, &buffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
+//	}
+//};

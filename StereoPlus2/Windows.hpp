@@ -3,7 +3,10 @@
 #include "Window.hpp"
 #include <functional>
 #include "DomainTypes.hpp"
+#include "Commands.hpp"
+#include "Tools.hpp"
 #include <set>
+#include <sstream>
 
 class CustomRenderWindow : Window
 {
@@ -207,9 +210,7 @@ public:
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
 
 		ImGui::InputFloat3("transformVec", (float*)& obj->transformVec, "%f", 0);
-		ImGui::InputFloat3("left", (float*)& obj->left, "%f", 0);
-		ImGui::InputFloat3("up", (float*)& obj->up, "%f", 0);
-		ImGui::InputFloat3("forward", (float*)& obj->forward, "%f", 0);
+
 
 		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& obj->eyeToCenterDistance, 0, 1, "%.2f", 1);
 		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
@@ -218,27 +219,14 @@ public:
 };
 
 
-class SceneObjectInspectorWindow : Window
+class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 {
-	enum Position
-	{
-		Top = 0x01,
-		Bottom = 0x10,
-		Center = 0x100,
-		Any = Top | Bottom | Center,
-	};
+	MoveCommand* moveCommand;
 
-	// Only one target is allowed as it's impossible 
-	// to move different selections to different targets in a frame's time.
-	struct MoveQueue {
-		bool isScheduled;
-		std::vector<SceneObject*>* target;
-		int targetPos;
-		std::set<ObjectPointer, ObjectPointerComparator>* items;
-		Position pos;
-	};
-
-	MoveQueue moveQueue;
+	static int& GetID() {
+		static int val = 0;
+		return val;
+	}
 
 public:
 	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
@@ -257,7 +245,7 @@ public:
 	}
 
 
-	Position GetPosition(int positionMask) {
+	MoveCommandPosition GetPosition(int positionMask) {
 		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
 		glm::vec2 size = ImGui::GetItemRectSize();
 		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
@@ -294,56 +282,25 @@ public:
 	}
 
 
-	bool MoveTo(std::vector<SceneObject*>& target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator>* items, Position pos) {
-
-		// Move single object
-		if (items->size() > 1)
+	void ScheduleMove(std::vector<SceneObject*>* target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator>* items, MoveCommandPosition pos) {
+		if (isCommandEmpty)
 		{
-			std::cout << "Moving of multiple objects is not implemented" << std::endl;
-			return false;
+			moveCommand = new MoveCommand();
+			isCommandEmpty = false;
 		}
 
-		// Find if item is present in target;
-
-		auto pointer = items->begin()._Ptr->_Myval;
-		auto item = (*pointer.source)[pointer.pos];
-
-		if (target.size() == 0)
-		{
-			target.push_back(item);
-			pointer.source->erase(pointer.source->begin() + pointer.pos);
-			return true;
-		}
-
-		if ((pos & Bottom) == Bottom)
-		{
-			targetPos++;
-		}
-
-		if (pointer.source == &target && targetPos < pointer.pos)
-		{
-			target.erase(target.begin() + pointer.pos);
-			target.insert(target.begin() + targetPos, (const size_t)1, item);
-
-			return true;
-		}
-
-		target.insert(target.begin() + targetPos, (const size_t)1, item);
-		pointer.source->erase(pointer.source->begin() + pointer.pos);
-
-		return true;
-	}
-
-	void ScheduleMove(std::vector<SceneObject*>* target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator>* items, Position pos) {
-		moveQueue.isScheduled = true;
-		moveQueue.target = target;
-		moveQueue.targetPos = targetPos;
-		moveQueue.items = items;
-		moveQueue.pos = pos;
+		moveCommand->SetReady();
+		moveCommand->target = target;
+		moveCommand->targetPos = targetPos;
+		moveCommand->items = items;
+		moveCommand->pos = pos;
+		moveCommand->caller = (IHolder*) this;
 	}
 
 
 	bool DesignRootNode(GroupObject* t) {
+		ImGui::PushID(GetID()++);
+
 		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf;
 		bool open = ImGui::TreeNodeEx(t->Name.c_str(), target_flags);
 
@@ -352,7 +309,7 @@ public:
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_NAME", target_flags))
+			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
 			{
 				ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), GetPosition(Center));
 			}
@@ -363,10 +320,15 @@ public:
 			if (!DesignTreeNode(t->Children[i], t->Children, i))
 			{
 				ImGui::TreePop();
+				ImGui::PopID();
+
 				return false;
 			}
 
 		ImGui::TreePop();
+		ImGui::PopID();
+
+		return true;
 	}
 
 	bool DesignTreeNode(SceneObject* t, std::vector<SceneObject*>& source, int pos) {
@@ -375,6 +337,8 @@ public:
 		case Group: 
 			return DesignTreeNode((GroupObject*)t, source, pos);
 		case Leaf:
+		case StereoLineT:
+		case StereoPolyLineT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		}
 
@@ -383,6 +347,8 @@ public:
 	}
 
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
+		ImGui::PushID(GetID()++);
+
 		ImGui::Indent(indent);
 		bool open = ImGui::TreeNode(t->Name.c_str());
 
@@ -399,7 +365,7 @@ public:
 			item.pos = pos;
 			selectedObjectsBuffer->emplace(item);
 
-			ImGui::SetDragDropPayload("DND_DEMO_NAME", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
+			ImGui::SetDragDropPayload("SceneObjects", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
 
 			ImGui::EndDragDropSource();
 		}
@@ -409,9 +375,9 @@ public:
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_NAME", target_flags))
+			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
 			{
-				Position relativePosition = GetPosition(Any);
+				MoveCommandPosition relativePosition = GetPosition(Any);
 				if (relativePosition == Center)
 					ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), relativePosition);
 				else
@@ -426,6 +392,8 @@ public:
 				if (!DesignTreeNode(t->Children[i], t->Children, i))
 				{
 					ImGui::TreePop();
+					ImGui::PopID();
+
 					return false;
 				}
 					   
@@ -434,10 +402,14 @@ public:
 
 	
 		ImGui::Unindent(indent);
+		ImGui::PopID();
+
 		return true;
 	}
 
 	bool DesignTreeLeaf(LeafObject* t, std::vector<SceneObject*>& source, int pos) {
+		ImGui::PushID(GetID()++);
+
 		ImGui::Indent(indent);
 
 		ImGui::Selectable(t->Name.c_str());
@@ -454,8 +426,9 @@ public:
 			item.source = &source;
 			item.pos = pos;
 			selectedObjectsBuffer->emplace(item);
-
-			ImGui::SetDragDropPayload("DND_DEMO_NAME", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
+			
+			//SceneObjectClipBoard::Push(selectedObjectsBuffer);
+			ImGui::SetDragDropPayload("SceneObjects", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
 
 			ImGui::EndDragDropSource();
 		}
@@ -465,7 +438,7 @@ public:
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_NAME", target_flags))
+			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
 			{
 				ScheduleMove(&source, pos, GetBuffer(payload->Data), GetPosition(Top | Bottom));
 			}
@@ -474,6 +447,8 @@ public:
 
 
 		ImGui::Unindent(indent);
+		ImGui::PopID();
+
 		return true;
 	}
 
@@ -483,17 +458,10 @@ public:
 	{
 		ImGui::Begin("Object inspector");                         
 
-		moveQueue.isScheduled = false;
+		// Reset elements' IDs.
+		GetID() = 0;
 
 		DesignRootNode(rootObject);
-
-		if (moveQueue.isScheduled)
-		{
-			if (!MoveTo(*moveQueue.target, moveQueue.targetPos, moveQueue.items, moveQueue.pos))
-				return false;
-
-			moveQueue.items->clear();
-		}
 
 		ImGui::End();
 		return true;
@@ -504,3 +472,151 @@ public:
 		return true;
 	}
 };
+
+
+class CreatingToolWindow : Window {
+	CreatingTool<StereoLine> lineTool;
+	CreatingTool<StereoPolyLine> polyLineTool;
+public:
+	Scene* scene = nullptr;
+
+	virtual bool Init() {
+		if (scene == nullptr)
+		{
+			std::cout << "Scene wasn't assigned" << std::endl;
+			return false;
+		}
+
+		lineTool.BindScene(scene);
+		lineTool.BindSource(&((GroupObject*)scene->objects[0])->Children);
+		lineTool.initFunc = [](SceneObject * o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "Line" << id++;
+			o->Name = ss.str();
+			return true;
+		};
+
+		polyLineTool.BindScene(scene);
+		polyLineTool.BindSource(&((GroupObject*)scene->objects[0])->Children);
+		polyLineTool.initFunc = [](SceneObject * o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "PolyLine" << id++;
+			o->Name = ss.str();
+			return true;
+		};
+
+		return true;
+	}
+
+	virtual bool Design() {
+		ImGui::Begin("Creating tool window");
+
+		if (ImGui::Button("Line")) {
+			lineTool.Create(nullptr);
+		}
+
+		if (ImGui::Button("PolyLine")) {
+			polyLineTool.Create(nullptr);
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+	
+	virtual bool OnExit() {
+		return true;
+	}
+};
+
+
+template<ObjectType type>
+class PointPenToolWindow : Window
+{
+public:
+	SceneObject* target = nullptr;
+	PointPenEditingTool<type>* tool = nullptr;
+
+	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+
+		tool->onTargetReleased.push_back([t = &target] { *t = nullptr; });
+
+		return true;
+	}
+	virtual bool Design() {
+		ImGui::Begin(GetName(type).c_str());
+
+		ImGui::Text(GetName(type, target).c_str());
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			ImGuiDragDropFlags target_flags = 0;
+			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			{
+				auto objectPointers = GetBuffer(payload->Data);
+
+				if (objectPointers->size() > 1) {
+					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+				}
+				else {
+					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
+
+					auto target = (*objectPointer.source)[objectPointer.pos];
+					
+					if (!tool->SelectTarget(target))
+						return false;
+
+					this->target = target;
+				}
+
+				// Clear selected scene object buffer.
+				objectPointers->clear();
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+
+
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case Group:
+		case Leaf:
+		case StereoLineT:
+			return "noname";
+		case StereoPolyLineT:
+			return "PolyLine";
+		default:
+			return "noname";
+		}
+	}
+	std::string GetName(ObjectType type, SceneObject* obj) {
+		return
+			target != nullptr && type == obj->GetType()
+			? target->Name 
+			: "Empty";
+	}
+
+	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+	}
+
+};
+
+

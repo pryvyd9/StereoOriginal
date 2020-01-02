@@ -140,6 +140,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Commands.hpp" />
     <ClInclude Include="DomainTypes.hpp" />
     <ClInclude Include="GLLoader.hpp" />
     <ClInclude Include="GUI.hpp" />
@@ -153,7 +154,9 @@
     <ClInclude Include="include\imgui\imstb_rectpack.h" />
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
+    <ClInclude Include="Input.hpp" />
     <ClInclude Include="Renderer.hpp" />
+    <ClInclude Include="Tools.hpp" />
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <ItemGroup>
