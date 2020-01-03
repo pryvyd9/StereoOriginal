@@ -110,17 +110,6 @@ class Renderer {
 		glGenBuffers(1, &VBORight);
 	}
 
-	//void BindLeft(Line* line) {
-	//	line->VBO = VBOLeft;
-	//	line->VAO = VAOLeft;
-	//	line->ShaderProgram = ShaderLeft;
-	//}
-
-	//void BindRight(Line* line) {
-	//	line->VBO = VBORight;
-	//	line->VAO = VAORight;
-	//	line->ShaderProgram = ShaderRight;
-	//}
 
 
 public:
