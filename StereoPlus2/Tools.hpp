@@ -119,6 +119,11 @@ class PointPenEditingTool : public EditingTool {
 	std::vector<glm::vec3*> existingPointsSelected;
 
 
+	template<typename T>
+	T* GetTarget() {
+		return (T*)this->target;
+	}
+
 	template<ObjectType type>
 	void ProcessInput(Input* input) {
 		std::cout << "Unsupported Editing Tool target Type" << std::endl;
@@ -130,25 +135,37 @@ class PointPenEditingTool : public EditingTool {
 			ReleaseTarget();
 			return;
 		}
+		auto points = &GetTarget<StereoPolyLine>()->Points;
+		auto pointsCount = points->size();
 
 		if (isImmediateMode)
 		{
-			auto selectedPointCount = existingPointsSelected.size();
 
 			if (existingPointsSelected.size() == 0)
 			{
-				SelectPoint<StereoPolyLine>(input);
+				// We need to select one point and create an additional point
+				// so that we can perform some optimizations.
+				//SelectPoint<StereoPolyLine>(input);
+					points->push_back(cross->Position);
+					if (pointsCount == 0)
+					{
+						existingPointsSelected.push_back(&(*points)[0]);
+					}
+					else
+					{
+						existingPointsSelected.push_back(&(*points)[pointsCount - 1]);
+					}
 			}
 
 			// Drawing oprimizing
 			// If the line goes straight then instead of adding 
 			// a new point - move the previous point to current cross position.
-			if (existingPointsSelected.size() > 2)
+			if (pointsCount > 2)
 			{
 				auto E = 1e-6;
 
-				glm::vec3 r1 = cross->Position - *existingPointsSelected[existingPointsSelected.size() - 1];
-				glm::vec3 r2 = *existingPointsSelected[existingPointsSelected.size() - 3] - *existingPointsSelected[existingPointsSelected.size() - 2];
+				glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
+				glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
 
 				auto p = glm::dot(r1, r2);
 				auto l1 = glm::length(r1);
@@ -158,46 +175,53 @@ class PointPenEditingTool : public EditingTool {
 				
 				if (abs(cos) > 1 - E || isnan(cos))
 				{
-					*existingPointsSelected[existingPointsSelected.size() - 2] = cross->Position;
+					(*points)[pointsCount - 2] = cross->Position;
 				}
 				else
 				{
 					AddPoint<StereoPolyLine>(input);
+
+					existingPointsSelected[0] = &points->back();
 				}
 			}
 			else
 			{
 				AddPoint<StereoPolyLine>(input);
+
+				existingPointsSelected[0] = &points->back();
 			}
 
-			std::cout << "PointPen tool Immediate mode Added points count: " << existingPointsSelected.size() << std::endl;
+			std::cout << "PointPen tool Immediate mode Added points count: " << pointsCount << std::endl;
 
-			if (existingPointsSelected.size() > 1)
+			if (pointsCount > 1)
 			{
-				*existingPointsSelected.back() = cross->Position;
+				points->back() = cross->Position;
 			}
 
 			return;
 		}
+
 
 		else if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
 		{
-			auto selectedPointCount = existingPointsSelected.size();
+			points->push_back(cross->Position);
 
 			if (existingPointsSelected.size() == 0)
 			{
-				
-				SelectPoint<StereoPolyLine>(input);
+				points->push_back(cross->Position);
+				existingPointsSelected.push_back(&(*points)[0]);
 			}
-
-			AddPoint<StereoPolyLine>(input);
+			else
+			{
+				existingPointsSelected[0] = &(*points)[pointsCount - 1];
+			}
 
 			return;
 		}
 
-		if (existingPointsSelected.size() > 1)
+		if (pointsCount > 1)
 		{
-			*existingPointsSelected.back() = cross->Position;
+			points->back() = cross->Position;
 		}
 
 		
@@ -241,25 +265,17 @@ class PointPenEditingTool : public EditingTool {
 	template<>
 	void AddPoint<StereoPolyLine>(Input* input) {
 		auto target = (StereoPolyLine*)this->target;
-		auto h = &target->Points.back();
 
+		if (isnan(cross->Position.x) || isnan(cross->Position.y) || isnan(cross->Position.z))
+		{
+			int i = 0;
+
+		}
 		target->Points.push_back(cross->Position);
 
-		existingPointsSelected.push_back(&target->Points.back());
+		existingPointsSelected.push_back(&target->Points[target->Points.size() - 1]);
 	}
 
-	//template<typename T>
-	//void RemovePoint(Input* input) {
-	//	std::cout << "Unsupported Editing Tool target Type" << std::endl;
-	//}
-	//template<>
-	//void RemovePoint<StereoPolyLine>(Input* input) {
-	//	if (target->Points.size() <= 0)
-	//		return;
-
-	//	target->Points.pop_back();
-	//	existingPointsSelected.pop_back();
-	//}
 
 public:
 	std::vector<std::function<void()>> onTargetReleased;
