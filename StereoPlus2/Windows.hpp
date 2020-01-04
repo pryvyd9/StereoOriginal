@@ -7,6 +7,7 @@
 #include "Tools.hpp"
 #include <set>
 #include <sstream>
+#include <imgui/imgui_internal.h>
 
 class CustomRenderWindow : Window
 {
@@ -228,75 +229,6 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 		return val;
 	}
 
-public:
-	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
-
-	GroupObject* rootObject;
-	float indent = 1;
-	float centerSizeHalf = 3;
-
-	// We divide height by this number. 
-	// For some reason height/2 isn't center.
-	const float magicNumber = 1.25;
-
-	virtual bool Init()
-	{
-		return true;
-	}
-
-
-	MoveCommandPosition GetPosition(int positionMask) {
-		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
-		glm::vec2 size = ImGui::GetItemRectSize();
-		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
-
-		// vertical center centered relative position.
-		float vertPos = mouseScreenPos.y - nodeScreenPos.y + size.y / magicNumber;
-
-		if (positionMask == Center)
-			return Center;
-		if (positionMask == Top)
-			return Top;
-		if (positionMask == Bottom)
-			return Bottom;
-
-		if ((positionMask & Center) == 0)
-		{
-			if (vertPos > 0)
-				return Bottom;
-
-			return Top;
-		}
-
-		if (vertPos > centerSizeHalf)
-			return Bottom;
-
-		else if (vertPos < -centerSizeHalf)
-			return Top;
-
-		return Center;
-	}
-
-	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-		return *(std::set<ObjectPointer, ObjectPointerComparator>**)data;
-	}
-
-
-	void ScheduleMove(std::vector<SceneObject*>* target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator>* items, MoveCommandPosition pos) {
-		if (isCommandEmpty)
-		{
-			moveCommand = new MoveCommand();
-			isCommandEmpty = false;
-		}
-
-		moveCommand->SetReady();
-		moveCommand->target = target;
-		moveCommand->targetPos = targetPos;
-		moveCommand->items = items;
-		moveCommand->pos = pos;
-		moveCommand->caller = (IHolder*) this;
-	}
-
 
 	bool DesignRootNode(GroupObject* t) {
 		ImGui::PushID(GetID()++);
@@ -330,11 +262,9 @@ public:
 
 		return true;
 	}
-
 	bool DesignTreeNode(SceneObject* t, std::vector<SceneObject*>& source, int pos) {
-
 		switch (t->GetType()) {
-		case Group: 
+		case Group:
 			return DesignTreeNode((GroupObject*)t, source, pos);
 		case Leaf:
 		case StereoLineT:
@@ -345,7 +275,6 @@ public:
 		std::cout << "Invalid SceneObject type passed" << std::endl;
 		return false;
 	}
-
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
 		ImGui::PushID(GetID()++);
 
@@ -396,18 +325,17 @@ public:
 
 					return false;
 				}
-					   
+
 			ImGui::TreePop();
 		}
 
-	
+
 		ImGui::Unindent(indent);
 		ImGui::PopID();
 
 		return true;
 	}
-
-	bool DesignTreeLeaf(LeafObject* t, std::vector<SceneObject*>& source, int pos) {
+	bool DesignTreeLeaf(LeafObject*  t, std::vector<SceneObject*>& source, int pos) {
 		ImGui::PushID(GetID()++);
 
 		ImGui::Indent(indent);
@@ -426,7 +354,7 @@ public:
 			item.source = &source;
 			item.pos = pos;
 			selectedObjectsBuffer->emplace(item);
-			
+
 			//SceneObjectClipBoard::Push(selectedObjectsBuffer);
 			ImGui::SetDragDropPayload("SceneObjects", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
 
@@ -452,7 +380,72 @@ public:
 		return true;
 	}
 
+	MoveCommandPosition GetPosition(int positionMask) {
+		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
+		glm::vec2 size = ImGui::GetItemRectSize();
+		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
 
+		// vertical center centered relative position.
+		float vertPos = mouseScreenPos.y - nodeScreenPos.y + size.y / magicNumber;
+
+		if (positionMask == Center)
+			return Center;
+		if (positionMask == Top)
+			return Top;
+		if (positionMask == Bottom)
+			return Bottom;
+
+		if ((positionMask & Center) == 0)
+		{
+			if (vertPos > 0)
+				return Bottom;
+
+			return Top;
+		}
+
+		if (vertPos > centerSizeHalf)
+			return Bottom;
+
+		else if (vertPos < -centerSizeHalf)
+			return Top;
+
+		return Center;
+	}
+
+	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+	}
+
+	void ScheduleMove(std::vector<SceneObject*> * target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator> * items, MoveCommandPosition pos) {
+		if (isCommandEmpty)
+		{
+			moveCommand = new MoveCommand();
+			isCommandEmpty = false;
+		}
+
+		moveCommand->SetReady();
+		moveCommand->target = target;
+		moveCommand->targetPos = targetPos;
+		moveCommand->items = items;
+		moveCommand->pos = pos;
+		moveCommand->caller = (IHolder*)this;
+	}
+
+public:
+	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
+
+	GroupObject* rootObject;
+	float indent = 1;
+	float centerSizeHalf = 3;
+
+	// We divide height by this number. 
+	// For some reason height/2 isn't center.
+	const float magicNumber = 1.25;
+
+	virtual bool Init()
+	{
+		return true;
+	}
 
 	virtual bool Design()
 	{
@@ -509,7 +502,6 @@ public:
 
 		return true;
 	}
-
 	virtual bool Design() {
 		ImGui::Begin("Creating tool window");
 
@@ -525,7 +517,6 @@ public:
 
 		return true;
 	}
-	
 	virtual bool OnExit() {
 		return true;
 	}
@@ -535,8 +526,58 @@ public:
 template<ObjectType type>
 class PointPenToolWindow : Window
 {
+	SceneObject** target = nullptr;
+
+	std::stack<bool>& GetIsActive() {
+		static std::stack<bool> val;
+		return val;
+	}
+	bool IsActive(bool isActive) {
+		GetIsActive().push(isActive);
+		if (!isActive)
+		{
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+		}
+
+		return true;
+	}
+	void PopIsActive() {
+		auto isActive = GetIsActive().top();
+		GetIsActive().pop();
+
+		if (!isActive)
+		{
+			ImGui::PopItemFlag();
+			ImGui::PopStyleVar();
+		}
+	}
+
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case Group:
+		case Leaf:
+		case StereoLineT:
+			return "noname";
+		case StereoPolyLineT:
+			return "PolyLine";
+		default:
+			return "noname";
+		}
+	}
+	std::string GetName(ObjectType type, SceneObject** obj) {
+		return
+			(*obj) != nullptr && type == (*obj)->GetType()
+			? (*obj)->Name
+			: "Empty";
+	}
+
+	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+	}
+
 public:
-	SceneObject* target = nullptr;
 	PointPenEditingTool<type>* tool = nullptr;
 
 	virtual bool Init() {
@@ -546,7 +587,7 @@ public:
 			return false;
 		}
 
-		tool->onTargetReleased.push_back([t = &target] { *t = nullptr; });
+		target = tool->GetTarget();
 
 		return true;
 	}
@@ -574,14 +615,33 @@ public:
 					
 					if (!tool->SelectTarget(target))
 						return false;
-
-					this->target = target;
 				}
 
 				// Clear selected scene object buffer.
 				objectPointers->clear();
 			}
 			ImGui::EndDragDropTarget();
+		}
+
+		{
+			bool isActive = (*target) != nullptr;
+			if (IsActive(isActive))
+			{
+				if (ImGui::Button("Release"))
+				{
+					tool->ReleaseTarget();
+				}
+				PopIsActive();
+			}
+		}
+
+
+		{
+			static int mode = 0;
+			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
+				tool->SetPointPenEditingToolMode(Immediate);
+			if (ImGui::RadioButton("StepMode", &mode, 1))
+				tool->SetPointPenEditingToolMode(Step);
 		}
 
 		ImGui::End();
@@ -591,32 +651,6 @@ public:
 	virtual bool OnExit() {
 		return true;
 	}
-
-
-	std::string GetName(ObjectType type) {
-		switch (type)
-		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
-		case StereoPolyLineT:
-			return "PolyLine";
-		default:
-			return "noname";
-		}
-	}
-	std::string GetName(ObjectType type, SceneObject* obj) {
-		return
-			target != nullptr && type == obj->GetType()
-			? target->Name 
-			: "Empty";
-	}
-
-	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
-	}
-
 };
 
 

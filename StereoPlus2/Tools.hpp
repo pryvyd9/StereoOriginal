@@ -108,9 +108,37 @@ public:
 	}
 };
 
+enum PointPenEditingToolMode {
+	Immediate,
+	Step,
+};
+
+
+struct PointPenEditingToolConfigAbstract {
+	template<typename T>
+	T* Get() { return (T*)this; };
+};
+template<ObjectType type, PointPenEditingToolMode mode>
+struct PointPenEditingToolConfig : PointPenEditingToolConfigAbstract {
+	
+};
+template<>
+struct PointPenEditingToolConfig<StereoPolyLineT, Immediate> : PointPenEditingToolConfigAbstract {
+	bool isPointCreated = false;
+
+	// If the cos between vectors is less than E
+	// then we merge those vectors.
+	double E = 1e-6;
+};
+template<>
+struct PointPenEditingToolConfig<StereoPolyLineT, Step> : PointPenEditingToolConfigAbstract {
+	bool isPointCreated = false;
+};
+
 template<ObjectType type>
 class PointPenEditingTool : public EditingTool {
 	size_t handlerId;
+	PointPenEditingToolMode mode;
 
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
@@ -118,18 +146,29 @@ class PointPenEditingTool : public EditingTool {
 
 	std::vector<glm::vec3*> existingPointsSelected;
 
+	PointPenEditingToolConfigAbstract* config = nullptr;
+
+	template<PointPenEditingToolMode mode>
+	PointPenEditingToolConfig<type, mode>* GetConfig() {
+		if (config == nullptr)
+			config = new PointPenEditingToolConfig<StereoPolyLineT, Step>();
+
+		return (PointPenEditingToolConfig<type, mode>*) config;
+	}
 
 	template<typename T>
 	T* GetTarget() {
 		return (T*)this->target;
 	}
 
-	template<ObjectType type>
+#pragma region ProcessInput
+
+	template<ObjectType type, PointPenEditingToolMode mode>
 	void ProcessInput(Input* input) {
-		std::cout << "Unsupported Editing Tool target Type" << std::endl;
+		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
 	}
 	template<>
-	void ProcessInput<StereoPolyLineT>(Input* input) {
+	void ProcessInput<StereoPolyLineT, Immediate>(Input* input) {
 		if (input->IsDown(Key::Escape))
 		{
 			ReleaseTarget();
@@ -138,97 +177,96 @@ class PointPenEditingTool : public EditingTool {
 		auto points = &GetTarget<StereoPolyLine>()->Points;
 		auto pointsCount = points->size();
 
-		if (isImmediateMode)
+		if (!GetConfig<Immediate>()->isPointCreated)
 		{
-
-			if (existingPointsSelected.size() == 0)
-			{
-				// We need to select one point and create an additional point
-				// so that we can perform some optimizations.
-				//SelectPoint<StereoPolyLine>(input);
-					points->push_back(cross->Position);
-					if (pointsCount == 0)
-					{
-						existingPointsSelected.push_back(&(*points)[0]);
-					}
-					else
-					{
-						existingPointsSelected.push_back(&(*points)[pointsCount - 1]);
-					}
-			}
-
-			// Drawing oprimizing
-			// If the line goes straight then instead of adding 
-			// a new point - move the previous point to current cross position.
-			if (pointsCount > 2)
-			{
-				auto E = 1e-6;
-
-				glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
-				glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
-
-				auto p = glm::dot(r1, r2);
-				auto l1 = glm::length(r1);
-				auto l2 = glm::length(r2);
-
-				auto cos = p / l1 / l2;
-				
-				if (abs(cos) > 1 - E || isnan(cos))
-				{
-					(*points)[pointsCount - 2] = cross->Position;
-				}
-				else
-				{
-					AddPoint<StereoPolyLine>(input);
-
-					existingPointsSelected[0] = &points->back();
-				}
-			}
-			else
-			{
-				AddPoint<StereoPolyLine>(input);
-
-				existingPointsSelected[0] = &points->back();
-			}
-
-			std::cout << "PointPen tool Immediate mode Added points count: " << pointsCount << std::endl;
-
-			if (pointsCount > 1)
-			{
-				points->back() = cross->Position;
-			}
-
-			return;
+			// We need to select one point and create an additional point
+			// so that we can perform some optimizations.
+			points->push_back(cross->Position);
+			GetConfig<Step>()->isPointCreated = true;
 		}
 
-
-		else if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
+		// Drawing oprimizing
+		// If the line goes straight then instead of adding 
+		// a new point - move the previous point to current cross position.
+		if (pointsCount > 2)
 		{
-			points->push_back(cross->Position);
+			double E = 1e-6;
 
-			if (existingPointsSelected.size() == 0)
+			glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
+			glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
+
+			auto p = glm::dot(r1, r2);
+			auto l1 = glm::length(r1);
+			auto l2 = glm::length(r2);
+
+			auto cos = p / l1 / l2;
+				
+			if (abs(cos) > 1 - E || isnan(cos))
+			{
+				(*points)[pointsCount - 2] = cross->Position;
+			}
+			else
 			{
 				points->push_back(cross->Position);
-				existingPointsSelected.push_back(&(*points)[0]);
 			}
-			else
-			{
-				existingPointsSelected[0] = &(*points)[pointsCount - 1];
-			}
-
-			return;
 		}
+		else
+		{
+			points->push_back(cross->Position);
+		}
+
+		std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
 
 		if (pointsCount > 1)
 		{
 			points->back() = cross->Position;
 		}
+	}
+	template<>
+	void ProcessInput<StereoPolyLineT, Step>(Input* input) {
+		if (input->IsDown(Key::Escape))
+		{
+			ReleaseTarget();
+			return;
+		}
+		auto points = &GetTarget<StereoPolyLine>()->Points;
+		auto pointsCount = points->size();
 
-		
-		
+		if (!GetConfig<Step>()->isPointCreated)
+		{
+			// We need to select one point and create an additional point
+			// so that we can perform some optimizations.
+			points->push_back(cross->Position);
+			GetConfig<Step>()->isPointCreated = true;
+		}
+
+		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
+		{
+			points->push_back(cross->Position);
+
+			return;
+		}
+
+		points->back() = cross->Position;
 	}
 
-	template<typename T>
+	template<ObjectType type>
+	void ProcessInput(Input* input) {
+		switch (mode)
+		{
+		case Immediate:
+			return ProcessInput<type, Immediate>(input);
+		case Step:
+			return ProcessInput<type, Step>(input);
+		default:
+			std::cout << "Not suported mode was given" << std::endl;
+			return;
+		}
+	}
+
+#pragma endregion
+
+	/*template<typename T>
 	void SelectPoint(Input* input) {
 		std::cout << "Unsupported Editing Tool target Type" << std::endl;
 	}
@@ -257,29 +295,23 @@ class PointPenEditingTool : public EditingTool {
 
 		existingPointsSelected.push_back(closestPoint);
 	}
+*/
+	//template<typename T>
+	//void AddPoint(Input* input) {
+	//	std::cout << "Unsupported Editing Tool target Type" << std::endl;
+	//}
+	//template<>
+	//void AddPoint<StereoPolyLine>(Input* input) {
+	//	auto target = (StereoPolyLine*)this->target;
 
-	template<typename T>
-	void AddPoint(Input* input) {
-		std::cout << "Unsupported Editing Tool target Type" << std::endl;
-	}
-	template<>
-	void AddPoint<StereoPolyLine>(Input* input) {
-		auto target = (StereoPolyLine*)this->target;
+	//	target->Points.push_back(cross->Position);
 
-		if (isnan(cross->Position.x) || isnan(cross->Position.y) || isnan(cross->Position.z))
-		{
-			int i = 0;
-
-		}
-		target->Points.push_back(cross->Position);
-
-		existingPointsSelected.push_back(&target->Points[target->Points.size() - 1]);
-	}
+	//	existingPointsSelected.push_back(&target->Points[target->Points.size() - 1]);
+	//}
 
 
 public:
 	std::vector<std::function<void()>> onTargetReleased;
-	bool isImmediateMode = true;
 
 	virtual bool SelectTarget(SceneObject* obj) {
 		if (target != nullptr && !ReleaseTarget())
@@ -304,24 +336,65 @@ public:
 	}
 	virtual bool ReleaseTarget() {
 		ReleaseTarget<type>();
-
+		
 		for (auto func : onTargetReleased)
 			func();
 
 		keyBinding->RemoveHandler(handlerId);
 
+		if (config != nullptr)
+		{
+			delete config;
+			config = nullptr;
+		}
+
 		return true;
+	}
+
+	SceneObject** GetTarget() {
+		return &target;
 	}
 
 	template<ObjectType type>
 	void ReleaseTarget() {
+		switch (mode)
+		{
+		case Immediate:
+			return ReleaseTarget<type, Immediate>();
+		case Step:
+			return ReleaseTarget<type, Step>();
+		default:
+			std::cout << "Not suported mode was given" << std::endl;
+			return;
+		}
 
 	}
 
-	template<>
-	void ReleaseTarget <StereoPolyLineT>() {
-		auto target = (StereoPolyLine*)this->target;
+	template<ObjectType type, PointPenEditingToolMode mode>
+	void ReleaseTarget() {
 		
+	}
+	template<>
+	void ReleaseTarget<StereoPolyLineT, Immediate>() {
+		if (this->target == nullptr)
+			return;
+
+		auto target = (StereoPolyLine*)this->target;
+
+		if (target->Points.size() > 0)
+			target->Points.pop_back();
+
+		this->target = nullptr;
+
+		existingPointsSelected.clear();
+	}
+	template<>
+	void ReleaseTarget<StereoPolyLineT, Step>() {
+		if (this->target == nullptr)
+			return;
+
+		auto target = (StereoPolyLine*)this->target;
+
 		if (target->Points.size() > 0)
 			target->Points.pop_back();
 
@@ -334,6 +407,12 @@ public:
 		this->cross = cross;
 		return true;
 	}
+
+	void SetPointPenEditingToolMode(PointPenEditingToolMode mode) {
+		ReleaseTarget();
+		this->mode = mode;
+	}
+
 
 };
 
