@@ -151,7 +151,7 @@ class PointPenEditingTool : public EditingTool {
 	template<PointPenEditingToolMode mode>
 	PointPenEditingToolConfig<type, mode>* GetConfig() {
 		if (config == nullptr)
-			config = new PointPenEditingToolConfig<StereoPolyLineT, Step>();
+			config = new PointPenEditingToolConfig<type, mode>();
 
 		return (PointPenEditingToolConfig<type, mode>*) config;
 	}
@@ -182,15 +182,15 @@ class PointPenEditingTool : public EditingTool {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
 			points->push_back(cross->Position);
-			GetConfig<Step>()->isPointCreated = true;
+			GetConfig<Immediate>()->isPointCreated = true;
 		}
 
-		// Drawing oprimizing
+		// Drawing optimizing
 		// If the line goes straight then instead of adding 
 		// a new point - move the previous point to current cross position.
 		if (pointsCount > 2)
 		{
-			double E = 1e-6;
+			auto E = GetConfig<Immediate>()->E;
 
 			glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
 			glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
@@ -203,7 +203,7 @@ class PointPenEditingTool : public EditingTool {
 				
 			if (abs(cos) > 1 - E || isnan(cos))
 			{
-				(*points)[pointsCount - 2] = cross->Position;
+				(*points)[pointsCount - 2] = points->back() = cross->Position;
 			}
 			else
 			{
@@ -215,12 +215,7 @@ class PointPenEditingTool : public EditingTool {
 			points->push_back(cross->Position);
 		}
 
-		std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
-
-		if (pointsCount > 1)
-		{
-			points->back() = cross->Position;
-		}
+		//std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Step>(Input* input) {
