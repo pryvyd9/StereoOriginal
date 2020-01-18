@@ -639,9 +639,9 @@ public:
 		{
 			static int mode = 0;
 			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
-				tool->SetPointPenEditingToolMode(Immediate);
+				tool->SetPointPenEditingToolMode(PointPenEditingToolMode::Immediate);
 			if (ImGui::RadioButton("StepMode", &mode, 1))
-				tool->SetPointPenEditingToolMode(Step);
+				tool->SetPointPenEditingToolMode(PointPenEditingToolMode::Step);
 		}
 
 		ImGui::End();
