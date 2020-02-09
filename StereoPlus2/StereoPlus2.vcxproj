@@ -141,6 +141,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Commands.hpp" />
+    <ClInclude Include="Converters.hpp" />
     <ClInclude Include="DomainTypes.hpp" />
     <ClInclude Include="GLLoader.hpp" />
     <ClInclude Include="GUI.hpp" />

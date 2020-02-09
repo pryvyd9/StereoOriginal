@@ -95,13 +95,27 @@ public:
 };
 
 
+
 class EditingTool : Tool {
 protected:
+	struct Config {
+		template<typename T>
+		T* Get() { return (T*)this; };
+	};
+
 	KeyBinding* keyBinding = nullptr;
+	Config* config = nullptr;
+
 public:
+	enum Type {
+		PointPen,
+		Extrusion,
+	};
+
+
+	virtual Type GetType() = 0;
 	virtual bool SelectTarget(SceneObject* obj) = 0;
 	virtual bool ReleaseTarget() = 0;
-	
 	virtual bool BindInput(KeyBinding* keyBinding) {
 		this->keyBinding = keyBinding;
 		return true;
@@ -114,39 +128,64 @@ enum class PointPenEditingToolMode {
 	Step,
 };
 
-struct PointPenEditingToolConfigAbstract {
-	template<typename T>
-	T* Get() { return (T*)this; };
-};
-template<ObjectType type, PointPenEditingToolMode mode>
-struct PointPenEditingToolConfig : PointPenEditingToolConfigAbstract {
-	
-};
-template<>
-struct PointPenEditingToolConfig<StereoPolyLineT, PointPenEditingToolMode::Immediate> : PointPenEditingToolConfigAbstract {
-	bool isPointCreated = false;
-
-	// If the cos between vectors is less than E
-	// then we merge those vectors.
-	double E = 1e-6;
-};
-template<>
-struct PointPenEditingToolConfig<StereoPolyLineT, PointPenEditingToolMode::Step> : PointPenEditingToolConfigAbstract {
-	bool isPointCreated = false;
-};
+//struct PointPenEditingToolConfigAbstract {
+//	template<typename T>
+//	T* Get() { return (T*)this; };
+//};
+//template<ObjectType type, PointPenEditingToolMode mode>
+//struct PointPenEditingToolConfig : PointPenEditingToolConfigAbstract {
+//	
+//};
+//template<>
+//struct PointPenEditingToolConfig<StereoPolyLineT, PointPenEditingToolMode::Immediate> : PointPenEditingToolConfigAbstract {
+//	bool isPointCreated = false;
+//
+//	// If the cos between vectors is less than E
+//	// then we merge those vectors.
+//	double E = 1e-6;
+//};
+//template<>
+//struct PointPenEditingToolConfig<StereoPolyLineT, PointPenEditingToolMode::Step> : PointPenEditingToolConfigAbstract {
+//	bool isPointCreated = false;
+//};
 
 enum class ExtrusionEditingToolMode {
 	Immediate = 0,
 	Step,
 };
+//struct ExtrusionEditingToolConfigAbstract {
+//	template<typename T>
+//	T* Get() { return (T*)this; };
+//};
+//template<ObjectType type, ExtrusionEditingToolMode mode>
+//struct ExtrusionEditingToolConfig : ExtrusionEditingToolConfigAbstract {
+//
+//};
 
 #pragma endregion
 
 template<ObjectType type>
 class PointPenEditingTool : public EditingTool {
+#pragma region Types
 	using Mode = PointPenEditingToolMode;
-	template<Mode mode>
-	using Config = PointPenEditingToolConfig<type, mode>;
+
+	template<ObjectType type, Mode mode>
+	struct Config : EditingTool::Config {
+
+	};
+	template<>
+	struct Config<StereoPolyLineT, Mode::Immediate> : EditingTool::Config {
+		bool isPointCreated = false;
+
+		// If the cos between vectors is less than E
+		// then we merge those vectors.
+		double E = 1e-6;
+	};
+	template<>
+	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
+		bool isPointCreated = false;
+	};
+#pragma endregion
 
 	size_t handlerId;
 	Mode mode;
@@ -157,14 +196,12 @@ class PointPenEditingTool : public EditingTool {
 
 	//std::vector<glm::vec3*> existingPointsSelected;
 
-	PointPenEditingToolConfigAbstract* config = nullptr;
-
 	template<Mode mode>
-	Config<mode>* GetConfig() {
+	Config<type, mode>* GetConfig() {
 		if (config == nullptr)
-			config = new Config<mode>();
+			config = new Config<type, mode>();
 
-		return (Config<mode>*) config;
+		return (Config<type, mode>*) config;
 	}
 
 	template<typename T>
@@ -319,6 +356,8 @@ class PointPenEditingTool : public EditingTool {
 public:
 	std::vector<std::function<void()>> onTargetReleased;
 
+
+
 	virtual bool SelectTarget(SceneObject* obj) {
 		if (target != nullptr && !ReleaseTarget())
 			return false;
@@ -355,6 +394,9 @@ public:
 		}
 
 		return true;
+	}
+	virtual Type GetType() {
+		return Type::PointPen;
 	}
 
 	SceneObject** GetTarget() {
@@ -414,7 +456,7 @@ public:
 		return true;
 	}
 
-	void SetPointPenEditingToolMode(Mode mode) {
+	void SetMode(Mode mode) {
 		ReleaseTarget();
 		this->mode = mode;
 	}
@@ -428,14 +470,148 @@ public:
 
 template<ObjectType type>
 class ExtrusionEditingTool : public EditingTool {
+#pragma region Types
 	using Mode = ExtrusionEditingToolMode;
-	template<Mode mode>
-	using Config = PointPenEditingToolConfig<type, mode>;
+
+	template<ObjectType type, Mode mode>
+	struct Config : EditingTool::Config {
+
+	};
+	template<>
+	struct Config<StereoPolyLineT, Mode::Immediate> : EditingTool::Config {
+		bool shouldCreateMesh = false;
+
+		//// If the cos between vectors is less than E
+		//// then we merge those vectors.
+		//double E = 1e-6;
+	};
+	template<>
+	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
+		bool isPointCreated = false;
+	};
+#pragma endregion
 
 	size_t handlerId;
+	Mode mode;
 
+	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
 	
+	template<Mode mode>
+	Config<type, mode>* GetConfig() {
+		if (config == nullptr)
+			config = new Config<type, mode>();
+
+		return (Config<type, mode>*) config;
+	}
+
+	template<typename T>
+	T* GetTarget() {
+		return (T*)this->target;
+	}
+
+#pragma region ProcessInput
+	template<ObjectType type, Mode mode>
+	void ProcessInput(Input* input) {
+		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
+	}
+	template<>
+	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
+		std::cout << "Immediate mode of ExtrusionEditingTool not imlemented" << std::endl;
+		return;
+
+		if (input->IsDown(Key::Escape))
+		{
+			ReleaseTarget();
+			return;
+		}
+		//auto points = &GetTarget<StereoPolyLine>()->Points;
+		//auto pointsCount = points->size();
+
+		//if (!GetConfig<Mode::Immediate>()->isPointCreated)
+		//{
+		//	// We need to select one point and create an additional point
+		//	// so that we can perform some optimizations.
+		//	points->push_back(cross->Position);
+		//	GetConfig<Mode::Immediate>()->isPointCreated = true;
+		//}
+
+		//// Drawing optimizing
+		//// If the line goes straight then instead of adding 
+		//// a new point - move the previous point to current cross position.
+		//if (pointsCount > 2)
+		//{
+		//	auto E = GetConfig<Mode::Immediate>()->E;
+
+		//	glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
+		//	glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
+
+		//	auto p = glm::dot(r1, r2);
+		//	auto l1 = glm::length(r1);
+		//	auto l2 = glm::length(r2);
+
+		//	auto cos = p / l1 / l2;
+
+		//	if (abs(cos) > 1 - E || isnan(cos))
+		//	{
+		//		(*points)[pointsCount - 2] = points->back() = cross->Position;
+		//	}
+		//	else
+		//	{
+		//		points->push_back(cross->Position);
+		//	}
+		//}
+		//else
+		//{
+		//	points->push_back(cross->Position);
+		//}
+
+		//std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
+	}
+	template<>
+	void ProcessInput<StereoPolyLineT, Mode::Step>(Input* input) {
+		if (input->IsDown(Key::Escape))
+		{
+			ReleaseTarget();
+			return;
+		}
+		auto points = &GetTarget<StereoPolyLine>()->Points;
+		auto pointsCount = points->size();
+
+		if (!GetConfig<Mode::Step>()->isPointCreated)
+		{
+			// We need to select one point and create an additional point
+			// so that we can perform some optimizations.
+			points->push_back(cross->Position);
+			GetConfig<Mode::Step>()->isPointCreated = true;
+		}
+
+		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
+		{
+			points->push_back(cross->Position);
+
+			return;
+		}
+
+		points->back() = cross->Position;
+	}
+
+	template<ObjectType type>
+	void ProcessInput(Input* input) {
+		switch (mode)
+		{
+		case Mode::Immediate:
+			return ProcessInput<type, Mode::Immediate>(input);
+		case Mode::Step:
+			return ProcessInput<type, Mode::Step>(input);
+		default:
+			std::cout << "Not suported mode was given" << std::endl;
+			return;
+		}
+	}
+#pragma endregion
+
+
 public:
 	virtual bool SelectTarget(SceneObject* obj) {
 		if (target != nullptr && !ReleaseTarget())
@@ -454,12 +630,29 @@ public:
 		}
 		target = obj;
 
-
 		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput<type>(input); });
 
 		return true;
 	}
 	virtual bool ReleaseTarget() {
-
+		return true;
 	}
+
+	SceneObject** GetTarget() {
+		return &target;
+	}
+	virtual Type GetType() {
+		return Type::Extrusion;
+	}
+
+	bool BindCross(Cross* cross) {
+		this->cross = cross;
+		return true;
+	}
+
+	void SetMode(Mode mode) {
+		ReleaseTarget();
+		this->mode = mode;
+	}
+
 };

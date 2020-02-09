@@ -1,5 +1,6 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
+#include "Converters.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
 #include "Renderer.hpp"
@@ -7,42 +8,6 @@
 
 using namespace std;
 
-
-class LineConverter {
-public:
-	static size_t GetLineCount(SceneObject* obj) {
-		switch (obj->GetType()) {
-		case StereoLineT:
-			return 1;
-		case StereoPolyLineT:
-		{
-			auto size = ((StereoPolyLine*)obj)->Points.size();
-			return size > 0 ? size - 1 : 0;
-		}
-		default:
-			return 0;
-		}
-	}
-
-	static void Convert(SceneObject* obj, StereoLine* objs) {
-		switch (obj->GetType()) {
-		case StereoLineT:
-			*objs = *((StereoLine*)obj);
-			break;
-		case StereoPolyLineT:
-			auto polyLine = (StereoPolyLine*)obj;
-
-			for (size_t i = 0; i < polyLine->Points.size() - 1; i++)
-			{
-				objs[i].Start = polyLine->Points[i];
-				objs[i].End = polyLine->Points[i + 1];
-			}
-			break;
-		}
-	}
-
-
-};
 
 void testCreation(Scene* scene) {
 	CreateCommand* cmd = new CreateCommand();
@@ -115,8 +80,6 @@ void testCreationTool(Scene* scene) {
 //
 //	return true;
 //}
-
-
 
 
 bool LoadScene(Scene* scene) {
@@ -201,12 +164,19 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
 	
-	PointPenEditingTool<StereoPolyLineT> lineDrawingEditingTool;
-
+	PointPenEditingTool<StereoPolyLineT> pointPenEditingTool;
 	PointPenToolWindow<StereoPolyLineT> pointPenToolWindow;
-	pointPenToolWindow.tool = &lineDrawingEditingTool;
+	pointPenToolWindow.tool = &pointPenEditingTool;
+
+	ExtrusionEditingTool<StereoPolyLineT> extrusionEditingTool;
+	ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
+	extrusionToolWindow.tool = &extrusionEditingTool;
 
 	CreatingToolWindow creatingToolWindow;
+
+	AttributesWindow attributesWindow;
+	//attributesWindow.BindTool((Attributes*)& pointPenToolWindow);
+	attributesWindow.BindTool((Attributes*)& extrusionToolWindow);
 
 	Scene scene;
 
@@ -235,8 +205,10 @@ int main(int, char**)
 		(Window*)& cameraPropertiesWindow,
 		(Window*)& crossPropertiesWindow,
 		(Window*)& inspectorWindow,
-		(Window*)& pointPenToolWindow,
+		//(Window*)& pointPenToolWindow,
+		//(Window*)& extrusionToolWindow,
 		(Window*)& creatingToolWindow,
+		(Window*)& attributesWindow,
 	};
 
 	gui.window = renderPipeline.window;
@@ -257,13 +229,15 @@ int main(int, char**)
 
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
-	lineDrawingEditingTool.BindCross(&cross);
+	//pointPenEditingTool.BindCross(&cross);
+	extrusionEditingTool.BindCross(&cross);
 
 	if (!gui.Init())
 		return false;
 
 	// Bind key binding object.
-	lineDrawingEditingTool.BindInput(&gui.keyBinding);
+	//pointPenEditingTool.BindInput(&gui.keyBinding);
+	extrusionEditingTool.BindInput(&gui.keyBinding);
 
 	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
 		return CustomRenderFunc(cross, scene, renderPipeline);

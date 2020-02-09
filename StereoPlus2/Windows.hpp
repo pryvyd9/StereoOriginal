@@ -524,7 +524,161 @@ public:
 
 
 template<ObjectType type>
-class PointPenToolWindow : Window
+class PointPenToolWindow : Window, Attributes
+{
+	// If this is null then the window probably wasn't initialized.
+	SceneObject** target = nullptr;
+
+	std::stack<bool>& GetIsActive() {
+		static std::stack<bool> val;
+		return val;
+	}
+	bool IsActive(bool isActive) {
+		GetIsActive().push(isActive);
+		if (!isActive)
+		{
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+		}
+
+		return true;
+	}
+	void PopIsActive() {
+		auto isActive = GetIsActive().top();
+		GetIsActive().pop();
+
+		if (!isActive)
+		{
+			ImGui::PopItemFlag();
+			ImGui::PopStyleVar();
+		}
+	}
+
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case Group:
+		case Leaf:
+		case StereoLineT:
+			return "noname";
+		case StereoPolyLineT:
+			return "PolyLine";
+		default:
+			return "noname";
+		}
+	}
+	std::string GetName(ObjectType type, SceneObject** obj) {
+		return 
+			(*obj) != nullptr && type == (*obj)->GetType()
+			? (*obj)->Name
+			: "Empty";
+	}
+
+	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
+		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
+	}
+
+	bool DesignInternal() {
+		ImGui::Text(GetName(type, target).c_str());
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			ImGuiDragDropFlags target_flags = 0;
+			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			{
+				auto objectPointers = GetBuffer(payload->Data);
+
+				if (objectPointers->size() > 1) {
+					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+				}
+				else {
+					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
+
+					auto target = (*objectPointer.source)[objectPointer.pos];
+
+					if (!tool->SelectTarget(target))
+						return false;
+				}
+
+				// Clear selected scene object buffer.
+				objectPointers->clear();
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		{
+			bool isActive = (*target) != nullptr;
+			if (IsActive(isActive))
+			{
+				if (ImGui::Button("Release"))
+				{
+					tool->ReleaseTarget();
+				}
+				PopIsActive();
+			}
+		}
+
+
+		{
+			static int mode = 0;
+			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
+				tool->SetMode(PointPenEditingToolMode::Immediate);
+			if (ImGui::RadioButton("StepMode", &mode, 1))
+				tool->SetMode(PointPenEditingToolMode::Step);
+		}
+
+		return true;
+	}
+
+public:
+	PointPenEditingTool<type>* tool = nullptr;
+
+	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+		target = tool->GetTarget();
+		Window::name = Attributes::name = "PointPen " + GetName(type);
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+
+	virtual bool Window::Design() {
+		ImGui::Begin(Window::name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
+		ImGui::End();
+
+		return true;
+	}
+
+	virtual bool Attributes::Design() {
+		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+
+	virtual bool OnExit() {
+		return true;
+	}
+};
+
+
+template<ObjectType type>
+class ExtrusionToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
 
@@ -567,7 +721,7 @@ class PointPenToolWindow : Window
 		}
 	}
 	std::string GetName(ObjectType type, SceneObject** obj) {
-		return
+		return 
 			(*obj) != nullptr && type == (*obj)->GetType()
 			? (*obj)->Name
 			: "Empty";
@@ -577,23 +731,7 @@ class PointPenToolWindow : Window
 		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
 	}
 
-public:
-	PointPenEditingTool<type>* tool = nullptr;
-
-	virtual bool Init() {
-		if (tool == nullptr)
-		{
-			std::cout << "Tool wasn't assigned" << std::endl;
-			return false;
-		}
-
-		target = tool->GetTarget();
-
-		return true;
-	}
-	virtual bool Design() {
-		ImGui::Begin(GetName(type).c_str());
-
+	bool DesignInternal() {
 		ImGui::Text(GetName(type, target).c_str());
 
 		if (ImGui::BeginDragDropTarget())
@@ -612,7 +750,7 @@ public:
 					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
 
 					auto target = (*objectPointer.source)[objectPointer.pos];
-					
+
 					if (!tool->SelectTarget(target))
 						return false;
 				}
@@ -639,12 +777,49 @@ public:
 		{
 			static int mode = 0;
 			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
-				tool->SetPointPenEditingToolMode(PointPenEditingToolMode::Immediate);
+				tool->SetMode(ExtrusionEditingToolMode::Immediate);
 			if (ImGui::RadioButton("StepMode", &mode, 1))
-				tool->SetPointPenEditingToolMode(PointPenEditingToolMode::Step);
+				tool->SetMode(ExtrusionEditingToolMode::Step);
 		}
 
+		return true;
+	}
+
+public:
+	ExtrusionEditingTool<type>* tool = nullptr;
+
+	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+
+		target = tool->GetTarget();
+		Window::name = Attributes::name = "Extrusion " + GetName(type);
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+	virtual bool Window::Design() {
+		ImGui::Begin(Window::name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
 		ImGui::End();
+
+		return true;
+	}
+
+	virtual bool Attributes::Design() {
+		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
 
 		return true;
 	}
@@ -653,4 +828,56 @@ public:
 	}
 };
 
+
+class AttributesWindow : Window {
+	Attributes* toolAttributes = nullptr;
+	Attributes* targetAttributes = nullptr;
+	
+public:
+
+	virtual bool Init() {
+		return true;
+	}
+	virtual bool Design() {
+		ImGui::Begin("Attributes");
+
+		ImGui::BeginTabBar("#attributes window tab bar");
+
+		if (toolAttributes != nullptr && !toolAttributes->Design())
+			return false;
+
+		if (targetAttributes != nullptr && !targetAttributes->Design())
+			return false;
+
+		ImGui::EndTabBar();
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+
+	bool BindTool(Attributes* toolAttributes) {
+		this->toolAttributes = toolAttributes;
+		if (!toolAttributes->IsInitialized())
+			return toolAttributes->Init();
+		return true;
+	}
+	bool ReleaseTool() {
+		toolAttributes = nullptr;
+		return true;
+	}
+
+	bool BindTarget(Attributes* targetAttributes) {
+		this->targetAttributes = targetAttributes;
+		if (!toolAttributes->IsInitialized())
+			return toolAttributes->Init();
+		return true;
+	}
+	bool ReleaseTarget() {
+		targetAttributes = nullptr;
+		return true;
+	}
+};
 

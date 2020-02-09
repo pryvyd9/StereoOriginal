@@ -10,6 +10,7 @@ enum ObjectType {
 
 	StereoLineT,
 	StereoPolyLineT,
+	FreeMeshT,
 };
 
 class SceneObject {
@@ -80,6 +81,7 @@ struct StereoPolyLine : LeafObject {
 	}
 };
 
+
 struct Triangle
 {
 	glm::vec3 p1, p2, p3;
@@ -89,6 +91,33 @@ struct Triangle
 	GLuint VBO, VAO;
 	GLuint ShaderProgram;
 };
+
+struct Mesh : LeafObject {
+	std::vector<glm::vec3> vertices;
+	//std::vector<std::array<size_t, 2>> lines;
+
+	size_t GetVerticesSize() {
+		return sizeof(glm::vec3) * vertices.size();
+	}
+};
+
+struct FreeMesh : Mesh{
+	virtual ObjectType GetType() {
+		return FreeMeshT;
+	}
+
+	std::vector<std::array<size_t, 2>> lines;
+};
+
+struct QuadMesh : Mesh {
+	std::vector<std::array<size_t, 4>> quads;
+};
+
+struct TriangleMesh : Mesh {
+	std::vector<std::array<size_t, 3>> triangles;
+};
+
+
 
 // Created for the sole purpose of crutching the broken 
 // Line - triangle drawing mechanism.
