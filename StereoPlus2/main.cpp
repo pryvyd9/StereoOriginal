@@ -175,8 +175,8 @@ int main(int, char**)
 	CreatingToolWindow creatingToolWindow;
 
 	AttributesWindow attributesWindow;
-	//attributesWindow.BindTool((Attributes*)& pointPenToolWindow);
-	attributesWindow.BindTool((Attributes*)& extrusionToolWindow);
+	attributesWindow.BindTool((Attributes*)& pointPenToolWindow);
+	//attributesWindow.BindTool((Attributes*)& extrusionToolWindow);
 
 	Scene scene;
 
@@ -229,15 +229,15 @@ int main(int, char**)
 
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
-	//pointPenEditingTool.BindCross(&cross);
-	extrusionEditingTool.BindCross(&cross);
+	pointPenEditingTool.BindCross(&cross);
+	//extrusionEditingTool.BindCross(&cross);
 
 	if (!gui.Init())
 		return false;
 
 	// Bind key binding object.
-	//pointPenEditingTool.BindInput(&gui.keyBinding);
-	extrusionEditingTool.BindInput(&gui.keyBinding);
+	pointPenEditingTool.BindInput(&gui.keyBinding);
+	//extrusionEditingTool.BindInput(&gui.keyBinding);
 
 	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
 		return CustomRenderFunc(cross, scene, renderPipeline);

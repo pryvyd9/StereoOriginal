@@ -30,6 +30,45 @@ struct ObjectPointerComparator {
 	}
 };
 
+class SceneObjectBuffer {
+public:
+	using Buffer = std::set<ObjectPointer, ObjectPointerComparator>*;
+private:
+	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		return ImGui::AcceptDragDropPayload(name, flags);
+	}
+	static Buffer GetBuffer(void* data) {
+		return *(Buffer*)data;
+	}
+public:
+	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
+			return GetBuffer(payload->Data);
+
+		return nullptr;
+	}
+	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<SceneObject*>* outSceneObjects) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
+			auto objectPointers = GetBuffer(payload->Data);
+
+			for (auto objectPointer : *objectPointers)
+				outSceneObjects->push_back((*objectPointer.source)[objectPointer.pos]);
+
+			objectPointers->clear();
+
+			return true;
+		}
+
+		return false;
+	}
+
+	static void EmplaceDragDropSceneObject(const char* name, ObjectPointer objectPointer, Buffer* buffer) {
+		(*buffer)->emplace(objectPointer);
+
+		ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
+	}
+};
+
 class GroupObject : public SceneObject {
 public:
 	std::vector<SceneObject*> Children;
@@ -416,42 +455,3 @@ public:
 			delete o;
 	}
 };
-
-
-//class ClipBoard {
-//
-//}
-
-//class SceneObjectClipBoard {
-//	static std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-//		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
-//	}
-//
-//	static char* defaultName = "SceneObjects";
-//public:
-//
-//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(const char* name, ImGuiDragDropFlags target_flags) {
-//		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload(name, target_flags))
-//		{
-//			return GetBuffer(payload->Data);
-//		}
-//
-//		return nullptr;
-//	}
-//
-//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(ImGuiDragDropFlags target_flags) {
-//		return Pull(defaultName, target_flags);
-//	}
-//
-//	static void Pop(const char* name, ImGuiDragDropFlags target_flags) {
-//		Pull(name, target_flags)->clear();
-//	}
-//
-//	static void Pop(std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
-//		buffer->clear();
-//	}
-//
-//	static void Push(const char* name, std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
-//		ImGui::SetDragDropPayload(name, &buffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
-//	}
-//};

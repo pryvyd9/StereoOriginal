@@ -229,6 +229,12 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 		return val;
 	}
 
+	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
+		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
+	}
+	void EmplaceDragDropObject(ObjectPointer objectPointer) {
+		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", objectPointer, &selectedObjectsBuffer);
+	}
 
 	bool DesignRootNode(GroupObject* t) {
 		ImGui::PushID(GetID()++);
@@ -241,9 +247,9 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), GetPosition(Center));
+				ScheduleMove(&t->Children, 0, buffer, GetPosition(Center));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -289,12 +295,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 		{
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
-			ObjectPointer item;
-			item.source = &source;
-			item.pos = pos;
-			selectedObjectsBuffer->emplace(item);
 
-			ImGui::SetDragDropPayload("SceneObjects", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
+			EmplaceDragDropObject(ObjectPointer{ &source , pos });
 
 			ImGui::EndDragDropSource();
 		}
@@ -304,13 +306,13 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
 				MoveCommandPosition relativePosition = GetPosition(Any);
 				if (relativePosition == Center)
-					ScheduleMove(&t->Children, 0, GetBuffer(payload->Data), relativePosition);
+					ScheduleMove(&t->Children, 0, buffer, relativePosition);
 				else
-					ScheduleMove(&source, pos, GetBuffer(payload->Data), relativePosition);
+					ScheduleMove(&source, pos, buffer, relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -350,14 +352,9 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 		{
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
-			ObjectPointer item;
-			item.source = &source;
-			item.pos = pos;
-			selectedObjectsBuffer->emplace(item);
-
-			//SceneObjectClipBoard::Push(selectedObjectsBuffer);
-			ImGui::SetDragDropPayload("SceneObjects", &selectedObjectsBuffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
-
+			
+			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			
 			ImGui::EndDragDropSource();
 		}
 
@@ -366,9 +363,9 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&source, pos, GetBuffer(payload->Data), GetPosition(Top | Bottom));
+				ScheduleMove(&source, pos, buffer, GetPosition(Top | Bottom));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -410,10 +407,6 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 			return Top;
 
 		return Center;
-	}
-
-	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
 	}
 
 	void ScheduleMove(std::vector<SceneObject*> * target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator> * items, MoveCommandPosition pos) {
@@ -574,10 +567,6 @@ class PointPenToolWindow : Window, Attributes
 			: "Empty";
 	}
 
-	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
-	}
-
 	bool DesignInternal() {
 		ImGui::Text(GetName(type, target).c_str());
 
@@ -586,25 +575,20 @@ class PointPenToolWindow : Window, Attributes
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			std::vector<SceneObject*> objects;
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
-				auto objectPointers = GetBuffer(payload->Data);
-
-				if (objectPointers->size() > 1) {
+				if (objects.size() > 1) {
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				}
 				else {
-					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
-
-					auto target = (*objectPointer.source)[objectPointer.pos];
+					auto target = objects[0];
 
 					if (!tool->SelectTarget(target))
 						return false;
 				}
-
-				// Clear selected scene object buffer.
-				objectPointers->clear();
 			}
+
 			ImGui::EndDragDropTarget();
 		}
 
@@ -727,10 +711,6 @@ class ExtrusionToolWindow : Window, Attributes
 			: "Empty";
 	}
 
-	std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
-	}
-
 	bool DesignInternal() {
 		ImGui::Text(GetName(type, target).c_str());
 
@@ -739,24 +719,18 @@ class ExtrusionToolWindow : Window, Attributes
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("SceneObjects", target_flags))
+			std::vector<SceneObject*> objects;
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
-				auto objectPointers = GetBuffer(payload->Data);
-
-				if (objectPointers->size() > 1) {
+				if (objects.size() > 1) {
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				}
 				else {
-					auto objectPointer = objectPointers->begin()._Ptr->_Myval;
-
-					auto target = (*objectPointer.source)[objectPointer.pos];
+					auto target = objects[0];
 
 					if (!tool->SelectTarget(target))
 						return false;
 				}
-
-				// Clear selected scene object buffer.
-				objectPointers->clear();
 			}
 			ImGui::EndDragDropTarget();
 		}
