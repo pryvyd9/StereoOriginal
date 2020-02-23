@@ -582,9 +582,7 @@ class PointPenToolWindow : Window, Attributes
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				}
 				else {
-					auto target = objects[0];
-
-					if (!tool->SelectTarget(target))
+					if (!tool->BindSceneObjects(objects))
 						return false;
 				}
 			}
@@ -598,7 +596,7 @@ class PointPenToolWindow : Window, Attributes
 			{
 				if (ImGui::Button("Release"))
 				{
-					tool->ReleaseTarget();
+					tool->UnbindSceneObjects();
 				}
 				PopIsActive();
 			}
@@ -726,9 +724,7 @@ class ExtrusionToolWindow : Window, Attributes
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				}
 				else {
-					auto target = objects[0];
-
-					if (!tool->SelectTarget(target))
+					if (!tool->BindSceneObjects(objects))
 						return false;
 				}
 			}
@@ -741,7 +737,7 @@ class ExtrusionToolWindow : Window, Attributes
 			{
 				if (ImGui::Button("Release"))
 				{
-					tool->ReleaseTarget();
+					tool->UnbindSceneObjects();
 				}
 				PopIsActive();
 			}
@@ -808,6 +804,11 @@ class AttributesWindow : Window {
 	Attributes* targetAttributes = nullptr;
 	
 public:
+	/*Scene* scene;
+	Input* input;
+	Cross* cross;*/
+
+
 
 	virtual bool Init() {
 		return true;
@@ -838,7 +839,7 @@ public:
 			return toolAttributes->Init();
 		return true;
 	}
-	bool ReleaseTool() {
+	bool UnbindTool() {
 		toolAttributes = nullptr;
 		return true;
 	}
@@ -849,7 +850,7 @@ public:
 			return toolAttributes->Init();
 		return true;
 	}
-	bool ReleaseTarget() {
+	bool UnbindTarget() {
 		targetAttributes = nullptr;
 		return true;
 	}

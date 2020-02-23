@@ -4,7 +4,6 @@
 class Window
 {
 protected:
-	//bool isInitialized;
 	std::string name;
 public:
 	virtual bool Init() = 0;

@@ -1,6 +1,7 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
 #include "Converters.hpp"
+#include "ToolPool.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
 #include "Renderer.hpp"
@@ -157,28 +158,22 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	return true;
 }
 
+
 int main(int, char**)
 {
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
-	
-	PointPenEditingTool<StereoPolyLineT> pointPenEditingTool;
-	PointPenToolWindow<StereoPolyLineT> pointPenToolWindow;
-	pointPenToolWindow.tool = &pointPenEditingTool;
-
-	ExtrusionEditingTool<StereoPolyLineT> extrusionEditingTool;
-	ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
-	extrusionToolWindow.tool = &extrusionEditingTool;
 
 	CreatingToolWindow creatingToolWindow;
-
 	AttributesWindow attributesWindow;
-	attributesWindow.BindTool((Attributes*)& pointPenToolWindow);
-	//attributesWindow.BindTool((Attributes*)& extrusionToolWindow);
 
 	Scene scene;
+	StereoCamera camera;
+	Renderer renderPipeline;
+	GUI gui;
+	Cross cross;
 
 	if (!LoadScene(&scene))
 		return false;
@@ -191,60 +186,66 @@ int main(int, char**)
 
 	creatingToolWindow.scene = &scene;
 
-	StereoCamera camera;
 	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
 
-	Renderer renderPipeline;
 	if (!renderPipeline.Init())
 		return false;
 
-	GUI gui;
 	gui.windows = {
 		(Window*)& customRenderWindow,
 		(Window*)& cameraPropertiesWindow,
 		(Window*)& crossPropertiesWindow,
 		(Window*)& inspectorWindow,
-		//(Window*)& pointPenToolWindow,
-		//(Window*)& extrusionToolWindow,
 		(Window*)& creatingToolWindow,
 		(Window*)& attributesWindow,
 	};
 
-	gui.window = renderPipeline.window;
+	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
 
 	scene.whiteZ = 0;
 	scene.whiteZPrecision = 0.1;
-	scene.window = gui.window;
+	scene.glWindow = gui.glWindow;
 	scene.camera->viewSize = &customRenderWindow.renderSize;
 
 	gui.scene = &scene;
 
-	Cross cross;
 	cross.Name = "Cross";
-
 	if (!cross.Init())
 		return false;
 
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
-	pointPenEditingTool.BindCross(&cross);
-	//extrusionEditingTool.BindCross(&cross);
-
 	if (!gui.Init())
 		return false;
 
-	// Bind key binding object.
-	pointPenEditingTool.BindInput(&gui.keyBinding);
-	//extrusionEditingTool.BindInput(&gui.keyBinding);
+#pragma region Init Tools
+
+	* ToolPool::GetCross() = &cross;
+	* ToolPool::GetScene() = &scene;
+	* ToolPool::GetKeyBinding() = &gui.keyBinding;
+
+	if (!ToolPool::Init())
+		return false;
+
+	ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
+	extrusionToolWindow.tool = ToolPool::GetTool<ExtrusionEditingTool<StereoPolyLineT>>();
+	attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
+
+	//PointPenToolWindow<StereoPolyLineT> extrusionToolWindow;
+	//extrusionToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
+	//attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
+
+
+#pragma endregion
 
 	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
 		return CustomRenderFunc(cross, scene, renderPipeline);
 	};
 
-	if (!gui.MainLoop()
-		|| !gui.OnExit())
+	if (!gui.MainLoop() || 
+		!gui.OnExit())
 		return false;
 
     return true;

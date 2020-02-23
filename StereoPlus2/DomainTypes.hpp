@@ -425,7 +425,7 @@ public:
 
 	float whiteZ = 0;
 	float whiteZPrecision = 0.1;
-	GLFWwindow* window;
+	GLFWwindow* glWindow;
 
 	bool Insert(std::vector<SceneObject*>* source, SceneObject* obj) {
 		objects.push_back(obj);
@@ -455,3 +455,10 @@ public:
 			delete o;
 	}
 };
+
+//struct ModuleConfig {
+//	Scene* scene;
+//	GUI* gui;
+//	Input* input;
+//	Cross* cross;
+//};

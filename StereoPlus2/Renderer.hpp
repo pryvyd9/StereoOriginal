@@ -60,10 +60,10 @@ class Renderer {
 #endif
 
 	// Create window with graphics context
-		window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
-		if (window == NULL)
+		glWindow = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+		if (glWindow == NULL)
 			return false;
-		glfwMakeContextCurrent(window);
+		glfwMakeContextCurrent(glWindow);
 		glfwSwapInterval(1); // Enable vsync
 
 		// Initialize OpenGL loader
@@ -282,7 +282,7 @@ class Renderer {
 
 
 public:
-	GLFWwindow* window;
+	GLFWwindow* glWindow;
 
 
 	const char* glsl_version;
