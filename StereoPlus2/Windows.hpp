@@ -499,11 +499,11 @@ public:
 		ImGui::Begin("Creating tool window");
 
 		if (ImGui::Button("Line")) {
-			lineTool.Create(nullptr);
+			lineTool.Create();
 		}
 
 		if (ImGui::Button("PolyLine")) {
-			polyLineTool.Create(nullptr);
+			polyLineTool.Create();
 		}
 
 		ImGui::End();

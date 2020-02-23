@@ -7,7 +7,7 @@
 #include <map>
 #include <stack>
 #include <vector>
-
+#include <queue>
 
 class Tool {
 protected:
@@ -32,25 +32,18 @@ public:
 
 template<typename T>
 class CreatingTool : Tool, public ISceneHolder {
-
-	struct Pointer {
-		int objectCreationId;
-		SceneObject* obj;
-	};
-
-	T* obj;
 	std::vector<SceneObject*>* source;
-	int currentCreatedId;
 
 	static int& GetNextFreeId() {
 		static int val = 0;
 		return val;
 	}
 
-	static std::map<int, SceneObject*>& GetCreatedObjects() {
-		static auto val = std::map<int, SceneObject*>();
+	static std::stack<SceneObject*>& GetCreatedObjects() {
+		static std::stack<SceneObject*> val;
 		return val;
 	}
+	std::vector<std::function<void(SceneObject*)>> onCompleteOnce;
 public:
 	std::function<bool(SceneObject*)> initFunc;
 
@@ -59,43 +52,42 @@ public:
 		return true;
 	}
 
-
-	// createdObj - location where newly created object will be put
-	// * - created object
-	// ** - position in createdObjects
-	// *** - pointer to position in createdObjects
-	// If object is deleted from createdObjects then all these references invalidate.
-	bool Create(SceneObject*** createdObj) {
-		currentCreatedId = GetNextFreeId()++;
-		GetCreatedObjects()[currentCreatedId] = nullptr;
-
-		// If passed nullptr then we should ignore created object.
-		if (createdObj != nullptr)
-			*createdObj = &GetCreatedObjects()[currentCreatedId];
-
+	bool Create() {
 		auto command = new CreateCommand();
 		if (!command->BindScene(scene))
 			return false;
 
 		command->source = source;
-
 		command->func = [=] {
 			T* obj = new T();
 			initFunc(obj);
-			GetCreatedObjects()[currentCreatedId] = obj;
+			GetCreatedObjects().push(obj);
+
+			for (auto f : onCompleteOnce)
+				f(obj);
+
+			onCompleteOnce.clear();
+
 			return obj;
 		};
 
 		return true;
 	}
+
 	virtual bool Rollback() {
 		auto command = new DeleteCommand();
 		if (!command->BindScene(scene))
 			return false;
 
 		command->source = source;
-		command->target = &GetCreatedObjects()[currentCreatedId];
+		command->target = GetCreatedObjects().top();
+		GetCreatedObjects().pop();
 
+		return true;
+	}
+
+	bool BindOnCompleteOnce(std::function<void(SceneObject*)> func) {
+		onCompleteOnce.push_back(func);
 		return true;
 	}
 };
@@ -685,4 +677,13 @@ public:
 		this->mode = mode;
 	}
 
+	bool CreateNew() {
+		if (pen != nullptr && !UnbindSceneObjects())
+			return false;
+
+		return Create(&mesh);
+
+		//auto cmd = new CreateCm
+
+	};
 };

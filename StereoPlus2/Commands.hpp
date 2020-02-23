@@ -79,14 +79,12 @@ protected:
 		if (!CheckScene())
 			return false;
 
-		scene->Delete(source, *target);
+		scene->Delete(source, target);
 		return true;
-
-		return false;
 	};
 public:
 	std::vector<SceneObject*>* source;
-	SceneObject** target;
+	SceneObject* target;
 
 	DeleteCommand() {
 		isReady = true;

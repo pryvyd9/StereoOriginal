@@ -24,14 +24,15 @@ void testCreation(Scene* scene) {
 	};
 
 
-	
+	Command::ExecuteAll();
+
 	
 
 	auto dcmd = new DeleteCommand();
 
 	dcmd->BindScene(scene);
 	dcmd->source = &((GroupObject*)scene->objects[1])->Children;
-	dcmd->target = (SceneObject**)&obj;
+	dcmd->target = obj;
 	Command::ExecuteAll();
 	//Command::ExecuteAll();
 
@@ -47,10 +48,16 @@ void testCreationTool(Scene* scene) {
 		return true;
 	};
 
-	SceneObject** obj;
-	tool.Create(&obj);
+	SceneObject* obj;
+	tool.Create();
 	
+	// You can bind function to run once created.
+	tool.BindOnCompleteOnce([obj = &obj](SceneObject* o) {
+		*obj = o;
+	});
+
 	Command::ExecuteAll();
+
 
 
 
@@ -126,38 +133,6 @@ bool LoadScene(Scene* scene) {
 	return true;
 }
 
-//bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
-//	auto sizes = new size_t[scene.objects.size()];
-//	size_t sizeSum = 0;
-//	for (size_t i = 0; i < scene.objects.size(); i++)
-//		sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
-//
-//	// We will put cross' lines there too.
-//	sizeSum += cross.lineCount;
-//
-//	auto convertedObjects = new StereoLine[sizeSum];
-//	size_t k = 0;
-//
-//	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
-//		if (sizes[i] > 0)
-//			LineConverter::Convert(scene.objects[i], convertedObjects + k);
-//
-//	// Put cross' lines
-//	for (size_t i = 0; i < cross.lineCount; i++, k++)
-//		convertedObjects[k] = cross.lines[i];
-//
-//	renderPipeline.Pipeline(&convertedObjects, sizeSum, scene);
-//
-//	// Free memory after the lines are drawn.
-//	auto rel1cmd = new FuncCommand();
-//	rel1cmd->func = [sizes, convertedObjects] {
-//		delete[] sizes, convertedObjects;
-//	};
-//
-//	return true;
-//}
-
-
 bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	std::vector<size_t> sizes(scene.objects.size());
 	size_t sizeSum = 0;
@@ -188,16 +163,6 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 
 int main(int, char**)
 {
-	std::map<int, int> map;
-	map.emplace(1,2);
-	int* i = &map[1];
-	map.erase(1);
-
-
-
-
-
-
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
@@ -216,7 +181,7 @@ int main(int, char**)
 		return false;
 
 	//testCreation(&scene);
-	testCreationTool(&scene);
+	//testCreationTool(&scene);
 
 	inspectorWindow.rootObject = scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
