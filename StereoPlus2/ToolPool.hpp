@@ -2,9 +2,16 @@
 #include "DomainTypes.hpp"
 #include "Tools.hpp"
 #include "Input.hpp"
-
+#include <sstream>
 
 class ToolPool {
+
+	template<typename T>
+	static int GetId() {
+		static int i = 0;
+		return i++;
+	}
+
 	template<typename T>
 	static bool Init(T* tool) {
 		std::cout << "Tool type not supported and could not be initialized" << std::endl;
@@ -20,9 +27,21 @@ class ToolPool {
 
 	template<>
 	static bool Init<ExtrusionEditingTool<StereoPolyLineT>>(ExtrusionEditingTool<StereoPolyLineT>* tool) {
-		return
-			tool->BindInput(*GetKeyBinding()) &&
-			tool->BindCross(*GetCross());
+
+		if (!tool->BindInput(*GetKeyBinding()) ||
+			!tool->BindCross(*GetCross()) ||
+			!tool->BindScene(*GetScene()) ||
+			!tool->BindSource(&(*GetScene())->root->Children))
+			return false;
+
+		tool->initFunc = [](SceneObject * o) {
+			std::stringstream ss;
+			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
+			o->Name = ss.str();
+			return true;
+		};
+
+		return true;
 	}
 
 public:

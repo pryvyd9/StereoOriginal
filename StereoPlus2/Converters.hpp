@@ -39,25 +39,25 @@ public:
 
 };
 
-class Convert {
-public:
-	template<typename T>
-	static FreeMesh* ToMesh(SceneObject* obj) {
-	}
-
-	template<>
-	static FreeMesh* ToMesh<StereoPolyLine>(SceneObject* obj) {
-		auto o = (StereoPolyLine*)obj;
-		auto n = new FreeMesh();
-
-		n->vertices = std::vector<glm::vec3>(o->Points);
-		
-		for (size_t i = 0; i < o->Points.size() - 1; i++)
-		{
-			n->lines.push_back({ i, i + 1 });
-		}
-
-		return n;
-	}
-
-};
+//class Convert {
+//public:
+//	template<typename T>
+//	static FreeMesh* ToMesh(SceneObject* obj) {
+//	}
+//
+//	template<>
+//	static FreeMesh* ToMesh<StereoPolyLine>(SceneObject* obj) {
+//		auto o = (StereoPolyLine*)obj;
+//		auto n = new FreeMesh();
+//
+//		n->vertices = std::vector<glm::vec3>(o->Points);
+//		
+//		for (size_t i = 0; i < o->Points.size() - 1; i++)
+//		{
+//			n->lines.push_back({ i, i + 1 });
+//		}
+//
+//		return n;
+//	}
+//
+//};

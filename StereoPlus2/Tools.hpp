@@ -58,6 +58,13 @@ public:
 		this->source = source;
 		return true;
 	}
+
+
+	// createdObj - location where newly created object will be put
+	// * - created object
+	// ** - position in createdObjects
+	// *** - pointer to position in createdObjects
+	// If object is deleted from createdObjects then all these references invalidate.
 	bool Create(SceneObject*** createdObj) {
 		currentCreatedId = GetNextFreeId()++;
 		GetCreatedObjects()[currentCreatedId] = nullptr;
@@ -92,14 +99,6 @@ public:
 		return true;
 	}
 };
-
-//template<ObjectType type>
-//class CreatingToolType : CreatingTool<void*> {};
-//template<>
-//class CreatingToolType<StereoPolyLineT> : CreatingTool<StereoLine> {};
-//template<>
-//class CreatingToolType<FreeMeshT> : CreatingTool<FreeMesh> {};
-
 
 
 
@@ -448,7 +447,7 @@ public:
 
 
 template<ObjectType type>
-class ExtrusionEditingTool : public EditingTool, public CreatingTool<FreeMesh> {
+class ExtrusionEditingTool : public EditingTool, public CreatingTool<Mesh> {
 #pragma region Types
 	using Mode = ExtrusionEditingToolMode;
 
@@ -474,7 +473,9 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<FreeMesh> {
 	Mode mode;
 
 	Cross* cross = nullptr;
-	SceneObject* target = nullptr;
+
+	Mesh* mesh = nullptr;
+	SceneObject* pen = nullptr;
 	
 	template<Mode mode>
 	Config<type, mode>* GetConfig() {
@@ -486,7 +487,7 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<FreeMesh> {
 
 	template<typename T>
 	T* GetTarget() {
-		return (T*)this->target;
+		return (T*)this->pen;
 	}
 
 #pragma region ProcessInput
@@ -592,7 +593,7 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<FreeMesh> {
 
 public:
 	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
-		if (target != nullptr && !UnbindSceneObjects())
+		if (pen != nullptr && !UnbindSceneObjects())
 			return false;
 
 		if (keyBinding == nullptr)
@@ -603,10 +604,10 @@ public:
 
 		if (objs[0]->GetType() != type)
 		{
-			std::cout << "Invalid Object passed to PointPenEditingTool" << std::endl;
+			std::cout << "Invalid Object passed to ExtrusionEditingTool" << std::endl;
 			return true;
 		}
-		target = objs[0];
+		pen = objs[0];
 
 		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput(input); });
 
@@ -645,31 +646,31 @@ public:
 	}
 	template<>
 	void UnbindSceneObjects<StereoPolyLineT, Mode::Immediate>() {
-		if (this->target == nullptr)
+		if (this->pen == nullptr)
 			return;
 
-		auto target = (StereoPolyLine*)this->target;
+		auto target = (StereoPolyLine*)this->pen;
 
 		if (target->Points.size() > 0)
 			target->Points.pop_back();
 
-		this->target = nullptr;
+		this->pen = nullptr;
 	}
 	template<>
 	void UnbindSceneObjects<StereoPolyLineT, Mode::Step>() {
-		if (this->target == nullptr)
+		if (this->pen == nullptr)
 			return;
 
-		auto target = (StereoPolyLine*)this->target;
+		auto target = (StereoPolyLine*)this->pen;
 
 		if (target->Points.size() > 0)
 			target->Points.pop_back();
 
-		this->target = nullptr;
+		this->pen = nullptr;
 	}
 
 	SceneObject** GetTarget() {
-		return &target;
+		return &pen;
 	}
 	virtual Type GetType() {
 		return Type::Extrusion;

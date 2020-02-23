@@ -2,7 +2,10 @@
 #include "GLLoader.hpp"
 
 #include <set>
+#include <array>
 
+
+#pragma region Scene Objects
 
 enum ObjectType {
 	Group,
@@ -17,57 +20,12 @@ class SceneObject {
 public:
 	std::string Name = "noname";
 	virtual ObjectType GetType() = 0;
-};
-
-struct ObjectPointer {
-	std::vector<SceneObject*>* source;
-	int pos;
-};
-
-struct ObjectPointerComparator {
-	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
-		return lhs.pos < rhs.pos || lhs.source < rhs.source;
+	virtual std::string GetDefaultName() {
+		return "SceneObject";
 	}
 };
 
-class SceneObjectBuffer {
-public:
-	using Buffer = std::set<ObjectPointer, ObjectPointerComparator>*;
-private:
-	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
-		return ImGui::AcceptDragDropPayload(name, flags);
-	}
-	static Buffer GetBuffer(void* data) {
-		return *(Buffer*)data;
-	}
-public:
-	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
-			return GetBuffer(payload->Data);
 
-		return nullptr;
-	}
-	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<SceneObject*>* outSceneObjects) {
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
-			auto objectPointers = GetBuffer(payload->Data);
-
-			for (auto objectPointer : *objectPointers)
-				outSceneObjects->push_back((*objectPointer.source)[objectPointer.pos]);
-
-			objectPointers->clear();
-
-			return true;
-		}
-
-		return false;
-	}
-
-	static void EmplaceDragDropSceneObject(const char* name, ObjectPointer objectPointer, Buffer* buffer) {
-		(*buffer)->emplace(objectPointer);
-
-		ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
-	}
-};
 
 class GroupObject : public SceneObject {
 public:
@@ -132,29 +90,55 @@ struct Triangle
 };
 
 struct Mesh : LeafObject {
+protected:
 	std::vector<glm::vec3> vertices;
-	//std::vector<std::array<size_t, 2>> lines;
-
+public:
 	size_t GetVerticesSize() {
 		return sizeof(glm::vec3) * vertices.size();
 	}
+
+
+	std::vector<glm::vec3>* GetVertices() {
+		return &vertices;
+	}
+
+	virtual void AddVertice(glm::vec3 v) {
+		vertices.push_back(v);
+	}
+	virtual void RemoveVertice(size_t i) {
+		vertices.erase(vertices.begin() + i);
+	}
+	virtual void ReplaceVertice(size_t i, glm::vec3 v) {
+		vertices[i] = v;
+	}
+
+	virtual void Connect(size_t p1, size_t p2) = 0;
+	virtual void Disconnect(size_t p1, size_t p2) = 0;
 };
 
-struct FreeMesh : Mesh{
+struct LineMesh : Mesh{
 	virtual ObjectType GetType() {
 		return FreeMeshT;
 	}
 
 	std::vector<std::array<size_t, 2>> lines;
+
+	virtual void Connect(size_t p1, size_t p2) {
+		lines.push_back({ p1, p2 });
+	}
+	virtual void Disconnect(size_t p1, size_t p2) {
+		lines.erase(find(lines.begin(), lines.end(), std::array<size_t, 2>{ p1, p2 }));
+	}
 };
 
-struct QuadMesh : Mesh {
+struct TriangleMesh : LineMesh {
+	std::vector<std::array<size_t, 3>> triangles;
+};
+
+struct QuadMesh : TriangleMesh {
 	std::vector<std::array<size_t, 4>> quads;
 };
 
-struct TriangleMesh : Mesh {
-	std::vector<std::array<size_t, 3>> triangles;
-};
 
 
 
@@ -409,6 +393,58 @@ public:
 //#pragma endregion
 };
 
+#pragma endregion
+
+
+struct ObjectPointer {
+	std::vector<SceneObject*>* source;
+	int pos;
+};
+
+struct ObjectPointerComparator {
+	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
+		return lhs.pos < rhs.pos || lhs.source < rhs.source;
+	}
+};
+
+class SceneObjectBuffer {
+public:
+	using Buffer = std::set<ObjectPointer, ObjectPointerComparator>*;
+private:
+	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		return ImGui::AcceptDragDropPayload(name, flags);
+	}
+	static Buffer GetBuffer(void* data) {
+		return *(Buffer*)data;
+	}
+public:
+	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
+			return GetBuffer(payload->Data);
+
+		return nullptr;
+	}
+	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<SceneObject*>* outSceneObjects) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
+			auto objectPointers = GetBuffer(payload->Data);
+
+			for (auto objectPointer : *objectPointers)
+				outSceneObjects->push_back((*objectPointer.source)[objectPointer.pos]);
+
+			objectPointers->clear();
+
+			return true;
+		}
+
+		return false;
+	}
+
+	static void EmplaceDragDropSceneObject(const char* name, ObjectPointer objectPointer, Buffer* buffer) {
+		(*buffer)->emplace(objectPointer);
+
+		ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
+	}
+};
 
 
 
@@ -455,10 +491,3 @@ public:
 			delete o;
 	}
 };
-
-//struct ModuleConfig {
-//	Scene* scene;
-//	GUI* gui;
-//	Input* input;
-//	Cross* cross;
-//};
