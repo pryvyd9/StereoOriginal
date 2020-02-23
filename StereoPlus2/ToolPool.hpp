@@ -34,11 +34,10 @@ class ToolPool {
 			!tool->BindSource(&(*GetScene())->root->Children))
 			return false;
 
-		tool->initFunc = [](SceneObject * o) {
+		tool->func = [](SceneObject * o) {
 			std::stringstream ss;
 			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
 			o->Name = ss.str();
-			return true;
 		};
 
 		return true;

@@ -475,22 +475,20 @@ public:
 
 		lineTool.BindScene(scene);
 		lineTool.BindSource(&((GroupObject*)scene->root)->Children);
-		lineTool.initFunc = [](SceneObject * o) {
+		lineTool.func = [](SceneObject * o) {
 			static int id = 0;
 			std::stringstream ss;
 			ss << "Line" << id++;
 			o->Name = ss.str();
-			return true;
 		};
 
 		polyLineTool.BindScene(scene);
 		polyLineTool.BindSource(&((GroupObject*)scene->root)->Children);
-		polyLineTool.initFunc = [](SceneObject * o) {
+		polyLineTool.func = [](SceneObject * o) {
 			static int id = 0;
 			std::stringstream ss;
 			ss << "PolyLine" << id++;
 			o->Name = ss.str();
-			return true;
 		};
 
 		return true;

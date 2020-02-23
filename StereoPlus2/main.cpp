@@ -40,21 +40,18 @@ void testCreation(Scene* scene) {
 
 void testCreationTool(Scene* scene) {
 	CreatingTool<StereoLine> tool;
+	SceneObject* obj;
 
 	tool.BindScene(scene);
 	tool.BindSource(&((GroupObject*)scene->objects[1])->Children);
-	tool.initFunc = [] (SceneObject * o) {
+	
+	tool.func = [obj = &obj] (SceneObject * o) {
 		o->Name = "CreatedByCreatingTool";
-		return true;
+		*obj = o;
 	};
 
-	SceneObject* obj;
 	tool.Create();
 	
-	// You can bind function to run once created.
-	tool.BindOnCompleteOnce([obj = &obj](SceneObject* o) {
-		*obj = o;
-	});
 
 	Command::ExecuteAll();
 
@@ -181,7 +178,7 @@ int main(int, char**)
 		return false;
 
 	//testCreation(&scene);
-	//testCreationTool(&scene);
+	testCreationTool(&scene);
 
 	inspectorWindow.rootObject = scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;

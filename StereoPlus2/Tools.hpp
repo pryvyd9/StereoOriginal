@@ -43,9 +43,8 @@ class CreatingTool : Tool, public ISceneHolder {
 		static std::stack<SceneObject*> val;
 		return val;
 	}
-	std::vector<std::function<void(SceneObject*)>> onCompleteOnce;
 public:
-	std::function<bool(SceneObject*)> initFunc;
+	std::function<void(SceneObject*)> func;
 
 	bool BindSource(std::vector<SceneObject*>* source) {
 		this->source = source;
@@ -60,13 +59,8 @@ public:
 		command->source = source;
 		command->func = [=] {
 			T* obj = new T();
-			initFunc(obj);
+			func(obj);
 			GetCreatedObjects().push(obj);
-
-			for (auto f : onCompleteOnce)
-				f(obj);
-
-			onCompleteOnce.clear();
 
 			return obj;
 		};
@@ -83,11 +77,6 @@ public:
 		command->target = GetCreatedObjects().top();
 		GetCreatedObjects().pop();
 
-		return true;
-	}
-
-	bool BindOnCompleteOnce(std::function<void(SceneObject*)> func) {
-		onCompleteOnce.push_back(func);
 		return true;
 	}
 };
