@@ -228,13 +228,13 @@ int main(int, char**)
 	if (!ToolPool::Init())
 		return false;
 
-	//ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
-	//extrusionToolWindow.tool = ToolPool::GetTool<ExtrusionEditingTool<StereoPolyLineT>>();
-	//attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
-
-	PointPenToolWindow<StereoPolyLineT> extrusionToolWindow;
-	extrusionToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
+	ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
+	extrusionToolWindow.tool = ToolPool::GetTool<ExtrusionEditingTool<StereoPolyLineT>>();
 	attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
+
+	//PointPenToolWindow<StereoPolyLineT> extrusionToolWindow;
+	//extrusionToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
+	//attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
 
 #pragma endregion
 

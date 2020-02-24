@@ -44,7 +44,7 @@ class CreatingTool : Tool, public ISceneHolder {
 		return val;
 	}
 public:
-	std::function<void(SceneObject*)> func;
+	std::function<void(T*)> func;
 
 	bool BindSource(std::vector<SceneObject*>* source) {
 		this->source = source;
@@ -157,9 +157,6 @@ class PointPenEditingTool : public EditingTool {
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
 
-
-	//std::vector<glm::vec3*> existingPointsSelected;
-
 	template<Mode mode>
 	Config<type, mode>* GetConfig() {
 		if (config == nullptr)
@@ -257,7 +254,6 @@ class PointPenEditingTool : public EditingTool {
 		points->back() = cross->Position;
 	}
 
-	template<ObjectType type>
 	void ProcessInput(Input* input) {
 		switch (mode)
 		{
@@ -272,50 +268,6 @@ class PointPenEditingTool : public EditingTool {
 	}
 
 #pragma endregion
-
-	/*template<typename T>
-	void SelectPoint(Input* input) {
-		std::cout << "Unsupported Editing Tool target Type" << std::endl;
-	}
-	template<>
-	void SelectPoint<StereoPolyLine>(Input* input) {
-		auto target = (StereoPolyLine*)this->target;
-
-
-		auto crossViewSurfacePos = glm::vec2(cross->Position.x, cross->Position.y);
-		if (target->Points.size() == 0)
-		{
-			target->Points.push_back(cross->Position);
-		}
-
-		auto closestPoint = &target->Points[0];
-		auto viewSurfacePos = *(glm::vec2*)closestPoint;
-		double minDistance = glm::distance(crossViewSurfacePos, viewSurfacePos);
-
-		for (size_t i = 1; i < target->Points.size(); i++)
-		{
-			viewSurfacePos = *(glm::vec2*)&target->Points[i];
-			auto currentDistance = glm::distance(crossViewSurfacePos, viewSurfacePos);
-			if (minDistance > currentDistance)
-				closestPoint = &target->Points[0];
-		}
-
-		existingPointsSelected.push_back(closestPoint);
-	}
-*/
-	//template<typename T>
-	//void AddPoint(Input* input) {
-	//	std::cout << "Unsupported Editing Tool target Type" << std::endl;
-	//}
-	//template<>
-	//void AddPoint<StereoPolyLine>(Input* input) {
-	//	auto target = (StereoPolyLine*)this->target;
-
-	//	target->Points.push_back(cross->Position);
-
-	//	existingPointsSelected.push_back(&target->Points[target->Points.size() - 1]);
-	//}
-
 
 public:
 	std::vector<std::function<void()>> onTargetReleased;
@@ -339,7 +291,7 @@ public:
 		}
 		target = objs[0];
 
-		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput<type>(input); });
+		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput(input); });
 
 		return true;
 	}
@@ -419,8 +371,6 @@ public:
 		UnbindSceneObjects();
 		this->mode = mode;
 	}
-
-
 };
 
 
@@ -428,7 +378,7 @@ public:
 
 
 template<ObjectType type>
-class ExtrusionEditingTool : public EditingTool, public CreatingTool<Mesh> {
+class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 #pragma region Types
 	using Mode = ExtrusionEditingToolMode;
 
@@ -457,7 +407,8 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<Mesh> {
 
 	Mesh* mesh = nullptr;
 	SceneObject* pen = nullptr;
-	
+	glm::vec3 startCrossPosition;
+
 	template<Mode mode>
 	Config<type, mode>* GetConfig() {
 		if (config == nullptr)
@@ -531,30 +482,62 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<Mesh> {
 	//}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Step>(Input* input) {
+		if (mesh == nullptr)
+			return;
+		
 		if (input->IsDown(Key::Escape))
 		{
 			UnbindSceneObjects();
 			return;
 		}
-		auto points = &GetTarget<StereoPolyLine>()->Points;
-		auto pointsCount = points->size();
+
+		auto points = mesh->GetVertices();
+		auto penPoints = ((StereoPolyLine*)pen)->Points;
+		//auto pointsCount = points->size();
+
+		auto transformVector = cross->Position - startCrossPosition;
 
 		if (!GetConfig<Mode::Step>()->isPointCreated)
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			points->push_back(cross->Position);
-			GetConfig<Mode::Step>()->isPointCreated = true;
-		}
+			//points->push_back(cross->Position);
 
-		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
-		{
-			points->push_back(cross->Position);
+			mesh->AddVertice(penPoints[0] + transformVector);
+
+			for (size_t i = 1; i < penPoints.size(); i++) {
+
+				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->Connect(i - 1, i);
+
+				//points->push_back(penPoints[i] + transformVector);
+			}
+			GetConfig<Mode::Step>()->isPointCreated = true;
 
 			return;
 		}
 
-		points->back() = cross->Position;
+		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
+		{
+			mesh->AddVertice(penPoints[0] + transformVector);
+			mesh->Connect(mesh->GetVertices()->size() - penPoints.size(), mesh->GetVertices()->size());
+
+			for (size_t i = 1; i < penPoints.size(); i++) {
+
+				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->Connect(i - 1, i);
+				mesh->Connect(mesh->GetVertices()->size() - penPoints.size(), mesh->GetVertices()->size() + i);
+
+				//points->push_back(penPoints[i] + transformVector);
+			}
+			return;
+		}
+
+		auto iter = ((std::vector<glm::vec3>*)points)->end() - penPoints.size();
+		for (size_t i = 0; i < penPoints.size(); i++, iter++)
+			*(iter._Ptr) = penPoints[i] + transformVector;
+
+		//points->back() = cross->Position;
 	}
 
 	void ProcessInput(Input* input) {
@@ -570,57 +553,6 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<Mesh> {
 		}
 	}
 #pragma endregion
-
-
-public:
-	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
-		if (pen != nullptr && !UnbindSceneObjects())
-			return false;
-
-		if (keyBinding == nullptr)
-		{
-			std::cout << "KeyBinding wasn't assigned" << std::endl;
-			return false;
-		}
-
-		if (objs[0]->GetType() != type)
-		{
-			std::cout << "Invalid Object passed to ExtrusionEditingTool" << std::endl;
-			return true;
-		}
-		pen = objs[0];
-
-		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput(input); });
-
-		return true;
-	}
-	virtual bool UnbindSceneObjects() {
-		UnbindSceneObjects<type>();
-
-		/*for (auto func : onTargetReleased)
-			func();*/
-
-		keyBinding->RemoveHandler(handlerId);
-
-		DeleteConfig();
-
-		return true;
-	}
-	template<ObjectType type>
-	void UnbindSceneObjects() {
-		switch (mode)
-		{
-		case  Mode::Immediate:
-			return UnbindSceneObjects<type, Mode::Immediate>();
-		case  Mode::Step:
-			return UnbindSceneObjects<type, Mode::Step>();
-		default:
-			std::cout << "Not suported mode was given" << std::endl;
-			return;
-		}
-
-	}
-
 	template<ObjectType type, Mode mode>
 	void UnbindSceneObjects() {
 
@@ -650,6 +582,70 @@ public:
 		this->pen = nullptr;
 	}
 
+	void ResetTool() {
+		keyBinding->RemoveHandler(handlerId);
+
+		DeleteConfig();
+	}
+
+	template<typename T>
+	static int GetId() {
+		static int i = 0;
+		return i++;
+	}
+
+
+public:
+
+	ExtrusionEditingTool() {
+		func = [mesh = &mesh](QuadMesh* o) {
+			std::stringstream ss;
+			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
+			o->Name = ss.str();
+			*mesh = o;
+		};
+	}
+
+	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
+		if (pen != nullptr && !UnbindSceneObjects())
+			return false;
+
+		if (keyBinding == nullptr)
+		{
+			std::cout << "KeyBinding wasn't assigned" << std::endl;
+			return false;
+		}
+
+		if (objs[0]->GetType() != type)
+		{
+			std::cout << "Invalid Object passed to ExtrusionEditingTool" << std::endl;
+			return true;
+		}
+		pen = objs[0];
+
+		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput(input); });
+
+		return true;
+	}
+	virtual bool UnbindSceneObjects() {
+		switch (mode)
+		{
+		case  Mode::Immediate:
+			UnbindSceneObjects<type, Mode::Immediate>();
+			break;
+		case  Mode::Step:
+			UnbindSceneObjects<type, Mode::Step>();
+			break;
+		default:
+			std::cout << "Not suported mode was given" << std::endl;
+			return false;
+		}
+		
+		ResetTool();
+
+		return true;
+	}
+
 	SceneObject** GetTarget() {
 		return &pen;
 	}
@@ -666,13 +662,16 @@ public:
 		this->mode = mode;
 	}
 
-	bool CreateNew() {
-		if (pen != nullptr && !UnbindSceneObjects())
+	bool Create() {
+		if (pen == nullptr) {
+			std::cout << "Pen was not assigned" << std::endl;
 			return false;
+		}
 
-		return Create(&mesh);
+		DeleteConfig();
 
-		//auto cmd = new CreateCm
-
+		startCrossPosition = cross->Position;
+		
+		return CreatingTool<QuadMesh>::Create();
 	};
 };

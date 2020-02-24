@@ -275,6 +275,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 		case Leaf:
 		case StereoLineT:
 		case StereoPolyLineT:
+		case MeshT:
+		case LineMeshT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		}
 
@@ -730,12 +732,22 @@ class ExtrusionToolWindow : Window, Attributes
 		}
 
 		{
-			bool isActive = (*target) != nullptr;
-			if (IsActive(isActive))
+			if (IsActive(*target != nullptr))
 			{
 				if (ImGui::Button("Release"))
 				{
 					tool->UnbindSceneObjects();
+				}
+				PopIsActive();
+			}
+		}
+
+		{
+			if (IsActive(*target != nullptr))
+			{
+				if (ImGui::Button("New"))
+				{
+					tool->Create();
 				}
 				PopIsActive();
 			}

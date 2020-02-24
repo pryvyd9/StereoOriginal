@@ -13,7 +13,8 @@ enum ObjectType {
 
 	StereoLineT,
 	StereoPolyLineT,
-	FreeMeshT,
+	LineMeshT,
+	MeshT,
 };
 
 class SceneObject {
@@ -93,6 +94,9 @@ struct Mesh : LeafObject {
 protected:
 	std::vector<glm::vec3> vertices;
 public:
+	virtual ObjectType GetType() {
+		return MeshT;
+	}
 	size_t GetVerticesSize() {
 		return sizeof(glm::vec3) * vertices.size();
 	}
@@ -118,7 +122,7 @@ public:
 
 struct LineMesh : Mesh{
 	virtual ObjectType GetType() {
-		return FreeMeshT;
+		return LineMeshT;
 	}
 
 	std::vector<std::array<size_t, 2>> lines;

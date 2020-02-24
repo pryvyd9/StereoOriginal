@@ -14,6 +14,11 @@ public:
 			auto size = ((StereoPolyLine*)obj)->Points.size();
 			return size > 0 ? size - 1 : 0;
 		}
+		case MeshT:
+		{
+			auto size = ((LineMesh*)obj)->lines.size();
+			return size > 0 ? size - 1 : 0;
+		}
 		default:
 			return 0;
 		}
@@ -25,12 +30,23 @@ public:
 			*objs = *((StereoLine*)obj);
 			break;
 		case StereoPolyLineT:
+		{
 			auto polyLine = (StereoPolyLine*)obj;
 
 			for (size_t i = 0; i < polyLine->Points.size() - 1; i++)
 			{
 				objs[i].Start = polyLine->Points[i];
 				objs[i].End = polyLine->Points[i + 1];
+			}
+			break;
+		}
+		case MeshT:
+			auto lineMesh = (LineMesh*)obj;
+
+			for (size_t i = 0; i < lineMesh->lines.size() - 1; i++)
+			{
+				objs[i].Start = (*lineMesh->GetVertices())[lineMesh->lines[i][0]];
+				objs[i].End = (*lineMesh->GetVertices())[lineMesh->lines[i][1]];
 			}
 			break;
 		}
