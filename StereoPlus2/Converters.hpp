@@ -15,9 +15,10 @@ public:
 			return size > 0 ? size - 1 : 0;
 		}
 		case MeshT:
+		case LineMeshT:
 		{
 			auto size = ((LineMesh*)obj)->lines.size();
-			return size > 0 ? size - 1 : 0;
+			return size > 0 ? size : 0;
 		}
 		default:
 			return 0;
@@ -41,9 +42,10 @@ public:
 			break;
 		}
 		case MeshT:
+		case LineMeshT:
 			auto lineMesh = (LineMesh*)obj;
 
-			for (size_t i = 0; i < lineMesh->lines.size() - 1; i++)
+			for (size_t i = 0; i < lineMesh->lines.size(); i++)
 			{
 				objs[i].Start = (*lineMesh->GetVertices())[lineMesh->lines[i][0]];
 				objs[i].End = (*lineMesh->GetVertices())[lineMesh->lines[i][1]];

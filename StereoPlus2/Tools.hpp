@@ -491,27 +491,23 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 			return;
 		}
 
-		auto points = mesh->GetVertices();
-		auto penPoints = ((StereoPolyLine*)pen)->Points;
+		auto meshPoints = mesh->GetVertices();
+		auto penPoints = &((StereoPolyLine*)pen)->Points;
 		//auto pointsCount = points->size();
 
 		auto transformVector = cross->Position - startCrossPosition;
 
+		//std::function<size_t(void)> size = [mesh = &mesh] {mesh->GetVertices()->size; };
+
 		if (!GetConfig<Mode::Step>()->isPointCreated)
 		{
-			// We need to select one point and create an additional point
-			// so that we can perform some optimizations.
-			//points->push_back(cross->Position);
-
 			mesh->AddVertice(penPoints[0] + transformVector);
 
-			for (size_t i = 1; i < penPoints.size(); i++) {
-
-				mesh->AddVertice(penPoints[i] + transformVector);
+			for (size_t i = 1; i < penPoints->size(); i++) {
 				mesh->Connect(i - 1, i);
-
-				//points->push_back(penPoints[i] + transformVector);
+				mesh->AddVertice(penPoints[i] + transformVector);
 			}
+
 			GetConfig<Mode::Step>()->isPointCreated = true;
 
 			return;
@@ -519,25 +515,20 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 
 		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
 		{
+			mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
 			mesh->AddVertice(penPoints[0] + transformVector);
-			mesh->Connect(mesh->GetVertices()->size() - penPoints.size(), mesh->GetVertices()->size());
 
-			for (size_t i = 1; i < penPoints.size(); i++) {
-
+			for (size_t i = 1; i < penPoints->size(); i++) {
+				mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
+				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
 				mesh->AddVertice(penPoints[i] + transformVector);
-				mesh->Connect(i - 1, i);
-				mesh->Connect(mesh->GetVertices()->size() - penPoints.size(), mesh->GetVertices()->size() + i);
-
-				//points->push_back(penPoints[i] + transformVector);
 			}
 			return;
 		}
 
-		auto iter = ((std::vector<glm::vec3>*)points)->end() - penPoints.size();
-		for (size_t i = 0; i < penPoints.size(); i++, iter++)
+		auto iter = ((std::vector<glm::vec3>*)meshPoints)->end() - penPoints->size();
+		for (size_t i = 0; i < penPoints->size(); i++, iter++)
 			*(iter._Ptr) = penPoints[i] + transformVector;
-
-		//points->back() = cross->Position;
 	}
 
 	void ProcessInput(Input* input) {
