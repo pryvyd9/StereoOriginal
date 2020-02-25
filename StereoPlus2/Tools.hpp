@@ -501,11 +501,11 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 
 		if (!GetConfig<Mode::Step>()->isPointCreated)
 		{
-			mesh->AddVertice(penPoints[0] + transformVector);
+			mesh->AddVertice((*penPoints)[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints->size(); i++) {
 				mesh->Connect(i - 1, i);
-				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->AddVertice((*penPoints)[i] + transformVector);
 			}
 
 			GetConfig<Mode::Step>()->isPointCreated = true;
@@ -516,19 +516,19 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
 		{
 			mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
-			mesh->AddVertice(penPoints[0] + transformVector);
+			mesh->AddVertice((*penPoints)[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints->size(); i++) {
 				mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
 				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
-				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->AddVertice((*penPoints)[i] + transformVector);
 			}
 			return;
 		}
 
 		auto iter = ((std::vector<glm::vec3>*)meshPoints)->end() - penPoints->size();
 		for (size_t i = 0; i < penPoints->size(); i++, iter++)
-			*(iter._Ptr) = penPoints[i] + transformVector;
+			*(iter._Ptr) = (*penPoints)[i] + transformVector;
 	}
 
 	void ProcessInput(Input* input) {
@@ -565,10 +565,45 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 		if (this->pen == nullptr)
 			return;
 
-		auto target = (StereoPolyLine*)this->pen;
+		auto penPoints = &((StereoPolyLine*)pen)->Points;
 
-		if (target->Points.size() > 0)
-			target->Points.pop_back();
+
+		//if (target->Points.size() > 0)
+		//	target->Points.pop_back();
+
+		if (mesh->GetVertices()->size() > 0) {
+			if (mesh->GetVertices()->size() > penPoints->size())
+			{
+				for (size_t i = 1; i < penPoints->size(); i++)
+				{
+					mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+					mesh->Disconnect(mesh->GetVertices()->size() - penPoints->size(), mesh->GetVertices()->size());
+					mesh->Disconnect(mesh->GetVertices()->size() - 1, mesh->GetVertices()->size());
+				}
+
+				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+				mesh->Disconnect(mesh->GetVertices()->size() - penPoints->size(), mesh->GetVertices()->size());
+			}
+			else
+			{
+				for (size_t i = 1; i < penPoints->size(); i++)
+				{
+					mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+					mesh->Disconnect(mesh->GetVertices()->size() - 1, mesh->GetVertices()->size());
+				}
+
+				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+			}
+			/*for (size_t i = 1; i < penPoints->size(); i++)
+			{
+				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+				mesh->Disconnect(mesh->GetVertices()->size() - penPoints->size(), mesh->GetVertices()->size());
+				mesh->Disconnect(mesh->GetVertices()->size() - 1, mesh->GetVertices()->size());
+			}
+
+			mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+			mesh->Disconnect(mesh->GetVertices()->size() - penPoints->size(), mesh->GetVertices()->size());*/
+		}
 
 		this->pen = nullptr;
 	}

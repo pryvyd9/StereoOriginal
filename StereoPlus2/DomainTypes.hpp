@@ -131,7 +131,12 @@ struct LineMesh : Mesh{
 		lines.push_back({ p1, p2 });
 	}
 	virtual void Disconnect(size_t p1, size_t p2) {
-		lines.erase(find(lines.begin(), lines.end(), std::array<size_t, 2>{ p1, p2 }));
+		auto pos = find(lines.begin(), lines.end(), std::array<size_t, 2>{ p1, p2 });
+		
+		if (pos == lines.end())
+			return;
+
+		lines.erase(pos);
 	}
 };
 
