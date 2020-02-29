@@ -388,11 +388,14 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Immediate> : EditingTool::Config {
-		bool shouldCreateMesh = false;
+		//bool shouldCreateMesh = false;
 
-		//// If the cos between vectors is less than E
-		//// then we merge those vectors.
-		//double E = 1e-6;
+		// If the cos between vectors is less than E
+		// then we merge those vectors.
+		double E = 1e-6;
+
+		std::vector<glm::vec3> directingPoints;
+
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
@@ -427,59 +430,94 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 	void ProcessInput(Input* input) {
 		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
 	}
-	//template<>
-	//void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
-	//	std::cout << "Immediate mode of ExtrusionEditingTool not imlemented" << std::endl;
-	//	return;
+	template<>
+	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
+		if (mesh == nullptr)
+			return;
 
-	//	if (input->IsDown(Key::Escape))
-	//	{
-	//		UnbindSceneObjects();
-	//		return;
-	//	}
-	//	//auto points = &GetTarget<StereoPolyLine>()->Points;
-	//	//auto pointsCount = points->size();
+		if (input->IsDown(Key::Escape))
+		{
+			UnbindSceneObjects();
+			return;
+		}
 
-	//	//if (!GetConfig<Mode::Immediate>()->isPointCreated)
-	//	//{
-	//	//	// We need to select one point and create an additional point
-	//	//	// so that we can perform some optimizations.
-	//	//	points->push_back(cross->Position);
-	//	//	GetConfig<Mode::Immediate>()->isPointCreated = true;
-	//	//}
+		auto meshPoints = mesh->GetVertices();
+		auto penPoints = &((StereoPolyLine*)pen)->Points;
+		auto transformVector = cross->Position - startCrossPosition;
 
-	//	//// Drawing optimizing
-	//	//// If the line goes straight then instead of adding 
-	//	//// a new point - move the previous point to current cross position.
-	//	//if (pointsCount > 2)
-	//	//{
-	//	//	auto E = GetConfig<Mode::Immediate>()->E;
 
-	//	//	glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
-	//	//	glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
+		if (GetConfig<Mode::Immediate>()->directingPoints.size() < 1)
+		{
+			// We need to select one point and create an additional point
+			// so that we can perform some optimizations.
+			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->Position);
 
-	//	//	auto p = glm::dot(r1, r2);
-	//	//	auto l1 = glm::length(r1);
-	//	//	auto l2 = glm::length(r2);
+			mesh->AddVertice((*penPoints)[0] + transformVector);
 
-	//	//	auto cos = p / l1 / l2;
+			for (size_t i = 1; i < penPoints->size(); i++) {
+				mesh->Connect(i - 1, i);
+				mesh->AddVertice((*penPoints)[i] + transformVector);
+			}
 
-	//	//	if (abs(cos) > 1 - E || isnan(cos))
-	//	//	{
-	//	//		(*points)[pointsCount - 2] = points->back() = cross->Position;
-	//	//	}
-	//	//	else
-	//	//	{
-	//	//		points->push_back(cross->Position);
-	//	//	}
-	//	//}
-	//	//else
-	//	//{
-	//	//	points->push_back(cross->Position);
-	//	//}
+			return;
+		}
+		else if (GetConfig<Mode::Immediate>()->directingPoints.size() < 2)
+		{
+			// We need to select one point and create an additional point
+			// so that we can perform some optimizations.
+			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->Position);
 
-	//	//std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
-	//}
+			mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
+			mesh->AddVertice((*penPoints)[0] + transformVector);
+
+			for (size_t i = 1; i < penPoints->size(); i++) {
+				mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
+				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
+				mesh->AddVertice((*penPoints)[i] + transformVector);
+			}
+
+			return;
+		}
+
+		auto E = GetConfig<Mode::Immediate>()->E;
+
+		auto directingPoints = &GetConfig<Mode::Immediate>()->directingPoints;
+
+		glm::vec3 r1 = cross->Position - (*directingPoints)[1];
+		glm::vec3 r2 = (*directingPoints)[0] - (*directingPoints)[1];
+
+
+		auto p = glm::dot(r1, r2);
+		auto l1 = glm::length(r1);
+		auto l2 = glm::length(r2);
+
+		auto cos = p / l1 / l2;
+
+		if (abs(cos) > 1 - E || isnan(cos))
+		{
+			for (size_t i = 0; i < penPoints->size(); i++) {
+				(*meshPoints)[meshPoints->size() - penPoints->size() + i] = (*penPoints)[i] + transformVector;
+			}
+		
+			(*directingPoints)[1] = cross->Position;
+		}
+		else
+		{
+			mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
+			mesh->AddVertice((*penPoints)[0] + transformVector);
+
+			for (size_t i = 1; i < penPoints->size(); i++) {
+				mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
+				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
+				mesh->AddVertice((*penPoints)[i] + transformVector);
+			}
+			
+			directingPoints->erase(directingPoints->begin());
+			directingPoints->push_back(cross->Position);
+		}
+		
+		//std::cout << "PointPen tool Immediate mode points count: " << meshPoints->size() << std::endl;
+	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Step>(Input* input) {
 		if (mesh == nullptr)
@@ -493,11 +531,8 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 
 		auto meshPoints = mesh->GetVertices();
 		auto penPoints = &((StereoPolyLine*)pen)->Points;
-		//auto pointsCount = points->size();
 
 		auto transformVector = cross->Position - startCrossPosition;
-
-		//std::function<size_t(void)> size = [mesh = &mesh] {mesh->GetVertices()->size; };
 
 		if (!GetConfig<Mode::Step>()->isPointCreated)
 		{
@@ -534,8 +569,8 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 	void ProcessInput(Input* input) {
 		switch (mode)
 		{
-		//case Mode::Immediate:
-		//	return ProcessInput<type, Mode::Immediate>(input);
+		case Mode::Immediate:
+			return ProcessInput<type, Mode::Immediate>(input);
 		case Mode::Step:
 			return ProcessInput<type, Mode::Step>(input);
 		default:
@@ -567,10 +602,6 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 
 		auto penPoints = &((StereoPolyLine*)pen)->Points;
 
-
-		//if (target->Points.size() > 0)
-		//	target->Points.pop_back();
-
 		if (mesh->GetVertices()->size() > 0) {
 			if (mesh->GetVertices()->size() > penPoints->size())
 			{
@@ -594,15 +625,6 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 
 				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
 			}
-			/*for (size_t i = 1; i < penPoints->size(); i++)
-			{
-				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
-				mesh->Disconnect(mesh->GetVertices()->size() - penPoints->size(), mesh->GetVertices()->size());
-				mesh->Disconnect(mesh->GetVertices()->size() - 1, mesh->GetVertices()->size());
-			}
-
-			mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
-			mesh->Disconnect(mesh->GetVertices()->size() - penPoints->size(), mesh->GetVertices()->size());*/
 		}
 
 		this->pen = nullptr;
