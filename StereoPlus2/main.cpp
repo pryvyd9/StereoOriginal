@@ -102,9 +102,21 @@ bool LoadScene(Scene* scene) {
 	root->Children.push_back(g2);
 	g1->Name = "Group1";
 	g1->Children.push_back(p1);
-	p1->Points.push_back(glm::vec3(0, 0.2, 1));
-	p1->Points.push_back(glm::vec3(0, -0.2, 1));
-	p1->Points.push_back(glm::vec3(-0.5, -0.2, 1));
+	//p1->Points.push_back(glm::vec3(0, 0.2, 1));
+	//p1->Points.push_back(glm::vec3(0, -0.2, 1));
+	//p1->Points.push_back(glm::vec3(-0.5, -0.2, 1));
+	p1->Points.push_back(glm::vec3(0, 0, 0));
+	p1->Points.push_back(glm::vec3(0.1, 0.1, 0));
+	p1->Points.push_back(glm::vec3(0.2, 0, 0));
+	p1->Points.push_back(glm::vec3(0.1, -0.1, 0));
+	p1->Points.push_back(glm::vec3(0, 0, 0));
+	p1->Points.push_back(glm::vec3(-0.1, 0.1, 0));
+	p1->Points.push_back(glm::vec3(-0.2, 0, 0));
+	p1->Points.push_back(glm::vec3(-0.1, -0.1, 0));
+	p1->Points.push_back(glm::vec3(0, 0, 0));
+
+
+
 	p1->Name = "PolyLine1";
 
 	g2->Name = "Group2";
@@ -174,6 +186,10 @@ int main(int, char**)
 	GUI gui;
 	Cross cross;
 
+	//PointPenToolWindow<StereoPolyLineT> pointPenToolWindow;
+	//pointPenToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
+
+
 	if (!LoadScene(&scene))
 		return false;
 
@@ -188,6 +204,10 @@ int main(int, char**)
 	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
 
+	//pointPenToolWindow.tool->BindCross(&cross);
+	//pointPenToolWindow.tool->BindInput(&gui.keyBinding);
+	//pointPenToolWindow.tool->(&gui.keyBinding.input);
+
 	if (!renderPipeline.Init())
 		return false;
 
@@ -198,6 +218,7 @@ int main(int, char**)
 		(Window*)& inspectorWindow,
 		(Window*)& creatingToolWindow,
 		(Window*)& attributesWindow,
+		//(Window*)&pointPenToolWindow,
 	};
 
 	gui.glWindow = renderPipeline.glWindow;
@@ -228,13 +249,13 @@ int main(int, char**)
 	if (!ToolPool::Init())
 		return false;
 
-	ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
-	extrusionToolWindow.tool = ToolPool::GetTool<ExtrusionEditingTool<StereoPolyLineT>>();
-	attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
-
-	//PointPenToolWindow<StereoPolyLineT> extrusionToolWindow;
-	//extrusionToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
+	//ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
+	//extrusionToolWindow.tool = ToolPool::GetTool<ExtrusionEditingTool<StereoPolyLineT>>();
 	//attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
+
+	PointPenToolWindow<StereoPolyLineT> extrusionToolWindow;
+	extrusionToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
+	attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
 
 #pragma endregion
 

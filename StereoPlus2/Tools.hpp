@@ -139,7 +139,7 @@ class PointPenEditingTool : public EditingTool {
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Immediate> : EditingTool::Config {
-		bool isPointCreated = false;
+		int additionalPointCreatedCount = 0;
 
 		// If the cos between vectors is less than E
 		// then we merge those vectors.
@@ -186,12 +186,14 @@ class PointPenEditingTool : public EditingTool {
 		auto points = &GetTarget<StereoPolyLine>()->Points;
 		auto pointsCount = points->size();
 
-		if (!GetConfig<Mode::Immediate>()->isPointCreated)
+		if (!GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 2)
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
 			points->push_back(cross->Position);
-			GetConfig<Mode::Immediate>()->isPointCreated = true;
+			GetConfig<Mode::Immediate>()->additionalPointCreatedCount++;
+
+			return;
 		}
 
 		// Drawing optimizing
@@ -368,7 +370,16 @@ public:
 	}
 
 	void SetMode(Mode mode) {
-		UnbindSceneObjects();
+		DeleteConfig();
+		//switch (mode)
+		//{
+		//case Mode::Immediate:
+		//	//GetConfig<Mode::Immediate>()->additionalPointCreatedCount = false;
+		//	break;
+		//default:
+		//	break;
+		//}
+		//UnbindSceneObjects();
 		this->mode = mode;
 	}
 };
@@ -588,11 +599,6 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 		if (this->pen == nullptr)
 			return;
 
-		auto target = (StereoPolyLine*)this->pen;
-
-		if (target->Points.size() > 0)
-			target->Points.pop_back();
-
 		this->pen = nullptr;
 	}
 	template<>
@@ -602,7 +608,7 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 
 		auto penPoints = &((StereoPolyLine*)pen)->Points;
 
-		if (mesh->GetVertices()->size() > 0) {
+		if (GetConfig<Mode::Step>()->isPointCreated && mesh->GetVertices()->size() > 0) {
 			if (mesh->GetVertices()->size() > penPoints->size())
 			{
 				for (size_t i = 1; i < penPoints->size(); i++)
@@ -706,7 +712,8 @@ public:
 	}
 
 	void SetMode(Mode mode) {
-		UnbindSceneObjects();
+		//UnbindSceneObjects();
+		DeleteConfig();
 		this->mode = mode;
 	}
 
