@@ -1,13 +1,15 @@
-#pragma once
+﻿#pragma once
 #include "GLLoader.hpp"
 #include "Window.hpp"
 #include <functional>
 #include "DomainTypes.hpp"
 #include "Commands.hpp"
 #include "Tools.hpp"
+#include "ToolPool.hpp"
 #include <set>
 #include <sstream>
 #include <imgui/imgui_internal.h>
+#include <string>
 
 class CustomRenderWindow : Window
 {
@@ -497,7 +499,7 @@ public:
 	}
 	virtual bool Design() {
 		ImGui::Begin("Creating tool window");
-
+		
 		if (ImGui::Button("Line")) {
 			lineTool.Create();
 		}
@@ -814,11 +816,7 @@ class AttributesWindow : Window {
 	Attributes* targetAttributes = nullptr;
 	
 public:
-	/*Scene* scene;
-	Input* input;
-	Cross* cross;*/
-
-
+	std::function<void()> onUnbindTool;
 
 	virtual bool Init() {
 		return true;
@@ -850,6 +848,14 @@ public:
 		return true;
 	}
 	bool UnbindTool() {
+		try
+		{
+			onUnbindTool();
+		}
+		catch (const std::exception&)
+		{
+
+		}
 		toolAttributes = nullptr;
 		return true;
 	}
@@ -866,3 +872,47 @@ public:
 	}
 };
 
+class ToolWindow : Window {
+	template<typename TWindow, typename TTool>
+	void ApplyTool() {
+		auto tool = new TWindow();
+		tool->tool = ToolPool::GetTool<TTool>();
+
+		attributesWindow->UnbindTool();
+		attributesWindow->BindTool((Attributes*)tool);
+		attributesWindow->onUnbindTool = [t = tool] {
+			delete t;
+		};
+	}
+public:
+	AttributesWindow* attributesWindow;
+
+	virtual bool Init() {
+		if (attributesWindow == nullptr)
+		{
+			std::cout << "AttributesWindow was null" << std::endl;
+			return false;
+		}
+
+		return true;
+	}
+	virtual bool Design() {
+		ImGui::Begin("Toolbar");
+
+		if (ImGui::Button("extrusion")) {
+			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
+		}
+
+		if (ImGui::Button("penTool")) {
+			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+
+};

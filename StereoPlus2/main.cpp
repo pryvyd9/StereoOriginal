@@ -179,15 +179,13 @@ int main(int, char**)
 
 	CreatingToolWindow creatingToolWindow;
 	AttributesWindow attributesWindow;
+	ToolWindow toolWindow;
 
 	Scene scene;
 	StereoCamera camera;
 	Renderer renderPipeline;
 	GUI gui;
 	Cross cross;
-
-	//PointPenToolWindow<StereoPolyLineT> pointPenToolWindow;
-	//pointPenToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
 
 
 	if (!LoadScene(&scene))
@@ -196,6 +194,8 @@ int main(int, char**)
 	//testCreation(&scene);
 	testCreationTool(&scene);
 
+	toolWindow.attributesWindow = &attributesWindow;
+
 	inspectorWindow.rootObject = scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
@@ -203,10 +203,6 @@ int main(int, char**)
 
 	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
-
-	//pointPenToolWindow.tool->BindCross(&cross);
-	//pointPenToolWindow.tool->BindInput(&gui.keyBinding);
-	//pointPenToolWindow.tool->(&gui.keyBinding.input);
 
 	if (!renderPipeline.Init())
 		return false;
@@ -218,7 +214,7 @@ int main(int, char**)
 		(Window*)& inspectorWindow,
 		(Window*)& creatingToolWindow,
 		(Window*)& attributesWindow,
-		//(Window*)&pointPenToolWindow,
+		(Window*)& toolWindow,
 	};
 
 	gui.glWindow = renderPipeline.glWindow;
@@ -248,14 +244,6 @@ int main(int, char**)
 
 	if (!ToolPool::Init())
 		return false;
-
-	//ExtrusionToolWindow<StereoPolyLineT> extrusionToolWindow;
-	//extrusionToolWindow.tool = ToolPool::GetTool<ExtrusionEditingTool<StereoPolyLineT>>();
-	//attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
-
-	PointPenToolWindow<StereoPolyLineT> extrusionToolWindow;
-	extrusionToolWindow.tool = ToolPool::GetTool<PointPenEditingTool<StereoPolyLineT>>();
-	attributesWindow.BindTool((Attributes*)&extrusionToolWindow);
 
 #pragma endregion
 
