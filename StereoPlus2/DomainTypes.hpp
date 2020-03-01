@@ -2,7 +2,33 @@
 #include "GLLoader.hpp"
 
 #include <set>
+#include <array>
+#include <chrono>
 
+
+class Time {
+	static std::chrono::steady_clock::time_point* GetBegin() {
+		static std::chrono::steady_clock::time_point instance;
+		return &instance;
+	}
+
+	static size_t* GetDeltaTimeMicroseconds() {
+		static size_t instance;
+		return &instance;
+	}
+public:
+	static void UpdateFrame() {
+		auto end = std::chrono::steady_clock::now();
+		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
+		*GetBegin() = end;
+	};
+
+	static float GetDeltaTime() {
+		return 1 / ((float)*GetDeltaTimeMicroseconds() / 1e6);
+	}
+};
+
+#pragma region Scene Objects
 
 enum ObjectType {
 	Group,
@@ -10,24 +36,20 @@ enum ObjectType {
 
 	StereoLineT,
 	StereoPolyLineT,
+	LineMeshT,
+	MeshT,
 };
 
 class SceneObject {
 public:
 	std::string Name = "noname";
 	virtual ObjectType GetType() = 0;
-};
-
-struct ObjectPointer {
-	std::vector<SceneObject*>* source;
-	int pos;
-};
-
-struct ObjectPointerComparator {
-	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
-		return lhs.pos < rhs.pos || lhs.source < rhs.source;
+	virtual std::string GetDefaultName() {
+		return "SceneObject";
 	}
 };
+
+
 
 class GroupObject : public SceneObject {
 public:
@@ -80,6 +102,7 @@ struct StereoPolyLine : LeafObject {
 	}
 };
 
+
 struct Triangle
 {
 	glm::vec3 p1, p2, p3;
@@ -89,6 +112,67 @@ struct Triangle
 	GLuint VBO, VAO;
 	GLuint ShaderProgram;
 };
+
+struct Mesh : LeafObject {
+protected:
+	std::vector<glm::vec3> vertices;
+public:
+	virtual ObjectType GetType() {
+		return MeshT;
+	}
+	size_t GetVerticesSize() {
+		return sizeof(glm::vec3) * vertices.size();
+	}
+
+
+	std::vector<glm::vec3>* GetVertices() {
+		return &vertices;
+	}
+
+	virtual void AddVertice(glm::vec3 v) {
+		vertices.push_back(v);
+	}
+	virtual void RemoveVertice(size_t i) {
+		vertices.erase(vertices.begin() + i);
+	}
+	virtual void ReplaceVertice(size_t i, glm::vec3 v) {
+		vertices[i] = v;
+	}
+
+	virtual void Connect(size_t p1, size_t p2) = 0;
+	virtual void Disconnect(size_t p1, size_t p2) = 0;
+};
+
+struct LineMesh : Mesh{
+	virtual ObjectType GetType() {
+		return LineMeshT;
+	}
+
+	std::vector<std::array<size_t, 2>> lines;
+
+	virtual void Connect(size_t p1, size_t p2) {
+		lines.push_back({ p1, p2 });
+	}
+	virtual void Disconnect(size_t p1, size_t p2) {
+		auto pos = find(lines.begin(), lines.end(), std::array<size_t, 2>{ p1, p2 });
+		
+		if (pos == lines.end())
+			return;
+
+		lines.erase(pos);
+	}
+};
+
+struct TriangleMesh : LineMesh {
+	std::vector<std::array<size_t, 3>> triangles;
+};
+
+struct QuadMesh : TriangleMesh {
+	std::vector<std::array<size_t, 4>> quads;
+};
+
+
+
 
 // Created for the sole purpose of crutching the broken 
 // Line - triangle drawing mechanism.
@@ -341,6 +425,58 @@ public:
 //#pragma endregion
 };
 
+#pragma endregion
+
+
+struct ObjectPointer {
+	std::vector<SceneObject*>* source;
+	int pos;
+};
+
+struct ObjectPointerComparator {
+	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
+		return lhs.pos < rhs.pos || lhs.source < rhs.source;
+	}
+};
+
+class SceneObjectBuffer {
+public:
+	using Buffer = std::set<ObjectPointer, ObjectPointerComparator>*;
+private:
+	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		return ImGui::AcceptDragDropPayload(name, flags);
+	}
+	static Buffer GetBuffer(void* data) {
+		return *(Buffer*)data;
+	}
+public:
+	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
+			return GetBuffer(payload->Data);
+
+		return nullptr;
+	}
+	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<SceneObject*>* outSceneObjects) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
+			auto objectPointers = GetBuffer(payload->Data);
+
+			for (auto objectPointer : *objectPointers)
+				outSceneObjects->push_back((*objectPointer.source)[objectPointer.pos]);
+
+			objectPointers->clear();
+
+			return true;
+		}
+
+		return false;
+	}
+
+	static void EmplaceDragDropSceneObject(const char* name, ObjectPointer objectPointer, Buffer* buffer) {
+		(*buffer)->emplace(objectPointer);
+
+		ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
+	}
+};
 
 
 
@@ -357,7 +493,7 @@ public:
 
 	float whiteZ = 0;
 	float whiteZPrecision = 0.1;
-	GLFWwindow* window;
+	GLFWwindow* glWindow;
 
 	bool Insert(std::vector<SceneObject*>* source, SceneObject* obj) {
 		objects.push_back(obj);
@@ -387,42 +523,3 @@ public:
 			delete o;
 	}
 };
-
-
-//class ClipBoard {
-//
-//}
-
-//class SceneObjectClipBoard {
-//	static std::set<ObjectPointer, ObjectPointerComparator>* GetBuffer(void* data) {
-//		return *(std::set<ObjectPointer, ObjectPointerComparator> * *)data;
-//	}
-//
-//	static char* defaultName = "SceneObjects";
-//public:
-//
-//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(const char* name, ImGuiDragDropFlags target_flags) {
-//		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload(name, target_flags))
-//		{
-//			return GetBuffer(payload->Data);
-//		}
-//
-//		return nullptr;
-//	}
-//
-//	static std::set<ObjectPointer, ObjectPointerComparator>* Pull(ImGuiDragDropFlags target_flags) {
-//		return Pull(defaultName, target_flags);
-//	}
-//
-//	static void Pop(const char* name, ImGuiDragDropFlags target_flags) {
-//		Pull(name, target_flags)->clear();
-//	}
-//
-//	static void Pop(std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
-//		buffer->clear();
-//	}
-//
-//	static void Push(const char* name, std::set<ObjectPointer, ObjectPointerComparator>* buffer) {
-//		ImGui::SetDragDropPayload(name, &buffer, sizeof(std::set<ObjectPointer, ObjectPointerComparator>*));
-//	}
-//};

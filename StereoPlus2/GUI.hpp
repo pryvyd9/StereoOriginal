@@ -6,13 +6,12 @@
 #include <map>
 
 
-
 class GUI
 {
 #pragma region Private
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
-	void ProcessInput(GLFWwindow* window)
+	void ProcessInput(GLFWwindow* glWindow)
 	{
 		input.ProcessInput();
 	}
@@ -80,7 +79,7 @@ public:
 	// When trying to free it it fails some imgui internal free function.
 	ImGuiIO* io;
 	const char* glsl_version;
-	GLFWwindow* window;
+	GLFWwindow* glWindow;
 	Input input;
 	KeyBinding keyBinding;
 	Scene* scene;
@@ -91,10 +90,10 @@ public:
 	bool Init()
 	{
 		keyBinding.input = &input;
-		input.window = window;
+		input.glWindow = glWindow;
 
-		if (!input.Init()
-			|| !keyBinding.Init())
+		if (!input.Init() || 
+			!keyBinding.Init())
 			return false;
 
 		// Setup Dear ImGui context
@@ -121,7 +120,7 @@ public:
 		}
 
 		// Setup Platform/Renderer bindings
-		ImGui_ImplGlfw_InitForOpenGL(window, true);
+		ImGui_ImplGlfw_InitForOpenGL(glWindow, true);
 		ImGui_ImplOpenGL3_Init(glsl_version);
 
 		// Load Fonts
@@ -139,8 +138,8 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		//IM_ASSERT(font != NULL);
 
-		for (auto window : windows)
-			if (!window->Init())
+		for (auto glWindow : windows)
+			if (!glWindow->Init())
 				return false;
 
 		return true;
@@ -152,8 +151,8 @@ public:
 		if (!DesignMainWindowDockingSpace())
 			return false;
 
-		for (Window* window : windows)
-			if (!window->Design())
+		for (Window* glWindow : windows)
+			if (!glWindow->Design())
 				return false;
 
 		return true;
@@ -162,7 +161,7 @@ public:
 	bool MainLoop()
 	{
 		// Main loop
-		while (!glfwWindowShouldClose(window))
+		while (!glfwWindowShouldClose(glWindow))
 		{
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
@@ -170,7 +169,7 @@ public:
 			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
 			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 			glfwPollEvents();
-			ProcessInput(window);
+			ProcessInput(glWindow);
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL3_NewFrame();
@@ -183,7 +182,7 @@ public:
 			// Rendering
 			ImGui::Render();
 			int display_w, display_h;
-			glfwGetFramebufferSize(window, &display_w, &display_h);
+			glfwGetFramebufferSize(glWindow, &display_w, &display_h);
 			glViewport(0, 0, display_w, display_h);
 			glClear(GL_COLOR_BUFFER_BIT);
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -199,11 +198,13 @@ public:
 				glfwMakeContextCurrent(backup_current_context);
 			}
 
-			glfwSwapBuffers(window);
+			glfwSwapBuffers(glWindow);
 
 			if (!Command::ExecuteAll())
 				return false;
 
+			Time::UpdateFrame();
+			//std::cout << "FPS: " << Time::GetDeltaTime() << std::endl;
 		}
 
 		return true;
@@ -211,8 +212,8 @@ public:
 	
 	bool OnExit()
 	{
-		for (Window* window : windows)
-			if (!window->OnExit())
+		for (Window* glWindow : windows)
+			if (!glWindow->OnExit())
 				return false;
 		
 		// Cleanup
@@ -220,12 +221,10 @@ public:
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
 
-		glfwDestroyWindow(window);
+		glfwDestroyWindow(glWindow);
 		glfwTerminate();
 
 		return true;
 	}
-
-	
 };
 

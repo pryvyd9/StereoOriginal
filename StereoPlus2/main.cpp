@@ -1,5 +1,7 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
+#include "Converters.hpp"
+#include "ToolPool.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
 #include "Renderer.hpp"
@@ -7,42 +9,8 @@
 
 using namespace std;
 
+#include <chrono>
 
-class LineConverter {
-public:
-	static size_t GetLineCount(SceneObject* obj) {
-		switch (obj->GetType()) {
-		case StereoLineT:
-			return 1;
-		case StereoPolyLineT:
-		{
-			auto size = ((StereoPolyLine*)obj)->Points.size();
-			return size > 0 ? size - 1 : 0;
-		}
-		default:
-			return 0;
-		}
-	}
-
-	static void Convert(SceneObject* obj, StereoLine* objs) {
-		switch (obj->GetType()) {
-		case StereoLineT:
-			*objs = *((StereoLine*)obj);
-			break;
-		case StereoPolyLineT:
-			auto polyLine = (StereoPolyLine*)obj;
-
-			for (size_t i = 0; i < polyLine->Points.size() - 1; i++)
-			{
-				objs[i].Start = polyLine->Points[i];
-				objs[i].End = polyLine->Points[i + 1];
-			}
-			break;
-		}
-	}
-
-
-};
 
 void testCreation(Scene* scene) {
 	CreateCommand* cmd = new CreateCommand();
@@ -58,14 +26,15 @@ void testCreation(Scene* scene) {
 	};
 
 
-	
+	Command::ExecuteAll();
+
 	
 
 	auto dcmd = new DeleteCommand();
 
 	dcmd->BindScene(scene);
 	dcmd->source = &((GroupObject*)scene->objects[1])->Children;
-	dcmd->target = (SceneObject**)&obj;
+	dcmd->target = obj;
 	Command::ExecuteAll();
 	//Command::ExecuteAll();
 
@@ -73,22 +42,24 @@ void testCreation(Scene* scene) {
 
 void testCreationTool(Scene* scene) {
 	CreatingTool<StereoLine> tool;
+	SceneObject* obj;
 
 	tool.BindScene(scene);
 	tool.BindSource(&((GroupObject*)scene->objects[1])->Children);
-	tool.initFunc = [] (SceneObject * o) {
+	
+	tool.func = [obj = &obj] (SceneObject * o) {
 		o->Name = "CreatedByCreatingTool";
-		return true;
+		*obj = o;
 	};
 
-	SceneObject** obj;
-	tool.Create(&obj);
+	tool.Create();
 	
+
 	Command::ExecuteAll();
 
-	/*tool.Rollback();
-	Command::ExecuteAll();
-*/
+
+
+
 }
 
 //bool LoadScene(Scene* scene) {
@@ -117,8 +88,6 @@ void testCreationTool(Scene* scene) {
 //}
 
 
-
-
 bool LoadScene(Scene* scene) {
 
 	auto root = new GroupObject();
@@ -135,9 +104,21 @@ bool LoadScene(Scene* scene) {
 	root->Children.push_back(g2);
 	g1->Name = "Group1";
 	g1->Children.push_back(p1);
-	p1->Points.push_back(glm::vec3(0, 0.2, 1));
-	p1->Points.push_back(glm::vec3(0, -0.2, 1));
-	p1->Points.push_back(glm::vec3(-0.5, -0.2, 1));
+	//p1->Points.push_back(glm::vec3(0, 0.2, 1));
+	//p1->Points.push_back(glm::vec3(0, -0.2, 1));
+	//p1->Points.push_back(glm::vec3(-0.5, -0.2, 1));
+	p1->Points.push_back(glm::vec3(0, 0, 0));
+	p1->Points.push_back(glm::vec3(0.1, 0.1, 0));
+	p1->Points.push_back(glm::vec3(0.2, 0, 0));
+	p1->Points.push_back(glm::vec3(0.1, -0.1, 0));
+	p1->Points.push_back(glm::vec3(0, 0, 0));
+	p1->Points.push_back(glm::vec3(-0.1, 0.1, 0));
+	p1->Points.push_back(glm::vec3(-0.2, 0, 0));
+	p1->Points.push_back(glm::vec3(-0.1, -0.1, 0));
+	p1->Points.push_back(glm::vec3(0, 0, 0));
+
+
+
 	p1->Name = "PolyLine1";
 
 	g2->Name = "Group2";
@@ -164,35 +145,46 @@ bool LoadScene(Scene* scene) {
 }
 
 bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
-	auto sizes = new size_t[scene.objects.size()];
+	//std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+
+
+	std::vector<size_t> sizes(scene.objects.size());
 	size_t sizeSum = 0;
 	for (size_t i = 0; i < scene.objects.size(); i++)
 		sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
 
+	//auto t0 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
+
 	// We will put cross' lines there too.
 	sizeSum += cross.lineCount;
 
-	auto convertedObjects = new StereoLine[sizeSum];
+	std::vector<StereoLine> convertedObjects(sizeSum);
 	size_t k = 0;
 
 	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
 		if (sizes[i] > 0)
-			LineConverter::Convert(scene.objects[i], convertedObjects + k);
+			LineConverter::Convert(scene.objects[i], &convertedObjects[k]);
+	//auto t = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
+
+	//std::cout << "FPS: " << t << std::endl;
+
 
 	// Put cross' lines
 	for (size_t i = 0; i < cross.lineCount; i++, k++)
 		convertedObjects[k] = cross.lines[i];
 
-	renderPipeline.Pipeline(&convertedObjects, sizeSum, scene);
+	//auto t2 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
-	// Free memory after the lines are drawn.
-	auto rel1cmd = new FuncCommand();
-	rel1cmd->func = [sizes, convertedObjects] {
-		delete[] sizes, convertedObjects;
-	};
+	auto d = convertedObjects.data();
+
+	renderPipeline.Pipeline(&d, sizeSum, scene);
+
+	//auto t3 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
 	return true;
 }
+
 
 int main(int, char**)
 {
@@ -200,77 +192,83 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
-	
-	PointPenEditingTool<StereoPolyLineT> lineDrawingEditingTool;
-
-	PointPenToolWindow<StereoPolyLineT> pointPenToolWindow;
-	pointPenToolWindow.tool = &lineDrawingEditingTool;
 
 	CreatingToolWindow creatingToolWindow;
+	AttributesWindow attributesWindow;
+	ToolWindow toolWindow;
 
 	Scene scene;
+	StereoCamera camera;
+	Renderer renderPipeline;
+	GUI gui;
+	Cross cross;
+
 
 	if (!LoadScene(&scene))
 		return false;
 
 	//testCreation(&scene);
-	//testCreationTool(&scene);
+	testCreationTool(&scene);
+
+	toolWindow.attributesWindow = &attributesWindow;
 
 	inspectorWindow.rootObject = scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
 	creatingToolWindow.scene = &scene;
 
-	StereoCamera camera;
 	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
 
-	Renderer renderPipeline;
 	if (!renderPipeline.Init())
 		return false;
 
-	GUI gui;
 	gui.windows = {
 		(Window*)& customRenderWindow,
 		(Window*)& cameraPropertiesWindow,
 		(Window*)& crossPropertiesWindow,
 		(Window*)& inspectorWindow,
-		(Window*)& pointPenToolWindow,
 		(Window*)& creatingToolWindow,
+		(Window*)& attributesWindow,
+		(Window*)& toolWindow,
 	};
 
-	gui.window = renderPipeline.window;
+	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
 
 	scene.whiteZ = 0;
 	scene.whiteZPrecision = 0.1;
-	scene.window = gui.window;
+	scene.glWindow = gui.glWindow;
 	scene.camera->viewSize = &customRenderWindow.renderSize;
 
 	gui.scene = &scene;
 
-	Cross cross;
 	cross.Name = "Cross";
-
 	if (!cross.Init())
 		return false;
 
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
-	lineDrawingEditingTool.BindCross(&cross);
-
 	if (!gui.Init())
 		return false;
 
-	// Bind key binding object.
-	lineDrawingEditingTool.BindInput(&gui.keyBinding);
+#pragma region Init Tools
+
+	* ToolPool::GetCross() = &cross;
+	* ToolPool::GetScene() = &scene;
+	* ToolPool::GetKeyBinding() = &gui.keyBinding;
+
+	if (!ToolPool::Init())
+		return false;
+
+#pragma endregion
 
 	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
 		return CustomRenderFunc(cross, scene, renderPipeline);
 	};
 
-	if (!gui.MainLoop()
-		|| !gui.OnExit())
+	if (!gui.MainLoop() || 
+		!gui.OnExit())
 		return false;
 
     return true;
