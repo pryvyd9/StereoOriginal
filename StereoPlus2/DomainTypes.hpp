@@ -3,7 +3,30 @@
 
 #include <set>
 #include <array>
+#include <chrono>
 
+
+class Time {
+	static std::chrono::steady_clock::time_point* GetBegin() {
+		static std::chrono::steady_clock::time_point instance;
+		return &instance;
+	}
+
+	static size_t* GetDeltaTimeMicroseconds() {
+		static size_t instance;
+		return &instance;
+	}
+public:
+	static void UpdateFrame() {
+		auto end = std::chrono::steady_clock::now();
+		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
+		*GetBegin() = end;
+	};
+
+	static float GetDeltaTime() {
+		return 1 / ((float)*GetDeltaTimeMicroseconds() / 1e6);
+	}
+};
 
 #pragma region Scene Objects
 

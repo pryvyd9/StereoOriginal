@@ -4,15 +4,11 @@
 #include "Window.hpp"
 #include "Input.hpp"
 #include <map>
-#include <chrono>
 
 
 class GUI
 {
 #pragma region Private
-	std::chrono::steady_clock::time_point begin;
-	size_t deltaTimeMicroseconds;
-
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
 	void ProcessInput(GLFWwindow* glWindow)
@@ -91,10 +87,6 @@ public:
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;
 
-	float GetDeltaTime() {
-		return 1 / ((float)deltaTimeMicroseconds / 1e6);
-	}
-
 	bool Init()
 	{
 		keyBinding.input = &input;
@@ -171,7 +163,6 @@ public:
 		// Main loop
 		while (!glfwWindowShouldClose(glWindow))
 		{
-
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
 			// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -212,11 +203,8 @@ public:
 			if (!Command::ExecuteAll())
 				return false;
 
-			auto end = std::chrono::steady_clock::now();
-			deltaTimeMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-			begin = end;
-			
-			std::cout << "FPS: " << GetDeltaTime() << std::endl;
+			Time::UpdateFrame();
+			//std::cout << "FPS: " << Time::GetDeltaTime() << std::endl;
 		}
 
 		return true;

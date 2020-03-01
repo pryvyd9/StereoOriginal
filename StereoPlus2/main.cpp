@@ -9,6 +9,8 @@
 
 using namespace std;
 
+#include <chrono>
+
 
 void testCreation(Scene* scene) {
 	CreateCommand* cmd = new CreateCommand();
@@ -143,10 +145,16 @@ bool LoadScene(Scene* scene) {
 }
 
 bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
+	//std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+
+
 	std::vector<size_t> sizes(scene.objects.size());
 	size_t sizeSum = 0;
 	for (size_t i = 0; i < scene.objects.size(); i++)
 		sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
+
+	//auto t0 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
 	// We will put cross' lines there too.
 	sizeSum += cross.lineCount;
@@ -157,14 +165,22 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
 		if (sizes[i] > 0)
 			LineConverter::Convert(scene.objects[i], &convertedObjects[k]);
+	//auto t = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
+
+	//std::cout << "FPS: " << t << std::endl;
+
 
 	// Put cross' lines
 	for (size_t i = 0; i < cross.lineCount; i++, k++)
 		convertedObjects[k] = cross.lines[i];
 
+	//auto t2 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
+
 	auto d = convertedObjects.data();
 
 	renderPipeline.Pipeline(&d, sizeSum, scene);
+
+	//auto t3 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
 	return true;
 }
