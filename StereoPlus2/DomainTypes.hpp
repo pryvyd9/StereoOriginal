@@ -43,7 +43,7 @@ enum ObjectType {
 class SceneObject {
 public:
 	std::string Name = "noname";
-	virtual ObjectType GetType() = 0;
+	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
 		return "SceneObject";
 	}
@@ -54,14 +54,14 @@ public:
 class GroupObject : public SceneObject {
 public:
 	std::vector<SceneObject*> Children;
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return Group;
 	}
 };
 
 class LeafObject : public SceneObject {
 public:
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return Leaf;
 	}
 };
@@ -82,7 +82,7 @@ struct StereoLine : LeafObject
 
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return StereoLineT;
 	}
 };
@@ -97,7 +97,7 @@ struct StereoPolyLine : LeafObject {
 			Points.push_back(p);
 	}
 
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return StereoPolyLineT;
 	}
 };
@@ -117,7 +117,7 @@ struct Mesh : LeafObject {
 protected:
 	std::vector<glm::vec3> vertices;
 public:
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return MeshT;
 	}
 	size_t GetVerticesSize() {
@@ -500,6 +500,12 @@ public:
 		source->push_back(obj);
 		return true;
 	}
+
+	bool Insert(SceneObject* obj) {
+		objects.push_back(obj);
+		return true;
+	}
+
 
 	bool Delete(std::vector<SceneObject*>* source, SceneObject* obj) {
 		for (size_t i = 0; i < source->size(); i++)

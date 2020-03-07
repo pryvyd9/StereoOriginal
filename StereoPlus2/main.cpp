@@ -6,6 +6,7 @@
 #include "Windows.hpp"
 #include "Renderer.hpp"
 #include <functional>
+#include "FileManager.hpp"
 
 using namespace std;
 
@@ -204,8 +205,11 @@ int main(int, char**)
 	Cross cross;
 
 
-	if (!LoadScene(&scene))
-		return false;
+	//if (!LoadScene(&scene))
+	//	return false;
+
+	//FileManager::SaveBinary("scene1", &scene);
+	FileManager::LoadBinary("scene1", &scene);
 
 	//testCreation(&scene);
 	testCreationTool(&scene);

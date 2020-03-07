@@ -113,6 +113,9 @@
     <ClInclude Include="ToolPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FileManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">
