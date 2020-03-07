@@ -209,10 +209,12 @@ int main(int, char**)
 	//	return false;
 
 	//FileManager::SaveBinary("scene1", &scene);
-	FileManager::LoadBinary("scene1", &scene);
+	//FileManager::LoadBinary("scene1", &scene);
+	FileManager::LoadJson("scene1.json", &scene);
+	//FileManager::SaveJson("scene1.json", &scene);
 
 	//testCreation(&scene);
-	testCreationTool(&scene);
+	//testCreationTool(&scene);
 
 	toolWindow.attributesWindow = &attributesWindow;
 

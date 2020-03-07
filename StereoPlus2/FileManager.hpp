@@ -67,7 +67,7 @@ public:
 			break;
 		}
 		default:
-			break;
+			throw exception("Unsupported Scene Object Type found while writing file.");
 		}
 	}
 
@@ -137,9 +137,7 @@ public:
 			
 			auto pointCount = get<size_t>();
 			for (size_t i = 0; i < pointCount; i++)
-			{
 				o->Points.push_back(get<glm::vec3>());
-			}
 
 			return o;
 		}
@@ -157,7 +155,7 @@ public:
 			return o;
 		}
 		default:
-			return nullptr;
+			throw exception("Unsupported Scene Object Type found while reading file.");
 		}
 	}
 
@@ -169,181 +167,244 @@ public:
 	}
 };
 
-
-
-
-std::ofstream& operator<<(std::ofstream& os, glm::vec3& dt)
-{
-	os << dt.x << dt.y << dt.z;
-
-	return os;
-}
-
-std::ofstream& operator<<(std::ofstream& os, SceneObject* dt)
-{
-	switch (dt->GetType())
-	{
-	case Group:
-	{
-		auto o = (GroupObject*)dt;
-
-		os << o->Children.size();
-
-		for (auto c : o->Children)
-			os << c;
-
-		break;
-	}
-	case StereoPolyLineT:
-	{
-		auto o = (StereoPolyLine*)dt;
-
-		os << o->Name << o->Points.size();
-
-		for (auto p : o->Points)
-			os << p;
-
-		break;
-	}
-	default:
-		break;
+class ojstream {
+	std::stringstream buffer;
+public:
+	template<typename T>
+	void put(const T& val) {
+		throw exception("Unsupported Type found while writing file.");
 	}
 
-	return os;
-}
 
-
-std::ifstream& operator>>(std::ifstream& is, glm::vec3& dt)
-{
-	is >> dt.x >> dt.y >> dt.z;
-
-	return is;
-}
-
-std::ifstream& operator>>(std::ifstream& is, SceneObject* dt)
-{
-	switch (dt->GetType())
-	{
-	case Group:
-	{
-		for (auto o : ((GroupObject*)dt)->Children)
-			is >> o;
-
-		break;
+	template<>
+	void put<size_t>(const size_t& val) {
+		buffer << val;
 	}
-	case StereoPolyLineT:
-	{
-		auto o = (StereoPolyLine*)dt;
-		int pointCount;
-		is >> o->Name >> pointCount;
+	template<>
+	void put<ObjectType>(const ObjectType& val) {
+		buffer << val;
+	}
+	template<>
+	void put<glm::vec3>(const glm::vec3& val) {
+		buffer << '[' << val.x << ',' << val.y << ',' << val.z << ']';
+	}
 
-		for (size_t i = 0; i < pointCount; i++)
+	template<>
+	void put<std::string>(const std::string& val) {
+		buffer << '"' << val << '"';
+	}
+
+	template<>
+	void put<SceneObject>(const SceneObject& so) {
+		buffer << '{';
+
+		switch (so.GetType())
 		{
-			glm::vec3 v;
-			is >> v;
-			o->Points.push_back(v);
+		case Group:
+		{
+			auto o = (GroupObject*)&so;
+			
+			buffer << "\"type\":";
+			put(so.GetType());
+
+			buffer << ",\"name\":";
+			put(o->Name);
+			
+			buffer << ",\"children\":[";
+			put(*o->Children[0]);
+			for (size_t i = 1; i < o->Children.size(); i++)
+			{
+				buffer << ',';
+				put(*o->Children[i]);
+			}
+			buffer << ']';
+
+			break;
+		}
+		case StereoPolyLineT:
+		{
+			auto o = (StereoPolyLine*)&so;
+
+			buffer << "\"type\":";
+			put(so.GetType());
+
+			buffer << ",\"name\":";
+			put(o->Name);
+
+			buffer << ",\"points\":[";
+			put(o->Points[0]);
+			for (size_t i = 1; i < o->Points.size(); i++)
+			{
+				buffer << ',';
+				put(o->Points[i]);
+			}
+			buffer << ']';
+
+			break;
+		}
+		case StereoLineT:
+		{
+			auto o = (StereoLine*)&so;
+
+			buffer << "\"type\":";
+			put(so.GetType());
+
+			buffer << ",\"name\":";
+			put(o->Name);
+
+			buffer << ",\"start\":";
+			put(o->Start);
+
+			buffer << ",\"end\":";
+			put(o->End);
+
+			break;
+		}
+		default:
+			throw exception("Unsupported Scene Object Type found while writing file.");
 		}
 
-		break;
-	}
-	default:
-		break;
+		buffer << '}';
 	}
 
-	return is;
-}
+	std::string getBuffer() {
+		return buffer.str();
+	}
+};
+
+class ijstream {
+	istringstream buffer;
+
+	void skipName() {
+		while (buffer.get() != ':');
+	}
+	void skip() {
+		char a = buffer.get();
+	}
+public:
+	Scene* scene;
+
+	template<typename T>
+	T get() {
+		throw exception("Unsupported Type found while writing file.");
+	}
+
+	template<>
+	ObjectType get<ObjectType>() {
+		ObjectType val;
+		buffer >> *(int*)&val;
+		return (ObjectType)val;
+	}
+
+	template<>
+	glm::vec3 get<glm::vec3>() {
+		glm::vec3 val;
+
+
+		skip();//[
+
+		buffer >> val.x;
+		skip();//,
+
+		buffer >> val.y;
+		skip();//,
+
+		buffer >> val.z;
+		skip();//]
+
+		return val;
+	}
+
+	template<>
+	std::string get<std::string>() {
+		std::string val;
+		char c;
+
+		skip();//"
+		while (c = buffer.get() != '"')
+			val += c;
+
+		return val;
+	}
+
+
+	template<>
+	SceneObject* get<SceneObject*>() {
+		skip();//{
+		skipName();
+		auto type = get<ObjectType>();
+		skip();//,
+
+		switch (type)
+		{
+		case Group:
+		{
+			auto o = new GroupObject();
+			scene->Insert(o);
+
+			skipName();
+			o->Name = get<std::string>();
+			skip();//,
+
+			skipName();
+			while (buffer.get() != ']')//[]
+				o->Children.push_back(get<SceneObject*>());
+
+			skip();//}
+
+			return o;
+		}
+		case StereoPolyLineT:
+		{
+			auto o = new StereoPolyLine();
+			scene->Insert(o);
+
+			skipName();
+			o->Name = get<std::string>();
+			skip();//,
+
+			skipName();
+			while (buffer.get() != ']')//[]
+				o->Points.push_back(get<glm::vec3>());
+
+			skip();//}
+
+			return o;
+		}
+		case StereoLineT:
+		{
+			auto o = new StereoLine();
+			scene->Insert(o);
+
+			skipName();
+			o->Name = get<std::string>();
+			skip();//,
+
+			skipName();
+			o->Start = get<glm::vec3>();
+			skip();//,
+
+			skipName();
+			o->End = get<glm::vec3>();
+
+			skip();//}
+
+			return o;
+		}
+		default:
+			throw exception("Unsupported Scene Object Type found while reading file.");
+		}
+	}
+
+
+	void setBuffer(char* buf) {
+		buffer = istringstream(buf);
+	}
+
+};
+
 
 class FileManager {
-public:
-
-	//static bool Load(std::string filename, Scene* outScene) {
-	//	std::ifstream in(filename, std::ios::binary, std::ios::in);
-
-	//	in >> outScene->root;
-
-	//	return true;
-	//}
-
-	//static bool SaveJson(std::string filename, Scene* inScene) {
-	//	std::ofstream out(filename, std::ios::binary | std::ios::out);
-
-	//	out << inScene->root;
-
-	//	return true;
-	//}
-
-	//static stringstream& Serialize(stringstream& ss, glm::vec3& obj) {
-	//	ss << obj.x << obj.y << obj.z;
-
-	//	return ss;
-	//}
-
-	//static stringstream& Serialize(stringstream& ss, SceneObject* obj) {
-	//	switch (obj->GetType())
-	//	{
-	//	case Group:
-	//	{
-	//		auto o = (GroupObject*)obj;
-
-	//		ss << o->Children.size();
-
-	//		for (auto c : o->Children)
-	//			Serialize(ss, c);
-
-	//		break;
-	//	}
-	//	case StereoPolyLineT:
-	//	{
-	//		auto o = (StereoPolyLine*)obj;
-
-	//		ss << o->Name.size() << o->Name << o->Points.size();
-
-	//		for (auto p : o->Points)
-	//			Serialize(ss, p);
-
-	//		break;
-	//	}
-	//	default:
-	//		break;
-	//	}
-
-	//	return ss;
-	//}
-
-
-
-	//static binarystream& Serialize(binarystream& ss, SceneObject* obj) {
-	//	switch (obj->GetType())
-	//	{
-	//	case Group:
-	//	{
-	//		auto o = (GroupObject*)obj;
-
-	//		ss << o->Children.size();
-
-	//		for (auto c : o->Children)
-	//			Serialize(ss, c);
-
-	//		break;
-	//	}
-	//	case StereoPolyLineT:
-	//	{
-	//		auto o = (StereoPolyLine*)obj;
-
-	//		ss << o->Name.size() << o->Name << o->Points.size();
-
-	//		for (auto p : o->Points)
-	//			Serialize(ss, p);
-
-	//		break;
-	//	}
-	//	default:
-	//		break;
-	//	}
-
-	//	return ss;
-	//}
-
 	static size_t GetFileSize(std::string filename) {
 		std::ifstream in(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
@@ -351,6 +412,55 @@ public:
 			return in.tellg();
 
 		return 0;
+	}
+
+public:
+	static bool SaveJson(std::string filename, Scene* inScene) {
+		std::ofstream out(filename);
+
+		ojstream bs;
+
+		bs.put(*(SceneObject*)inScene->root);
+
+		out << bs.getBuffer();
+
+		out.close();
+
+		return true;
+	}
+
+	static bool LoadJson(std::string filename, Scene* inScene) {
+		std::ifstream file(filename, std::ios::binary | std::ios::in);
+
+		auto bufferSize = GetFileSize(filename);
+
+		auto buffer = new char[bufferSize];
+		file.read(buffer, bufferSize);
+
+		ijstream str;
+		str.setBuffer(buffer);
+		str.scene = inScene;
+
+		auto o = str.get<SceneObject*>();
+		inScene->root = (GroupObject*)o;
+
+		file.close();
+
+		return true;
+	}
+
+
+	static bool SaveBinary(std::string filename, Scene* inScene) {
+		std::ofstream file(filename, std::ios::binary | std::ios::out);
+
+		auto bs = obstream();
+		bs.put(*(SceneObject*)inScene->root);
+
+		file.write(bs.getBuffer(), bs.getSize());
+
+		file.close();
+
+		return true;
 	}
 
 	static bool LoadBinary(std::string filename, Scene* inScene) {
@@ -367,19 +477,6 @@ public:
 
 		auto o = str.get<SceneObject*>();
 		inScene->root = (GroupObject*)o;
-
-		file.close();
-
-		return true;
-	}
-
-	static bool SaveBinary(std::string filename, Scene* inScene) {
-		std::ofstream file(filename, std::ios::binary | std::ios::out);
-
-		auto bs = obstream();
-		bs.put(*(SceneObject*)inScene->root);
-
-		file.write(bs.getBuffer(), bs.getSize());
 
 		file.close();
 
