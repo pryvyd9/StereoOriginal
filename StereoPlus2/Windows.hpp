@@ -12,9 +12,37 @@
 #include <string>
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
+#include "FileManager.hpp"
+
+namespace ImGui::Extensions {
+	#include <stack>
+	static std::stack<bool>& GetIsActive() {
+		static std::stack<bool> val;
+		return val;
+	}
+	static bool PushActive(bool isActive) {
+		ImGui::Extensions::GetIsActive().push(isActive);
+		if (!isActive)
+		{
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+		}
+
+		return true;
+	}
+	static void PopActive() {
+		auto isActive = ImGui::Extensions::GetIsActive().top();
+		ImGui::Extensions::GetIsActive().pop();
+
+		if (!isActive)
+		{
+			ImGui::PopItemFlag();
+			ImGui::PopStyleVar();
+		}
+	}
+}
 
 namespace fs = std::filesystem;
-
 
 class CustomRenderWindow : Window
 {
@@ -671,31 +699,7 @@ class ExtrusionToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
 
-	std::stack<bool>& GetIsActive() {
-		static std::stack<bool> val;
-		return val;
-	}
-	bool IsActive(bool isActive) {
-		GetIsActive().push(isActive);
-		if (!isActive)
-		{
-			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-		}
-
-		return true;
-	}
-	void PopIsActive() {
-		auto isActive = GetIsActive().top();
-		GetIsActive().pop();
-
-		if (!isActive)
-		{
-			ImGui::PopItemFlag();
-			ImGui::PopStyleVar();
-		}
-	}
-
+	
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
@@ -738,22 +742,22 @@ class ExtrusionToolWindow : Window, Attributes
 			ImGui::EndDragDropTarget();
 		}
 
-		if (IsActive(*target != nullptr))
+		if (ImGui::Extensions::PushActive(*target != nullptr))
 		{
 			if (ImGui::Button("Release"))
 			{
 				tool->UnbindSceneObjects();
 			}
-			PopIsActive();
+			ImGui::Extensions::PopActive();
 		}
 
-		if (IsActive(*target != nullptr))
+		if (ImGui::Extensions::PushActive(*target != nullptr))
 		{
 			if (ImGui::Button("New"))
 			{
 				tool->Create();
 			}
-			PopIsActive();
+			ImGui::Extensions::PopActive();
 		}
 
 
@@ -939,10 +943,17 @@ class OpenFileWindow : Window {
 			path = fs::absolute(n);
 			pathBuffer = path.u8string();
 		}
+
+		bool isSome() {
+			return !pathBuffer.empty();
+		}
 	};
 
-	Path path;
 
+
+	Path path;
+	Path selectedFile;
+	Scene* scene;
 	void ListFiles() {
 		ImGui::ListBoxHeader("");
 
@@ -972,10 +983,11 @@ class OpenFileWindow : Window {
 				return;
 			}
 
-		for (const auto& a : files) {
-			const std::string fileName = a.path().filename().u8string();
-			ImGui::Selectable(fileName.c_str());
-		}
+		for (const auto& a : files) 
+			if (const std::string fileName = a.path().filename().u8string();
+				ImGui::Selectable(fileName.c_str()))
+					selectedFile.apply(a);
+			
 
 		ImGui::ListBoxFooter();
 	}
@@ -983,6 +995,11 @@ class OpenFileWindow : Window {
 
 public:
 	virtual bool Init() {
+		if (!scene) {
+			std::cout << "Scene was null" << std::endl;
+			return false;
+		}
+
 		path.apply(".");
 
 		return true;
@@ -995,14 +1012,31 @@ public:
 		{
 			ImGui::InputText("Path", &path.getBuffer());
 
-			if (ImGui::Button("Submit"))
-				path.apply();
+			if (ImGui::Extensions::PushActive(path.isSome())) {
+				if (ImGui::Button("Submit"))
+					path.apply();
+
+				ImGui::Extensions::PopActive();
+			}
 		}
 
 		ListFiles();
 
-		if (ImGui::Button("Open")) {
+		ImGui::InputText("File", &selectedFile.getBuffer());
 
+		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
+			if (ImGui::Button("Open")) {
+				auto extension = selectedFile.get().extension().u8string().substr(1);
+
+				if (extension == FileType::Json)
+					FileManager::LoadJson(selectedFile.getBuffer(), scene);
+				else if (extension == FileType::Sp2)
+					FileManager::LoadBinary(selectedFile.getBuffer(), scene);
+				else
+					std::cout << "Unsupported file type" << std::endl;
+			}
+
+			ImGui::Extensions::PopActive();
 		}
 
 		if (ImGui::Button("Cancel")) {
@@ -1015,6 +1049,14 @@ public:
 	}
 	virtual bool OnExit() {
 		return true;
+	}
+
+	bool BindScene(Scene* scene) {
+		if (this->scene = scene)
+			return true;
+
+		std::cout << "Scene was null" << std::endl;
+		return false;
 	}
 
 };

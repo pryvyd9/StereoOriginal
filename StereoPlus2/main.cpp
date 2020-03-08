@@ -257,6 +257,7 @@ int main(int, char**)
 	//testCreation(&scene);
 	//testCreationTool(&scene);
 
+	openFileWindow.BindScene(&scene);
 	toolWindow.attributesWindow = &attributesWindow;
 
 	inspectorWindow.rootObject = scene.root;

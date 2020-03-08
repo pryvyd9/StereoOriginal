@@ -20,7 +20,6 @@ public:
 	bool IsInitialized() {
 		return isInitialized;
 	}
-
 	virtual bool Init() = 0;
 	virtual bool Design() = 0;
 	virtual bool OnExit() = 0;

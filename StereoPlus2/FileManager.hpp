@@ -1,9 +1,14 @@
 #pragma once
 
 #include "DomainTypes.hpp"
-
+#include <string>
 #include <iostream>
 
+
+namespace FileType {
+	const std::string Json = "json";
+	const std::string Sp2 = "sp2";
+};
 
 class obstream {
 	std::vector<char> buffer;
@@ -67,7 +72,7 @@ public:
 			break;
 		}
 		default:
-			throw exception("Unsupported Scene Object Type found while writing file.");
+			throw std::exception("Unsupported Scene Object Type found while writing file.");
 		}
 	}
 
@@ -155,7 +160,7 @@ public:
 			return o;
 		}
 		default:
-			throw exception("Unsupported Scene Object Type found while reading file.");
+			throw std::exception("Unsupported Scene Object Type found while reading file.");
 		}
 	}
 
@@ -172,7 +177,7 @@ class ojstream {
 public:
 	template<typename T>
 	void put(const T& val) {
-		throw exception("Unsupported Type found while writing file.");
+		throw std::exception("Unsupported Type found while writing file.");
 	}
 
 
@@ -261,7 +266,7 @@ public:
 			break;
 		}
 		default:
-			throw exception("Unsupported Scene Object Type found while writing file.");
+			throw std::exception("Unsupported Scene Object Type found while writing file.");
 		}
 
 		buffer << '}';
@@ -273,7 +278,7 @@ public:
 };
 
 class ijstream {
-	istringstream buffer;
+	std::istringstream buffer;
 
 	void skipName() {
 		while (buffer.get() != ':');
@@ -286,7 +291,7 @@ public:
 
 	template<typename T>
 	T get() {
-		throw exception("Unsupported Type found while writing file.");
+		throw std::exception("Unsupported Type found while writing file.");
 	}
 
 	template<>
@@ -392,13 +397,13 @@ public:
 			return o;
 		}
 		default:
-			throw exception("Unsupported Scene Object Type found while reading file.");
+			throw std::exception("Unsupported Scene Object Type found while reading file.");
 		}
 	}
 
 
 	void setBuffer(char* buf) {
-		buffer = istringstream(buf);
+		buffer = std::istringstream(buf);
 	}
 
 };
@@ -482,4 +487,11 @@ public:
 
 		return true;
 	}
+
+	//static bool Load(std::string filename, Scene* inScene, std::string type) {
+	//	if (type == FileType::Json)
+	//	{
+	//		return LoadJson(
+	//	}
+	//}
 };
