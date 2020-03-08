@@ -931,7 +931,13 @@ public:
 
 };
 
-class OpenFileWindow : Window {
+class FileWindow : Window {
+public:
+	enum Mode {
+		Load,
+		Save,
+	};
+private:
 	bool iequals(const std::string& a, const std::string& b)
 	{
 		return std::equal(a.begin(), a.end(),
@@ -940,7 +946,7 @@ class OpenFileWindow : Window {
 				return tolower(a) == tolower(b);
 			});
 	}
-	const Log log = Log::For<OpenFileWindow>();
+	const Log log = Log::For<FileWindow>();
 
 	class Path {
 		fs::path path;
@@ -1014,21 +1020,14 @@ class OpenFileWindow : Window {
 		ImGui::ListBoxFooter();
 	}
 
-
-public:
-	virtual bool Init() {
-		if (!scene) {
-			log.Error("Scene was null");
-			return false;
-		}
-
-		path.apply(".");
-
-		return true;
+	template<Mode mode>
+	bool Design() {
+		log.Error("Unsupported mode given");
+		return false;
 	}
 
-
-	virtual bool Design() {
+	template<>
+	bool Design<Load>() {
 		ImGui::Begin("Open File");
 
 		{
@@ -1051,11 +1050,15 @@ public:
 				auto extension = selectedFile.get().extension().u8string().substr(1);
 
 				if (iequals(extension, FileType::Json)) {
-					FileManager::LoadJson(selectedFile.getBuffer(), scene);
+					if (!FileManager::LoadJson(selectedFile.getBuffer(), scene))
+						return false;
+
 					shouldClose = true;
 				}
 				else if (iequals(extension, FileType::Sp2)) {
-					FileManager::LoadBinary(selectedFile.getBuffer(), scene);
+					if (!FileManager::LoadBinary(selectedFile.getBuffer(), scene))
+						return false;
+
 					shouldClose = true;
 				}
 				else
@@ -1073,9 +1076,89 @@ public:
 
 		return true;
 	}
+
+
+	template<>
+	bool Design<Save>() {
+		ImGui::Begin("Save File");
+
+		{
+			ImGui::InputText("Path", &path.getBuffer());
+
+			if (ImGui::Extensions::PushActive(path.isSome())) {
+				if (ImGui::Button("Submit"))
+					path.apply();
+
+				ImGui::Extensions::PopActive();
+			}
+		}
+
+		ListFiles();
+
+		ImGui::InputText("File", &selectedFile.getBuffer());
+
+		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
+			if (ImGui::Button("Save")) {
+				auto extension = selectedFile.get().extension().u8string().substr(1);
+
+				if (iequals(extension, FileType::Json)) {
+					if (!FileManager::SaveJson(selectedFile.getBuffer(), scene))
+						return false;
+
+					shouldClose = true;
+				}
+				else if (iequals(extension, FileType::Sp2)) {
+					if (!FileManager::SaveBinary(selectedFile.getBuffer(), scene))
+						return false;
+
+					shouldClose = true;
+				}
+				else
+					std::cout << "Unsupported file type" << std::endl;
+			}
+
+			ImGui::Extensions::PopActive();
+		}
+
+		if (ImGui::Button("Cancel")) {
+			shouldClose = true;
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+
+public:
+
+	Mode mode;
+
+	virtual bool Init() {
+		if (!scene) {
+			log.Error("Scene was null");
+			return false;
+		}
+
+		path.apply(".");
+
+		return true;
+	}
+
+
+	virtual bool Design() {
+		switch (mode)
+		{
+		case FileWindow::Load:
+			return Design<Load>();
+		case FileWindow::Save:
+			return Design<Save>();
+		default:
+			log.Error("Unsupported mode given");
+			return false;
+		}
+	}
 	virtual bool OnExit() {
 		return Window::OnExit();
-		//return true;
 	}
 
 	bool BindScene(Scene* scene) {

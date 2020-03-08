@@ -410,6 +410,11 @@ public:
 
 
 class FileManager {
+	static Log& GetLog() {
+		static Log log = Log::For<FileManager>();
+		return log;
+	}
+
 	static size_t GetFileSize(std::string filename) {
 		std::ifstream in(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
@@ -421,6 +426,15 @@ class FileManager {
 
 public:
 	static bool SaveJson(std::string filename, Scene* inScene) {
+		if (inScene == nullptr) {
+			GetLog().Error("InScene was null");
+			return false;
+		} 
+		if (inScene->root == nullptr) {
+			GetLog().Error("InScene Root was null");
+			return false;
+		}
+
 		std::ofstream out(filename);
 
 		ojstream bs;

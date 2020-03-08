@@ -11,13 +11,46 @@ class GUI {
 #pragma region Private
 
 	const Log log = Log::For<GUI>();
-	bool isFileManagementWindowOpen = false;
+
+	FileWindow* fileWindow = nullptr;
 
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
 	void ProcessInput(GLFWwindow* glWindow)
 	{
 		input.ProcessInput();
+	}
+
+	bool CreateFileWindow(FileWindow::Mode mode) {
+		auto fileWindow = new FileWindow();
+
+		fileWindow->mode = mode;
+		fileWindow->BindScene(scene);
+
+		if (!fileWindow->Init())
+			return false;
+
+		windows.push_back((Window*)fileWindow);
+
+		this->fileWindow = fileWindow;
+
+		((Window*)fileWindow)->BindOnExit([f = &this->fileWindow] {
+			delete *f;
+			*f = nullptr;
+		});
+
+		return true;
+	}
+
+	bool OpenFileWindow(FileWindow::Mode mode) {
+		if (fileWindow != nullptr) {
+			if (fileWindow->mode != mode)
+				fileWindow->mode = mode;
+		}
+		else if (!CreateFileWindow(mode))
+			return false;
+
+		return true;
 	}
 
 	bool DesignMainWindowDockingSpace()
@@ -62,23 +95,14 @@ class GUI {
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem("Open", "", false) && !isFileManagementWindowOpen) {
-					auto openFileWindow = new OpenFileWindow();
-					openFileWindow->BindScene(scene);
-					
-					if (!openFileWindow->Init())
+				if (ImGui::MenuItem("Open", "", false)) {
+					if (!OpenFileWindow(FileWindow::Load))
 						return false;
-
-					((Window*)openFileWindow)->BindOnExit([openFileWindow, isOpen = &isFileManagementWindowOpen] {
-						delete openFileWindow;
-						*isOpen = false;
-					});
-
-					windows.push_back((Window*)openFileWindow);
-
-					isFileManagementWindowOpen = true;
 				}
-				if (ImGui::MenuItem("Save", "", false)) log.Error("not implemented");
+				if (ImGui::MenuItem("Save", "", false)) {
+					if (!OpenFileWindow(FileWindow::Save))
+						return false;
+				}
 				if (ImGui::MenuItem("Exit", "", false)) return false;
 
 				ImGui::EndMenu();
