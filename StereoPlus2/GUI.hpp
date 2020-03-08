@@ -2,13 +2,17 @@
 #include "GLLoader.hpp"
 #include "Commands.hpp"
 #include "Window.hpp"
+#include "Windows.hpp"
 #include "Input.hpp"
 #include <map>
 
 
-class GUI
-{
+class GUI {
 #pragma region Private
+
+	const Log log = Log::For<GUI>();
+	bool isFileManagementWindowOpen = false;
+
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
 	void ProcessInput(GLFWwindow* glWindow)
@@ -58,8 +62,23 @@ class GUI
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem("Open", "", false)) std::cout << "not implemented" << std::endl;
-				if (ImGui::MenuItem("Save", "", false)) std::cout << "not implemented" << std::endl;
+				if (ImGui::MenuItem("Open", "", false) && !isFileManagementWindowOpen) {
+					auto openFileWindow = new OpenFileWindow();
+					openFileWindow->BindScene(scene);
+					
+					if (!openFileWindow->Init())
+						return false;
+
+					((Window*)openFileWindow)->BindOnExit([openFileWindow, isOpen = &isFileManagementWindowOpen] {
+						delete openFileWindow;
+						*isOpen = false;
+					});
+
+					windows.push_back((Window*)openFileWindow);
+
+					isFileManagementWindowOpen = true;
+				}
+				if (ImGui::MenuItem("Save", "", false)) log.Error("not implemented");
 				if (ImGui::MenuItem("Exit", "", false)) return false;
 
 				ImGui::EndMenu();

@@ -1053,7 +1053,8 @@ public:
 		return true;
 	}
 	virtual bool OnExit() {
-		return true;
+		return Window::OnExit();
+		//return true;
 	}
 
 	bool BindScene(Scene* scene) {

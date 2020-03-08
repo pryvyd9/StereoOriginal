@@ -1,4 +1,3 @@
-#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
 #include "Converters.hpp"
@@ -9,11 +8,10 @@
 #include <functional>
 #include "FileManager.hpp"
 #include <filesystem> // C++17 standard header file name
-//#include <experimental/filesystem> // Header file for pre-standard implementation
+#include <chrono>
 
 using namespace std;
 
-#include <chrono>
 
 
 void testCreation(Scene* scene) {
@@ -231,7 +229,6 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
-	OpenFileWindow openFileWindow;
 
 	CreatingToolWindow creatingToolWindow;
 	AttributesWindow attributesWindow;
@@ -257,7 +254,6 @@ int main(int, char**)
 	//testCreation(&scene);
 	//testCreationTool(&scene);
 
-	openFileWindow.BindScene(&scene);
 	toolWindow.attributesWindow = &attributesWindow;
 
 	inspectorWindow.rootObject = scene.root;
@@ -279,7 +275,6 @@ int main(int, char**)
 		(Window*)&creatingToolWindow,
 		(Window*)&attributesWindow,
 		(Window*)&toolWindow,
-		(Window*)&openFileWindow,
 	};
 
 	gui.glWindow = renderPipeline.glWindow;
