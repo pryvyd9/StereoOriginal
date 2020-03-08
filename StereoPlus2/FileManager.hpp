@@ -326,7 +326,7 @@ public:
 		char c;
 
 		skip();//"
-		while (c = buffer.get() != '"')
+		while ((c = buffer.get()) != '"')
 			val += c;
 
 		return val;

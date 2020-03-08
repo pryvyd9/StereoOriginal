@@ -13,6 +13,9 @@
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
+//
+//#include <algorithm>
+
 
 namespace ImGui::Extensions {
 	#include <stack>
@@ -255,8 +258,9 @@ public:
 };
 
 
-class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
-{
+class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
+	const Log log = Log::For<SceneObjectInspectorWindow>();
+
 	MoveCommand* moveCommand;
 
 	static int& GetID() {
@@ -272,6 +276,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 	}
 
 	bool DesignRootNode(GroupObject* t) {
+		if (t == nullptr) {
+			ImGui::Text("No scene loaded. Nothing to show");
+			return true;
+		}
+
 		ImGui::PushID(GetID()++);
 
 		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf;
@@ -464,7 +473,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 public:
 	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
 
-	GroupObject* rootObject;
+	GroupObject** rootObject;
 	float indent = 1;
 	float centerSizeHalf = 3;
 
@@ -484,7 +493,7 @@ public:
 		// Reset elements' IDs.
 		GetID() = 0;
 
-		DesignRootNode(rootObject);
+		DesignRootNode(*rootObject);
 
 		ImGui::End();
 		return true;
@@ -923,6 +932,14 @@ public:
 };
 
 class OpenFileWindow : Window {
+	bool iequals(const std::string& a, const std::string& b)
+	{
+		return std::equal(a.begin(), a.end(),
+			b.begin(), b.end(),
+			[](char a, char b) {
+				return tolower(a) == tolower(b);
+			});
+	}
 	const Log log = Log::For<OpenFileWindow>();
 
 	class Path {
@@ -1033,10 +1050,14 @@ public:
 			if (ImGui::Button("Open")) {
 				auto extension = selectedFile.get().extension().u8string().substr(1);
 
-				if (extension == FileType::Json)
+				if (iequals(extension, FileType::Json)) {
 					FileManager::LoadJson(selectedFile.getBuffer(), scene);
-				else if (extension == FileType::Sp2)
+					shouldClose = true;
+				}
+				else if (iequals(extension, FileType::Sp2)) {
 					FileManager::LoadBinary(selectedFile.getBuffer(), scene);
+					shouldClose = true;
+				}
 				else
 					std::cout << "Unsupported file type" << std::endl;
 			}

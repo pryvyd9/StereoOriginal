@@ -189,22 +189,6 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 
 namespace fs = std::filesystem;
 
-void DisplayDirectoryTree(const fs::path& pathToScan, int level = 0) {
-	for (const auto& entry : fs::directory_iterator(pathToScan)) {
-		const auto filenameStr = entry.path().filename().string();
-		if (entry.is_directory()) {
-			std::cout << std::string(" ", level * 3) << "" << filenameStr << '\n';
-			//DisplayDirectoryTree(entry, level + 1);
-		}
-		else if (entry.is_regular_file()) {
-			std::cout << std::string(" ", level * 3) << "" << filenameStr
-				<< "\n";
-		}
-		else
-			std::cout << std::string(" ", level * 3) << "" << " [?]" << filenameStr << '\n';
-	}
-}
-
 //void FileSystemTest() {
 //	auto pathToShow = "F:/";
 //
@@ -248,7 +232,7 @@ int main(int, char**)
 
 	//FileManager::SaveBinary("scene1", &scene);
 	//FileManager::LoadBinary("scene1", &scene);
-	FileManager::LoadJson("scene1.json", &scene);
+	//FileManager::LoadJson("scene1.json", &scene);
 	//FileManager::SaveJson("scene1.json", &scene);
 
 	//testCreation(&scene);
@@ -256,7 +240,7 @@ int main(int, char**)
 
 	toolWindow.attributesWindow = &attributesWindow;
 
-	inspectorWindow.rootObject = scene.root;
+	inspectorWindow.rootObject = &scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
 	creatingToolWindow.scene = &scene;
