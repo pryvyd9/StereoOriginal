@@ -1,10 +1,34 @@
 #pragma once
 #include "GLLoader.hpp"
 
+#include <stdlib.h>
 #include <set>
 #include <array>
 #include <chrono>
 
+
+class Log {
+	std::string contextName;
+
+	void Line(std::string message) const {
+		std::cout << message << std::endl;
+	}
+public:
+	template<typename T>
+	static const Log For() {
+		Log log;
+		log.contextName = typeid(T).name();
+		return log;
+	}
+
+	void Error(const std::string& message) const {
+		Line("[Error](" + contextName + ") " + message);
+	}
+
+	void Information(std::string message) const  {
+		Line("[Information](" + contextName + ") " + message);
+	}
+};
 
 class Time {
 	static std::chrono::steady_clock::time_point* GetBegin() {

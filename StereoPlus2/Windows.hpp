@@ -923,6 +923,8 @@ public:
 };
 
 class OpenFileWindow : Window {
+	const Log log = Log::For<OpenFileWindow>();
+
 	class Path {
 		fs::path path;
 		std::string pathBuffer;
@@ -996,7 +998,7 @@ class OpenFileWindow : Window {
 public:
 	virtual bool Init() {
 		if (!scene) {
-			std::cout << "Scene was null" << std::endl;
+			log.Error("Scene was null");
 			return false;
 		}
 
@@ -1055,7 +1057,7 @@ public:
 		if (this->scene = scene)
 			return true;
 
-		std::cout << "Scene was null" << std::endl;
+		log.Error("Scene was null");
 		return false;
 	}
 
