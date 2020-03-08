@@ -144,8 +144,8 @@ public:
 		//IM_ASSERT(font != NULL);
 
 
-		for (auto glWindow : windows)
-			if (!glWindow->Init())
+		for (auto window : windows)
+			if (!window->Init())
 				return false;
 
 		return true;
@@ -157,8 +157,14 @@ public:
 		if (!DesignMainWindowDockingSpace())
 			return false;
 
-		for (Window* glWindow : windows)
-			if (!glWindow->Design())
+		for (Window* window : windows)
+			if (window->ShouldClose()) {
+				if (!window->OnExit())
+					return false;
+				else
+					windows.erase(std::find(windows.begin(), windows.end(), window));
+			}
+			else if (!window->Design())
 				return false;
 
 		return true;
@@ -218,8 +224,8 @@ public:
 	
 	bool OnExit()
 	{
-		for (Window* glWindow : windows)
-			if (!glWindow->OnExit())
+		for (Window* window : windows)
+			if (!window->OnExit())
 				return false;
 		
 		// Cleanup

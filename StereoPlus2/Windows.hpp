@@ -956,6 +956,9 @@ class OpenFileWindow : Window {
 	Path path;
 	Path selectedFile;
 	Scene* scene;
+	
+
+
 	void ListFiles() {
 		ImGui::ListBoxHeader("");
 
@@ -1042,7 +1045,7 @@ public:
 		}
 
 		if (ImGui::Button("Cancel")) {
-
+			shouldClose = true;
 		}
 
 		ImGui::End();
