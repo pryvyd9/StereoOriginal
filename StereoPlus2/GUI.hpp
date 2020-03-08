@@ -138,6 +138,12 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		//IM_ASSERT(font != NULL);
 
+
+		//ImGuiIO& io = ImGui::GetIO();
+		//ImFont* font = io.Fonts->AddFontFromFileTTF("open-sans.ttf", 20);
+		//IM_ASSERT(font != NULL);
+
+
 		for (auto glWindow : windows)
 			if (!glWindow->Init())
 				return false;

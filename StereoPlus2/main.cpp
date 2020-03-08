@@ -1,3 +1,4 @@
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
 #include "Converters.hpp"
@@ -7,6 +8,8 @@
 #include "Renderer.hpp"
 #include <functional>
 #include "FileManager.hpp"
+#include <filesystem> // C++17 standard header file name
+//#include <experimental/filesystem> // Header file for pre-standard implementation
 
 using namespace std;
 
@@ -186,6 +189,41 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	return true;
 }
 
+namespace fs = std::filesystem;
+
+void DisplayDirectoryTree(const fs::path& pathToScan, int level = 0) {
+	for (const auto& entry : fs::directory_iterator(pathToScan)) {
+		const auto filenameStr = entry.path().filename().string();
+		if (entry.is_directory()) {
+			std::cout << std::string(" ", level * 3) << "" << filenameStr << '\n';
+			//DisplayDirectoryTree(entry, level + 1);
+		}
+		else if (entry.is_regular_file()) {
+			std::cout << std::string(" ", level * 3) << "" << filenameStr
+				<< "\n";
+		}
+		else
+			std::cout << std::string(" ", level * 3) << "" << " [?]" << filenameStr << '\n';
+	}
+}
+
+//void FileSystemTest() {
+//	auto pathToShow = "F:/";
+//
+//	//DisplayDirectoryTree(pathToShow);
+//
+//	//for (const auto& entry : fs::directory_iterator(pathToShow)) {
+//	//	const auto filenameStr = entry.path().filename().string();
+//	//	if (is_directory(entry)) {
+//	//		std::cout << "dir:  " << filenameStr << '\n';
+//	//	}
+//	//	else if (is_regular_file(entry)) {
+//	//		std::cout << "file: " << filenameStr << '\n';
+//	//	}
+//	//	else
+//	//		std::cout << "??    " << filenameStr << '\n';
+//	//}
+//}
 
 int main(int, char**)
 {
@@ -193,6 +231,7 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
+	OpenFileWindow openFileWindow;
 
 	CreatingToolWindow creatingToolWindow;
 	AttributesWindow attributesWindow;
@@ -204,6 +243,8 @@ int main(int, char**)
 	GUI gui;
 	Cross cross;
 
+
+	//FileSystemTest();
 
 	//if (!LoadScene(&scene))
 	//	return false;
@@ -230,13 +271,14 @@ int main(int, char**)
 		return false;
 
 	gui.windows = {
-		(Window*)& customRenderWindow,
-		(Window*)& cameraPropertiesWindow,
-		(Window*)& crossPropertiesWindow,
-		(Window*)& inspectorWindow,
-		(Window*)& creatingToolWindow,
-		(Window*)& attributesWindow,
-		(Window*)& toolWindow,
+		(Window*)&customRenderWindow,
+		(Window*)&cameraPropertiesWindow,
+		(Window*)&crossPropertiesWindow,
+		(Window*)&inspectorWindow,
+		(Window*)&creatingToolWindow,
+		(Window*)&attributesWindow,
+		(Window*)&toolWindow,
+		(Window*)&openFileWindow,
 	};
 
 	gui.glWindow = renderPipeline.glWindow;

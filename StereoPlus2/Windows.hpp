@@ -10,6 +10,11 @@
 #include <sstream>
 #include <imgui/imgui_internal.h>
 #include <string>
+#include <filesystem> // C++17 standard header file name
+#include "include/imgui/imgui_stdlib.h"
+
+namespace fs = std::filesystem;
+
 
 class CustomRenderWindow : Window
 {
@@ -733,26 +738,22 @@ class ExtrusionToolWindow : Window, Attributes
 			ImGui::EndDragDropTarget();
 		}
 
+		if (IsActive(*target != nullptr))
 		{
-			if (IsActive(*target != nullptr))
+			if (ImGui::Button("Release"))
 			{
-				if (ImGui::Button("Release"))
-				{
-					tool->UnbindSceneObjects();
-				}
-				PopIsActive();
+				tool->UnbindSceneObjects();
 			}
+			PopIsActive();
 		}
 
+		if (IsActive(*target != nullptr))
 		{
-			if (IsActive(*target != nullptr))
+			if (ImGui::Button("New"))
 			{
-				if (ImGui::Button("New"))
-				{
-					tool->Create();
-				}
-				PopIsActive();
+				tool->Create();
 			}
+			PopIsActive();
 		}
 
 
@@ -905,6 +906,107 @@ public:
 
 		if (ImGui::Button("penTool")) {
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
+		}
+
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+
+};
+
+class OpenFileWindow : Window {
+	class Path {
+		fs::path path;
+		std::string pathBuffer;
+	public:
+		const fs::path& get() {
+			return path;
+		}
+
+		std::string& getBuffer() {
+			return pathBuffer;
+		}
+
+		void apply() {
+			apply(pathBuffer);
+		}
+
+		void apply(fs::path n) {
+			path = fs::absolute(n);
+			pathBuffer = path.u8string();
+		}
+	};
+
+	Path path;
+
+	void ListFiles() {
+		ImGui::ListBoxHeader("");
+
+		if (ImGui::Selectable("..")) 
+			path.apply(path.get().parent_path());
+
+		std::vector<fs::directory_entry> folders;
+		std::vector<fs::directory_entry> files;
+
+		for (const auto& entry : fs::directory_iterator(path.get())) {
+			if (entry.is_directory()) {
+				folders.push_back(entry);
+			}
+			else if (entry.is_regular_file()) {
+				files.push_back(entry);
+			}
+			else {
+				std::cout << "Unknown file type was discovered" << entry.path() << std::endl;
+			}
+		}
+
+		for (const auto& a : folders)
+			if (const std::string directoryName = '[' + a.path().filename().u8string() + ']'; 
+				ImGui::Selectable(directoryName.c_str())) {
+				path.apply(a);
+				ImGui::ListBoxFooter();
+				return;
+			}
+
+		for (const auto& a : files) {
+			const std::string fileName = a.path().filename().u8string();
+			ImGui::Selectable(fileName.c_str());
+		}
+
+		ImGui::ListBoxFooter();
+	}
+
+
+public:
+	virtual bool Init() {
+		path.apply(".");
+
+		return true;
+	}
+
+
+	virtual bool Design() {
+		ImGui::Begin("Open File");
+
+		{
+			ImGui::InputText("Path", &path.getBuffer());
+
+			if (ImGui::Button("Submit"))
+				path.apply();
+		}
+
+		ListFiles();
+
+		if (ImGui::Button("Open")) {
+
+		}
+
+		if (ImGui::Button("Cancel")) {
+
 		}
 
 		ImGui::End();
