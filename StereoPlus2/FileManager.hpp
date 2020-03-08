@@ -7,7 +7,7 @@
 
 namespace FileType {
 	const std::string Json = "json";
-	const std::string Sp2 = "sp2";
+	const std::string So2 = "so2";
 };
 
 class obstream {

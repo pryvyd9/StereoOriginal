@@ -505,13 +505,14 @@ public:
 
 
 class Scene {
+	GroupObject defaultObject;
 public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
 	// Scene selected object buffer.
 	std::set<ObjectPointer, ObjectPointerComparator> selectedObjects;
-	GroupObject* root;
+	GroupObject* root = &defaultObject;
 	StereoCamera* camera;
 	Cross* cross;
 
@@ -530,6 +531,12 @@ public:
 		return true;
 	}
 
+
+	//bool DeleteAll() {
+	//	for (auto o : objects)
+	//		delete o;
+
+	//}
 
 	bool Delete(std::vector<SceneObject*>* source, SceneObject* obj) {
 		for (size_t i = 0; i < source->size(); i++)

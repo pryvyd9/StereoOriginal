@@ -1055,7 +1055,7 @@ private:
 
 					shouldClose = true;
 				}
-				else if (iequals(extension, FileType::Sp2)) {
+				else if (iequals(extension, FileType::So2)) {
 					if (!FileManager::LoadBinary(selectedFile.getBuffer(), scene))
 						return false;
 
@@ -1099,7 +1099,8 @@ private:
 
 		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
 			if (ImGui::Button("Save")) {
-				auto extension = selectedFile.get().extension().u8string().substr(1);
+				auto name = selectedFile.getBuffer();
+				auto extension = name.substr(name.find_last_of('.') + 1);
 
 				if (iequals(extension, FileType::Json)) {
 					if (!FileManager::SaveJson(selectedFile.getBuffer(), scene))
@@ -1107,7 +1108,7 @@ private:
 
 					shouldClose = true;
 				}
-				else if (iequals(extension, FileType::Sp2)) {
+				else if (iequals(extension, FileType::So2)) {
 					if (!FileManager::SaveBinary(selectedFile.getBuffer(), scene))
 						return false;
 
