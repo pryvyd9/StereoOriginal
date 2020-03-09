@@ -17,6 +17,7 @@ namespace FileType {
 	const std::string So2 = "so2";
 };
 
+
 class obstream {
 	std::vector<char> buffer;
 public:

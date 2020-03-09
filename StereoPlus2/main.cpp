@@ -184,28 +184,10 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 
 	//auto t3 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
+	//Log::For<void>().Information(Time::GetDeltaTime())
+
 	return true;
 }
-
-namespace fs = std::filesystem;
-
-//void FileSystemTest() {
-//	auto pathToShow = "F:/";
-//
-//	//DisplayDirectoryTree(pathToShow);
-//
-//	//for (const auto& entry : fs::directory_iterator(pathToShow)) {
-//	//	const auto filenameStr = entry.path().filename().string();
-//	//	if (is_directory(entry)) {
-//	//		std::cout << "dir:  " << filenameStr << '\n';
-//	//	}
-//	//	else if (is_regular_file(entry)) {
-//	//		std::cout << "file: " << filenameStr << '\n';
-//	//	}
-//	//	else
-//	//		std::cout << "??    " << filenameStr << '\n';
-//	//}
-//}
 
 int main(int, char**)
 {

@@ -8,7 +8,7 @@
 
 
 class Log {
-	std::string contextName;
+	std::string contextName = "";
 
 	void Line(std::string message) const {
 		std::cout << message << std::endl;
@@ -47,8 +47,12 @@ public:
 		*GetBegin() = end;
 	};
 
+	static float GetFrameRate() {
+		return 1 / GetDeltaTime();
+	}
+
 	static float GetDeltaTime() {
-		return 1 / ((float)*GetDeltaTimeMicroseconds() / 1e6);
+		return (float)*GetDeltaTimeMicroseconds() / 1e6;
 	}
 };
 

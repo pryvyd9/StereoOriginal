@@ -259,7 +259,7 @@ public:
 				return false;
 
 			Time::UpdateFrame();
-			//std::cout << "FPS: " << Time::GetDeltaTime() << std::endl;
+			//std::cout << "FPS: " << Time::GetFrameRate() << std::endl;
 		}
 
 		return true;
