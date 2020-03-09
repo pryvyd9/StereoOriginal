@@ -1047,22 +1047,15 @@ private:
 
 		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
 			if (ImGui::Button("Open")) {
-				auto extension = selectedFile.get().extension().u8string().substr(1);
-
-				if (iequals(extension, FileType::Json)) {
-					if (!FileManager::LoadJson(selectedFile.getBuffer(), scene))
-						return false;
-
+				try
+				{
+					FileManager::Load(selectedFile.getBuffer(), scene);
 					shouldClose = true;
 				}
-				else if (iequals(extension, FileType::So2)) {
-					if (!FileManager::LoadBinary(selectedFile.getBuffer(), scene))
-						return false;
-
-					shouldClose = true;
+				catch (const FileException& e)
+				{
+					// TODO: Show error message to user
 				}
-				else
-					std::cout << "Unsupported file type" << std::endl;
 			}
 
 			ImGui::Extensions::PopActive();
@@ -1099,23 +1092,15 @@ private:
 
 		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
 			if (ImGui::Button("Save")) {
-				auto name = selectedFile.getBuffer();
-				auto extension = name.substr(name.find_last_of('.') + 1);
-
-				if (iequals(extension, FileType::Json)) {
-					if (!FileManager::SaveJson(selectedFile.getBuffer(), scene))
-						return false;
-
+				try
+				{
+					FileManager::Save(selectedFile.getBuffer(), scene);
 					shouldClose = true;
 				}
-				else if (iequals(extension, FileType::So2)) {
-					if (!FileManager::SaveBinary(selectedFile.getBuffer(), scene))
-						return false;
-
-					shouldClose = true;
+				catch (const FileException & e)
+				{
+					// TODO: Show error message to user
 				}
-				else
-					std::cout << "Unsupported file type" << std::endl;
 			}
 
 			ImGui::Extensions::PopActive();

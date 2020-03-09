@@ -5,6 +5,13 @@
 #include <iostream>
 
 
+class FileException : public std::exception {
+public:
+	FileException(const char* message) : std::exception(message) {
+
+	}
+};
+
 namespace FileType {
 	const std::string Json = "json";
 	const std::string So2 = "so2";
@@ -536,16 +543,17 @@ class FileManager {
 		return 0;
 	}
 
+	static void Fail(const char* msg) {
+		GetLog().Error(msg);
+		throw new FileException(msg);
+	}
+
 public:
-	static bool SaveJson(std::string filename, Scene* inScene) {
-		if (inScene == nullptr) {
-			GetLog().Error("InScene was null");
-			return false;
-		} 
-		if (inScene->root == nullptr) {
-			GetLog().Error("InScene Root was null");
-			return false;
-		}
+	static void SaveJson(std::string filename, Scene* inScene) {
+		if (inScene == nullptr)
+			Fail("InScene was null");
+		if (inScene->root == nullptr)
+			Fail("InScene Root was null");
 
 		std::ofstream out(filename);
 
@@ -556,11 +564,9 @@ public:
 		out << bs.getBuffer();
 
 		out.close();
-
-		return true;
 	}
 
-	static bool LoadJson(std::string filename, Scene* inScene) {
+	static void LoadJson(std::string filename, Scene* inScene) {
 		std::ifstream file(filename, std::ios::binary | std::ios::in);
 
 		auto bufferSize = GetFileSize(filename);
@@ -576,12 +582,10 @@ public:
 		inScene->root = (GroupObject*)o;
 
 		file.close();
-
-		return true;
 	}
 
 
-	static bool SaveBinary(std::string filename, Scene* inScene) {
+	static void SaveBinary(std::string filename, Scene* inScene) {
 		std::ofstream file(filename, std::ios::binary | std::ios::out);
 
 		auto bs = obstream();
@@ -590,11 +594,9 @@ public:
 		file.write(bs.getBuffer(), bs.getSize());
 
 		file.close();
-
-		return true;
 	}
 
-	static bool LoadBinary(std::string filename, Scene* inScene) {
+	static void LoadBinary(std::string filename, Scene* inScene) {
 		std::ifstream file(filename, std::ios::binary | std::ios::in);
 
 		auto bufferSize = GetFileSize(filename);
@@ -610,14 +612,37 @@ public:
 		inScene->root = (GroupObject*)o;
 
 		file.close();
-
-		return true;
 	}
 
-	/*static bool Load(std::string filename, Scene* inScene) {
-		if (type == FileType::Json)
-		{
-			return LoadJson(
-		}
-	}*/
+
+	static void Load(std::string filename, Scene* inScene) {
+
+		auto extension = filename.substr(filename.find_last_of('.') + 1);
+
+		if (extension.empty())
+			Fail("File extension empty");
+			
+		if (extension == FileType::Json)
+			LoadJson(filename, inScene);
+		else if (extension == FileType::So2)
+			LoadBinary(filename, inScene);
+		else
+			Fail("File extension not supported");
+	}
+
+	static void Save(std::string filename, Scene* inScene) {
+		auto extension = filename.substr(filename.find_last_of('.') + 1);
+
+		if (extension.empty())
+			Fail("File extension empty");
+
+		if (extension == FileType::Json)
+			SaveJson(filename, inScene);
+		else if (extension == FileType::So2)
+			SaveBinary(filename, inScene);
+		else
+			Fail("File extension not supported");
+	}
+
+
 };
