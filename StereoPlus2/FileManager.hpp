@@ -548,7 +548,6 @@ class FileManager {
 		throw new FileException(msg);
 	}
 
-public:
 	static void SaveJson(std::string filename, Scene* inScene) {
 		if (inScene == nullptr)
 			Fail("InScene was null");
@@ -614,14 +613,40 @@ public:
 		file.close();
 	}
 
+	static std::string GetFixedExtension(std::string& filename) {
+		int dotPosition = filename.find_last_of('.');
+
+		if (dotPosition < 0) {
+			if (GetDefaultFileExtension().empty())
+				Fail("File extension empty");
+			else {
+				dotPosition = filename.size();
+				filename += '.' + GetDefaultFileExtension();
+			}
+		}
+
+		auto extension = filename.substr(dotPosition + 1);
+
+		if (extension.empty()) {
+			if (GetDefaultFileExtension().empty())
+				Fail("File extension empty");
+			else {
+				filename += GetDefaultFileExtension();
+			}
+		}
+
+		return extension;
+	}
+public:
+
+	static std::string& GetDefaultFileExtension() {
+		static auto val = FileType::So2;
+		return val;
+	}
 
 	static void Load(std::string filename, Scene* inScene) {
+		auto extension = GetFixedExtension(filename);
 
-		auto extension = filename.substr(filename.find_last_of('.') + 1);
-
-		if (extension.empty())
-			Fail("File extension empty");
-			
 		if (extension == FileType::Json)
 			LoadJson(filename, inScene);
 		else if (extension == FileType::So2)
@@ -631,10 +656,7 @@ public:
 	}
 
 	static void Save(std::string filename, Scene* inScene) {
-		auto extension = filename.substr(filename.find_last_of('.') + 1);
-
-		if (extension.empty())
-			Fail("File extension empty");
+		auto extension = GetFixedExtension(filename);
 
 		if (extension == FileType::Json)
 			SaveJson(filename, inScene);

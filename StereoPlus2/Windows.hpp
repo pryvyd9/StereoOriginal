@@ -972,6 +972,15 @@ private:
 		bool isSome() {
 			return !pathBuffer.empty();
 		}
+
+		std::string join(Path path) {
+			auto last = pathBuffer[pathBuffer.size() - 1];
+		
+			if (last == '/' || last == '\\')
+				return pathBuffer + path.getBuffer();
+
+			return pathBuffer + '/' + path.getBuffer();
+		}
 	};
 
 
@@ -1020,6 +1029,24 @@ private:
 		ImGui::ListBoxFooter();
 	}
 
+
+	void ShowPath() {
+		ImGui::InputText("Path", &path.getBuffer());
+
+		if (ImGui::Extensions::PushActive(path.isSome())) {
+			if (ImGui::Button("Submit"))
+				path.apply();
+
+			ImGui::Extensions::PopActive();
+		}
+	}
+
+	void CloseButton() {
+		if (ImGui::Button("Cancel")) {
+			shouldClose = true;
+		}
+	}
+
 	template<Mode mode>
 	bool Design() {
 		log.Error("Unsupported mode given");
@@ -1030,16 +1057,7 @@ private:
 	bool Design<Load>() {
 		ImGui::Begin("Open File");
 
-		{
-			ImGui::InputText("Path", &path.getBuffer());
-
-			if (ImGui::Extensions::PushActive(path.isSome())) {
-				if (ImGui::Button("Submit"))
-					path.apply();
-
-				ImGui::Extensions::PopActive();
-			}
-		}
+		ShowPath();
 
 		ListFiles();
 
@@ -1049,7 +1067,11 @@ private:
 			if (ImGui::Button("Open")) {
 				try
 				{
-					FileManager::Load(selectedFile.getBuffer(), scene);
+					if (selectedFile.get().is_absolute())
+						FileManager::Load(selectedFile.getBuffer(), scene);
+					else
+						FileManager::Load(path.join(selectedFile), scene);
+
 					shouldClose = true;
 				}
 				catch (const FileException& e)
@@ -1061,9 +1083,7 @@ private:
 			ImGui::Extensions::PopActive();
 		}
 
-		if (ImGui::Button("Cancel")) {
-			shouldClose = true;
-		}
+		CloseButton();
 
 		ImGui::End();
 
@@ -1075,16 +1095,7 @@ private:
 	bool Design<Save>() {
 		ImGui::Begin("Save File");
 
-		{
-			ImGui::InputText("Path", &path.getBuffer());
-
-			if (ImGui::Extensions::PushActive(path.isSome())) {
-				if (ImGui::Button("Submit"))
-					path.apply();
-
-				ImGui::Extensions::PopActive();
-			}
-		}
+		ShowPath();
 
 		ListFiles();
 
@@ -1094,7 +1105,11 @@ private:
 			if (ImGui::Button("Save")) {
 				try
 				{
-					FileManager::Save(selectedFile.getBuffer(), scene);
+					if (selectedFile.get().is_absolute())
+						FileManager::Save(selectedFile.getBuffer(), scene);
+					else
+						FileManager::Save(path.join(selectedFile), scene);
+					
 					shouldClose = true;
 				}
 				catch (const FileException & e)
@@ -1106,9 +1121,7 @@ private:
 			ImGui::Extensions::PopActive();
 		}
 
-		if (ImGui::Button("Cancel")) {
-			shouldClose = true;
-		}
+		CloseButton();
 
 		ImGui::End();
 
