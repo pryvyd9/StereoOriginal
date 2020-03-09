@@ -992,41 +992,41 @@ private:
 
 
 	void ListFiles() {
-		ImGui::ListBoxHeader("");
+		if (ImGui::ListBoxHeader("")) {
+			if (ImGui::Selectable(".."))
+				path.apply(path.get().parent_path());
 
-		if (ImGui::Selectable("..")) 
-			path.apply(path.get().parent_path());
+			std::vector<fs::directory_entry> folders;
+			std::vector<fs::directory_entry> files;
 
-		std::vector<fs::directory_entry> folders;
-		std::vector<fs::directory_entry> files;
-
-		for (const auto& entry : fs::directory_iterator(path.get())) {
-			if (entry.is_directory()) {
-				folders.push_back(entry);
+			for (const auto& entry : fs::directory_iterator(path.get())) {
+				if (entry.is_directory()) {
+					folders.push_back(entry);
+				}
+				else if (entry.is_regular_file()) {
+					files.push_back(entry);
+				}
+				else {
+					std::cout << "Unknown file type was discovered" << entry.path() << std::endl;
+				}
 			}
-			else if (entry.is_regular_file()) {
-				files.push_back(entry);
-			}
-			else {
-				std::cout << "Unknown file type was discovered" << entry.path() << std::endl;
-			}
-		}
 
-		for (const auto& a : folders)
-			if (const std::string directoryName = '[' + a.path().filename().u8string() + ']'; 
-				ImGui::Selectable(directoryName.c_str())) {
+			for (const auto& a : folders)
+				if (const std::string directoryName = '[' + a.path().filename().u8string() + ']';
+					ImGui::Selectable(directoryName.c_str())) {
 				path.apply(a);
 				ImGui::ListBoxFooter();
 				return;
 			}
 
-		for (const auto& a : files) 
-			if (const std::string fileName = a.path().filename().u8string();
-				ImGui::Selectable(fileName.c_str()))
+			for (const auto& a : files)
+				if (const std::string fileName = a.path().filename().u8string();
+					ImGui::Selectable(fileName.c_str()))
 					selectedFile.apply(a);
-			
 
-		ImGui::ListBoxFooter();
+
+			ImGui::ListBoxFooter();
+		}
 	}
 
 
