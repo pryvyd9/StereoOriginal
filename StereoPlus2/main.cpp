@@ -6,10 +6,12 @@
 #include "Windows.hpp"
 #include "Renderer.hpp"
 #include <functional>
+#include "FileManager.hpp"
+#include <filesystem> // C++17 standard header file name
+#include <chrono>
 
 using namespace std;
 
-#include <chrono>
 
 
 void testCreation(Scene* scene) {
@@ -182,9 +184,10 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 
 	//auto t3 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
+	//Log::For<void>().Information(Time::GetDeltaTime())
+
 	return true;
 }
-
 
 int main(int, char**)
 {
@@ -204,15 +207,22 @@ int main(int, char**)
 	Cross cross;
 
 
-	if (!LoadScene(&scene))
-		return false;
+	//FileSystemTest();
+
+	//if (!LoadScene(&scene))
+	//	return false;
+
+	//FileManager::SaveBinary("scene1", &scene);
+	//FileManager::LoadBinary("scene1", &scene);
+	//FileManager::LoadJson("scene1.json", &scene);
+	//FileManager::SaveJson("scene1.json", &scene);
 
 	//testCreation(&scene);
-	testCreationTool(&scene);
+	//testCreationTool(&scene);
 
 	toolWindow.attributesWindow = &attributesWindow;
 
-	inspectorWindow.rootObject = scene.root;
+	inspectorWindow.rootObject = &scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
 	creatingToolWindow.scene = &scene;
@@ -224,13 +234,13 @@ int main(int, char**)
 		return false;
 
 	gui.windows = {
-		(Window*)& customRenderWindow,
-		(Window*)& cameraPropertiesWindow,
-		(Window*)& crossPropertiesWindow,
-		(Window*)& inspectorWindow,
-		(Window*)& creatingToolWindow,
-		(Window*)& attributesWindow,
-		(Window*)& toolWindow,
+		(Window*)&customRenderWindow,
+		(Window*)&cameraPropertiesWindow,
+		(Window*)&crossPropertiesWindow,
+		(Window*)&inspectorWindow,
+		(Window*)&creatingToolWindow,
+		(Window*)&attributesWindow,
+		(Window*)&toolWindow,
 	};
 
 	gui.glWindow = renderPipeline.glWindow;

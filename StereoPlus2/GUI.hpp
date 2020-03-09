@@ -2,18 +2,55 @@
 #include "GLLoader.hpp"
 #include "Commands.hpp"
 #include "Window.hpp"
+#include "Windows.hpp"
 #include "Input.hpp"
 #include <map>
 
 
-class GUI
-{
+class GUI {
 #pragma region Private
+
+	const Log log = Log::For<GUI>();
+
+	FileWindow* fileWindow = nullptr;
+
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
 	void ProcessInput(GLFWwindow* glWindow)
 	{
 		input.ProcessInput();
+	}
+
+	bool CreateFileWindow(FileWindow::Mode mode) {
+		auto fileWindow = new FileWindow();
+
+		fileWindow->mode = mode;
+		fileWindow->BindScene(scene);
+
+		if (!fileWindow->Init())
+			return false;
+
+		windows.push_back((Window*)fileWindow);
+
+		this->fileWindow = fileWindow;
+
+		((Window*)fileWindow)->BindOnExit([f = &this->fileWindow] {
+			delete *f;
+			*f = nullptr;
+		});
+
+		return true;
+	}
+
+	bool OpenFileWindow(FileWindow::Mode mode) {
+		if (fileWindow != nullptr) {
+			if (fileWindow->mode != mode)
+				fileWindow->mode = mode;
+		}
+		else if (!CreateFileWindow(mode))
+			return false;
+
+		return true;
 	}
 
 	bool DesignMainWindowDockingSpace()
@@ -58,8 +95,14 @@ class GUI
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem("Open", "", false)) std::cout << "not implemented" << std::endl;
-				if (ImGui::MenuItem("Save", "", false)) std::cout << "not implemented" << std::endl;
+				if (ImGui::MenuItem("Open", "", false)) {
+					if (!OpenFileWindow(FileWindow::Load))
+						return false;
+				}
+				if (ImGui::MenuItem("Save", "", false)) {
+					if (!OpenFileWindow(FileWindow::Save))
+						return false;
+				}
 				if (ImGui::MenuItem("Exit", "", false)) return false;
 
 				ImGui::EndMenu();
@@ -138,8 +181,14 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		//IM_ASSERT(font != NULL);
 
-		for (auto glWindow : windows)
-			if (!glWindow->Init())
+
+		//ImGuiIO& io = ImGui::GetIO();
+		//ImFont* font = io.Fonts->AddFontFromFileTTF("open-sans.ttf", 20);
+		//IM_ASSERT(font != NULL);
+
+
+		for (auto window : windows)
+			if (!window->Init())
 				return false;
 
 		return true;
@@ -151,8 +200,14 @@ public:
 		if (!DesignMainWindowDockingSpace())
 			return false;
 
-		for (Window* glWindow : windows)
-			if (!glWindow->Design())
+		for (Window* window : windows)
+			if (window->ShouldClose()) {
+				if (!window->OnExit())
+					return false;
+				else
+					windows.erase(std::find(windows.begin(), windows.end(), window));
+			}
+			else if (!window->Design())
 				return false;
 
 		return true;
@@ -204,7 +259,7 @@ public:
 				return false;
 
 			Time::UpdateFrame();
-			//std::cout << "FPS: " << Time::GetDeltaTime() << std::endl;
+			//std::cout << "FPS: " << Time::GetFrameRate() << std::endl;
 		}
 
 		return true;
@@ -212,8 +267,8 @@ public:
 	
 	bool OnExit()
 	{
-		for (Window* glWindow : windows)
-			if (!glWindow->OnExit())
+		for (Window* window : windows)
+			if (!window->OnExit())
 				return false;
 		
 		// Cleanup

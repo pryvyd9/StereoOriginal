@@ -106,6 +106,10 @@ public:
 	std::function<void()> func;
 };
 
+//class CloseWindowCommand : Command {
+//public:
+//	GUI
+//};
 
 
 enum MoveCommandPosition

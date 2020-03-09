@@ -389,7 +389,7 @@ public:
 
 
 template<ObjectType type>
-class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
+class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
 #pragma region Types
 	using Mode = ExtrusionEditingToolMode;
 
@@ -652,7 +652,7 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<QuadMesh> {
 public:
 
 	ExtrusionEditingTool() {
-		func = [mesh = &mesh](QuadMesh* o) {
+		func = [mesh = &mesh](LineMesh* o) {
 			std::stringstream ss;
 			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
 			o->Name = ss.str();
@@ -727,6 +727,6 @@ public:
 
 		startCrossPosition = cross->Position;
 		
-		return CreatingTool<QuadMesh>::Create();
+		return CreatingTool<LineMesh>::Create();
 	};
 };

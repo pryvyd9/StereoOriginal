@@ -10,6 +10,42 @@
 #include <sstream>
 #include <imgui/imgui_internal.h>
 #include <string>
+#include <filesystem> // C++17 standard header file name
+#include "include/imgui/imgui_stdlib.h"
+#include "FileManager.hpp"
+//
+//#include <algorithm>
+
+
+namespace ImGui::Extensions {
+	#include <stack>
+	static std::stack<bool>& GetIsActive() {
+		static std::stack<bool> val;
+		return val;
+	}
+	static bool PushActive(bool isActive) {
+		ImGui::Extensions::GetIsActive().push(isActive);
+		if (!isActive)
+		{
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+		}
+
+		return true;
+	}
+	static void PopActive() {
+		auto isActive = ImGui::Extensions::GetIsActive().top();
+		ImGui::Extensions::GetIsActive().pop();
+
+		if (!isActive)
+		{
+			ImGui::PopItemFlag();
+			ImGui::PopStyleVar();
+		}
+	}
+}
+
+namespace fs = std::filesystem;
 
 class CustomRenderWindow : Window
 {
@@ -222,8 +258,9 @@ public:
 };
 
 
-class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
-{
+class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
+	const Log log = Log::For<SceneObjectInspectorWindow>();
+
 	MoveCommand* moveCommand;
 
 	static int& GetID() {
@@ -239,6 +276,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 	}
 
 	bool DesignRootNode(GroupObject* t) {
+		if (t == nullptr) {
+			ImGui::Text("No scene loaded. Nothing to show");
+			return true;
+		}
+
 		ImGui::PushID(GetID()++);
 
 		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf;
@@ -431,7 +473,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder
 public:
 	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
 
-	GroupObject* rootObject;
+	GroupObject** rootObject;
 	float indent = 1;
 	float centerSizeHalf = 3;
 
@@ -451,7 +493,7 @@ public:
 		// Reset elements' IDs.
 		GetID() = 0;
 
-		DesignRootNode(rootObject);
+		DesignRootNode(*rootObject);
 
 		ImGui::End();
 		return true;
@@ -666,31 +708,7 @@ class ExtrusionToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
 
-	std::stack<bool>& GetIsActive() {
-		static std::stack<bool> val;
-		return val;
-	}
-	bool IsActive(bool isActive) {
-		GetIsActive().push(isActive);
-		if (!isActive)
-		{
-			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-		}
-
-		return true;
-	}
-	void PopIsActive() {
-		auto isActive = GetIsActive().top();
-		GetIsActive().pop();
-
-		if (!isActive)
-		{
-			ImGui::PopItemFlag();
-			ImGui::PopStyleVar();
-		}
-	}
-
+	
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
@@ -733,26 +751,22 @@ class ExtrusionToolWindow : Window, Attributes
 			ImGui::EndDragDropTarget();
 		}
 
+		if (ImGui::Extensions::PushActive(*target != nullptr))
 		{
-			if (IsActive(*target != nullptr))
+			if (ImGui::Button("Release"))
 			{
-				if (ImGui::Button("Release"))
-				{
-					tool->UnbindSceneObjects();
-				}
-				PopIsActive();
+				tool->UnbindSceneObjects();
 			}
+			ImGui::Extensions::PopActive();
 		}
 
+		if (ImGui::Extensions::PushActive(*target != nullptr))
 		{
-			if (IsActive(*target != nullptr))
+			if (ImGui::Button("New"))
 			{
-				if (ImGui::Button("New"))
-				{
-					tool->Create();
-				}
-				PopIsActive();
+				tool->Create();
 			}
+			ImGui::Extensions::PopActive();
 		}
 
 
@@ -913,6 +927,245 @@ public:
 	}
 	virtual bool OnExit() {
 		return true;
+	}
+
+};
+
+class FileWindow : Window {
+public:
+	enum Mode {
+		Load,
+		Save,
+	};
+private:
+	bool iequals(const std::string& a, const std::string& b)
+	{
+		return std::equal(a.begin(), a.end(),
+			b.begin(), b.end(),
+			[](char a, char b) {
+				return tolower(a) == tolower(b);
+			});
+	}
+	const Log log = Log::For<FileWindow>();
+
+	class Path {
+		fs::path path;
+		std::string pathBuffer;
+	public:
+		const fs::path& get() {
+			return path;
+		}
+
+		std::string& getBuffer() {
+			return pathBuffer;
+		}
+
+		void apply() {
+			apply(pathBuffer);
+		}
+
+		void apply(fs::path n) {
+			path = fs::absolute(n);
+			pathBuffer = path.u8string();
+		}
+
+		bool isSome() {
+			return !pathBuffer.empty();
+		}
+
+		std::string join(Path path) {
+			auto last = pathBuffer[pathBuffer.size() - 1];
+		
+			if (last == '/' || last == '\\')
+				return pathBuffer + path.getBuffer();
+
+			return pathBuffer + '/' + path.getBuffer();
+		}
+	};
+
+
+
+	Path path;
+	Path selectedFile;
+	Scene* scene;
+	
+
+
+	void ListFiles() {
+		if (ImGui::ListBoxHeader("")) {
+			if (ImGui::Selectable(".."))
+				path.apply(path.get().parent_path());
+
+			std::vector<fs::directory_entry> folders;
+			std::vector<fs::directory_entry> files;
+
+			for (const auto& entry : fs::directory_iterator(path.get())) {
+				if (entry.is_directory()) {
+					folders.push_back(entry);
+				}
+				else if (entry.is_regular_file()) {
+					files.push_back(entry);
+				}
+				else {
+					std::cout << "Unknown file type was discovered" << entry.path() << std::endl;
+				}
+			}
+
+			for (const auto& a : folders)
+				if (const std::string directoryName = '[' + a.path().filename().u8string() + ']';
+					ImGui::Selectable(directoryName.c_str())) {
+				path.apply(a);
+				ImGui::ListBoxFooter();
+				return;
+			}
+
+			for (const auto& a : files)
+				if (const std::string fileName = a.path().filename().u8string();
+					ImGui::Selectable(fileName.c_str()))
+					selectedFile.apply(a);
+
+
+			ImGui::ListBoxFooter();
+		}
+	}
+
+
+	void ShowPath() {
+		ImGui::InputText("Path", &path.getBuffer());
+
+		if (ImGui::Extensions::PushActive(path.isSome())) {
+			if (ImGui::Button("Submit"))
+				path.apply();
+
+			ImGui::Extensions::PopActive();
+		}
+	}
+
+	void CloseButton() {
+		if (ImGui::Button("Cancel")) {
+			shouldClose = true;
+		}
+	}
+
+	template<Mode mode>
+	bool Design() {
+		log.Error("Unsupported mode given");
+		return false;
+	}
+
+	template<>
+	bool Design<Load>() {
+		ImGui::Begin("Open File");
+
+		ShowPath();
+
+		ListFiles();
+
+		ImGui::InputText("File", &selectedFile.getBuffer());
+
+		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
+			if (ImGui::Button("Open")) {
+				try
+				{
+					if (selectedFile.get().is_absolute())
+						FileManager::Load(selectedFile.getBuffer(), scene);
+					else
+						FileManager::Load(path.join(selectedFile), scene);
+
+					shouldClose = true;
+				}
+				catch (const FileException& e)
+				{
+					// TODO: Show error message to user
+				}
+			}
+
+			ImGui::Extensions::PopActive();
+		}
+
+		CloseButton();
+
+		ImGui::End();
+
+		return true;
+	}
+
+
+	template<>
+	bool Design<Save>() {
+		ImGui::Begin("Save File");
+
+		ShowPath();
+
+		ListFiles();
+
+		ImGui::InputText("File", &selectedFile.getBuffer());
+
+		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
+			if (ImGui::Button("Save")) {
+				try
+				{
+					if (selectedFile.get().is_absolute())
+						FileManager::Save(selectedFile.getBuffer(), scene);
+					else
+						FileManager::Save(path.join(selectedFile), scene);
+					
+					shouldClose = true;
+				}
+				catch (const FileException & e)
+				{
+					// TODO: Show error message to user
+				}
+			}
+
+			ImGui::Extensions::PopActive();
+		}
+
+		CloseButton();
+
+		ImGui::End();
+
+		return true;
+	}
+
+public:
+
+	Mode mode;
+
+	virtual bool Init() {
+		if (!scene) {
+			log.Error("Scene was null");
+			return false;
+		}
+
+		path.apply(".");
+
+		return true;
+	}
+
+
+	virtual bool Design() {
+		switch (mode)
+		{
+		case FileWindow::Load:
+			return Design<Load>();
+		case FileWindow::Save:
+			return Design<Save>();
+		default:
+			log.Error("Unsupported mode given");
+			return false;
+		}
+	}
+	virtual bool OnExit() {
+		return Window::OnExit();
+	}
+
+	bool BindScene(Scene* scene) {
+		if (this->scene = scene)
+			return true;
+
+		log.Error("Scene was null");
+		return false;
 	}
 
 };

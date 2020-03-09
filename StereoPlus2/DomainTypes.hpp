@@ -1,10 +1,34 @@
 #pragma once
 #include "GLLoader.hpp"
 
+#include <stdlib.h>
 #include <set>
 #include <array>
 #include <chrono>
 
+
+class Log {
+	std::string contextName = "";
+
+	void Line(std::string message) const {
+		std::cout << message << std::endl;
+	}
+public:
+	template<typename T>
+	static const Log For() {
+		Log log;
+		log.contextName = typeid(T).name();
+		return log;
+	}
+
+	void Error(const std::string& message) const {
+		Line("[Error](" + contextName + ") " + message);
+	}
+
+	void Information(std::string message) const  {
+		Line("[Information](" + contextName + ") " + message);
+	}
+};
 
 class Time {
 	static std::chrono::steady_clock::time_point* GetBegin() {
@@ -23,8 +47,12 @@ public:
 		*GetBegin() = end;
 	};
 
+	static float GetFrameRate() {
+		return 1 / GetDeltaTime();
+	}
+
 	static float GetDeltaTime() {
-		return 1 / ((float)*GetDeltaTimeMicroseconds() / 1e6);
+		return (float)*GetDeltaTimeMicroseconds() / 1e6;
 	}
 };
 
@@ -38,12 +66,13 @@ enum ObjectType {
 	StereoPolyLineT,
 	LineMeshT,
 	MeshT,
+	QuadMeshT,
 };
 
 class SceneObject {
 public:
 	std::string Name = "noname";
-	virtual ObjectType GetType() = 0;
+	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
 		return "SceneObject";
 	}
@@ -54,14 +83,14 @@ public:
 class GroupObject : public SceneObject {
 public:
 	std::vector<SceneObject*> Children;
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return Group;
 	}
 };
 
 class LeafObject : public SceneObject {
 public:
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return Leaf;
 	}
 };
@@ -82,7 +111,7 @@ struct StereoLine : LeafObject
 
 	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
 
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return StereoLineT;
 	}
 };
@@ -97,7 +126,7 @@ struct StereoPolyLine : LeafObject {
 			Points.push_back(p);
 	}
 
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return StereoPolyLineT;
 	}
 };
@@ -117,7 +146,7 @@ struct Mesh : LeafObject {
 protected:
 	std::vector<glm::vec3> vertices;
 public:
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return MeshT;
 	}
 	size_t GetVerticesSize() {
@@ -144,7 +173,7 @@ public:
 };
 
 struct LineMesh : Mesh{
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return LineMeshT;
 	}
 
@@ -161,6 +190,10 @@ struct LineMesh : Mesh{
 
 		lines.erase(pos);
 	}
+
+	const std::vector<std::array<size_t, 2>>& GetLinearConnections() {
+		return lines;
+	}
 };
 
 struct TriangleMesh : LineMesh {
@@ -168,6 +201,9 @@ struct TriangleMesh : LineMesh {
 };
 
 struct QuadMesh : TriangleMesh {
+	virtual ObjectType GetType() const {
+		return QuadMeshT;
+	}
 	std::vector<std::array<size_t, 4>> quads;
 };
 
@@ -481,13 +517,14 @@ public:
 
 
 class Scene {
+	GroupObject defaultObject;
 public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
 	// Scene selected object buffer.
 	std::set<ObjectPointer, ObjectPointerComparator> selectedObjects;
-	GroupObject* root;
+	GroupObject* root = &defaultObject;
 	StereoCamera* camera;
 	Cross* cross;
 
@@ -500,6 +537,18 @@ public:
 		source->push_back(obj);
 		return true;
 	}
+
+	bool Insert(SceneObject* obj) {
+		objects.push_back(obj);
+		return true;
+	}
+
+
+	//bool DeleteAll() {
+	//	for (auto o : objects)
+	//		delete o;
+
+	//}
 
 	bool Delete(std::vector<SceneObject*>* source, SceneObject* obj) {
 		for (size_t i = 0; i < source->size(); i++)
