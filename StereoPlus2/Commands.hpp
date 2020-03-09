@@ -61,7 +61,11 @@ protected:
 		if (!CheckScene())
 			return false;
 
-		scene->Insert(source, func());
+		if (source == nullptr)
+			scene->Insert(func());
+		else
+			scene->Insert(source, func());
+
 		return true;
 	};
 public:
@@ -79,14 +83,12 @@ protected:
 		if (!CheckScene())
 			return false;
 
-		scene->Delete(source, *target);
+		scene->Delete(source, target);
 		return true;
-
-		return false;
 	};
 public:
 	std::vector<SceneObject*>* source;
-	SceneObject** target;
+	SceneObject* target;
 
 	DeleteCommand() {
 		isReady = true;
@@ -108,6 +110,10 @@ public:
 	std::function<void()> func;
 };
 
+//class CloseWindowCommand : Command {
+//public:
+//	GUI
+//};
 
 
 enum MoveCommandPosition

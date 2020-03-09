@@ -2,19 +2,55 @@
 #include "GLLoader.hpp"
 #include "Commands.hpp"
 #include "Window.hpp"
+#include "Windows.hpp"
 #include "Input.hpp"
 #include <map>
 
 
-
-class GUI
-{
+class GUI {
 #pragma region Private
+
+	const Log log = Log::For<GUI>();
+
+	FileWindow* fileWindow = nullptr;
+
 	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 	//---------------------------------------------------------------------------------------------------------
-	void ProcessInput(GLFWwindow* window)
+	void ProcessInput(GLFWwindow* glWindow)
 	{
 		input.ProcessInput();
+	}
+
+	bool CreateFileWindow(FileWindow::Mode mode) {
+		auto fileWindow = new FileWindow();
+
+		fileWindow->mode = mode;
+		fileWindow->BindScene(scene);
+
+		if (!fileWindow->Init())
+			return false;
+
+		windows.push_back((Window*)fileWindow);
+
+		this->fileWindow = fileWindow;
+
+		((Window*)fileWindow)->BindOnExit([f = &this->fileWindow] {
+			delete *f;
+			*f = nullptr;
+		});
+
+		return true;
+	}
+
+	bool OpenFileWindow(FileWindow::Mode mode) {
+		if (fileWindow != nullptr) {
+			if (fileWindow->mode != mode)
+				fileWindow->mode = mode;
+		}
+		else if (!CreateFileWindow(mode))
+			return false;
+
+		return true;
 	}
 
 	bool DesignMainWindowDockingSpace()
@@ -59,8 +95,14 @@ class GUI
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem("Open", "", false)) std::cout << "not implemented" << std::endl;
-				if (ImGui::MenuItem("Save", "", false)) std::cout << "not implemented" << std::endl;
+				if (ImGui::MenuItem("Open", "", false)) {
+					if (!OpenFileWindow(FileWindow::Load))
+						return false;
+				}
+				if (ImGui::MenuItem("Save", "", false)) {
+					if (!OpenFileWindow(FileWindow::Save))
+						return false;
+				}
 				if (ImGui::MenuItem("Exit", "", false)) return false;
 
 				ImGui::EndMenu();
@@ -80,7 +122,7 @@ public:
 	// When trying to free it it fails some imgui internal free function.
 	ImGuiIO* io;
 	const char* glsl_version;
-	GLFWwindow* window;
+	GLFWwindow* glWindow;
 	Input input;
 	KeyBinding keyBinding;
 	Scene* scene;
@@ -91,10 +133,10 @@ public:
 	bool Init()
 	{
 		keyBinding.input = &input;
-		input.window = window;
+		input.glWindow = glWindow;
 
-		if (!input.Init()
-			|| !keyBinding.Init())
+		if (!input.Init() || 
+			!keyBinding.Init())
 			return false;
 
 		// Setup Dear ImGui context
@@ -121,7 +163,7 @@ public:
 		}
 
 		// Setup Platform/Renderer bindings
-		ImGui_ImplGlfw_InitForOpenGL(window, true);
+		ImGui_ImplGlfw_InitForOpenGL(glWindow, true);
 		ImGui_ImplOpenGL3_Init(glsl_version);
 
 		// Load Fonts
@@ -139,6 +181,12 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		//IM_ASSERT(font != NULL);
 
+
+		//ImGuiIO& io = ImGui::GetIO();
+		//ImFont* font = io.Fonts->AddFontFromFileTTF("open-sans.ttf", 20);
+		//IM_ASSERT(font != NULL);
+
+
 		for (auto window : windows)
 			if (!window->Init())
 				return false;
@@ -153,7 +201,13 @@ public:
 			return false;
 
 		for (Window* window : windows)
-			if (!window->Design())
+			if (window->ShouldClose()) {
+				if (!window->OnExit())
+					return false;
+				else
+					windows.erase(std::find(windows.begin(), windows.end(), window));
+			}
+			else if (!window->Design())
 				return false;
 
 		return true;
@@ -162,7 +216,7 @@ public:
 	bool MainLoop()
 	{
 		// Main loop
-		while (!glfwWindowShouldClose(window))
+		while (!glfwWindowShouldClose(glWindow))
 		{
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
@@ -170,7 +224,7 @@ public:
 			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
 			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 			glfwPollEvents();
-			ProcessInput(window);
+			ProcessInput(glWindow);
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL3_NewFrame();
@@ -183,7 +237,7 @@ public:
 			// Rendering
 			ImGui::Render();
 			int display_w, display_h;
-			glfwGetFramebufferSize(window, &display_w, &display_h);
+			glfwGetFramebufferSize(glWindow, &display_w, &display_h);
 			glViewport(0, 0, display_w, display_h);
 			glClear(GL_COLOR_BUFFER_BIT);
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -199,11 +253,13 @@ public:
 				glfwMakeContextCurrent(backup_current_context);
 			}
 
-			glfwSwapBuffers(window);
+			glfwSwapBuffers(glWindow);
 
 			if (!Command::ExecuteAll())
 				return false;
 
+			Time::UpdateFrame();
+			//std::cout << "FPS: " << Time::GetFrameRate() << std::endl;
 		}
 
 		return true;
@@ -220,12 +276,10 @@ public:
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
 
-		glfwDestroyWindow(window);
+		glfwDestroyWindow(glWindow);
 		glfwTerminate();
 
 		return true;
 	}
-
-	
 };
 

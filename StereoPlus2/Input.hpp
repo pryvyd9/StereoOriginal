@@ -99,8 +99,8 @@ class Input
 	void UpdateStatus(Key::KeyPair key, KeyStatus* status) {
 		bool isPressed = 
 			key.type == Key::Mouse 
-			? glfwGetMouseButton(window, key.code) == GLFW_PRESS
-			: glfwGetKey(window, key.code) == GLFW_PRESS;
+			? glfwGetMouseButton(glWindow, key.code) == GLFW_PRESS
+			: glfwGetKey(glWindow, key.code) == GLFW_PRESS;
 
 		status->isDown = isPressed && !status->isPressed;
 		status->isUp = !isPressed && status->isPressed;
@@ -118,7 +118,7 @@ class Input
 
 
 public:
-	GLFWwindow* window;
+	GLFWwindow* glWindow;
 
 	std::map<size_t, std::function<void()>> handlers;
 
@@ -165,17 +165,17 @@ public:
 		if (enable)
 		{
 			if (isRawMouseMotionSupported)
-				glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+				glfwSetInputMode(glWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			glfwSetInputMode(glWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		}
 		else
 		{
 			// We can disable raw mouse motion mode even if it's not supported
 			// so we don't bother with checking it.
-			glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+			glfwSetInputMode(glWindow, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
 
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			glfwSetInputMode(glWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		}
 
 		isMouseBoundlessMode = enable;
@@ -217,15 +217,12 @@ public:
 class KeyBinding
 {
 	size_t AddHandler(std::function<void()> func) {
-
 		static size_t id = 0;
 
 		auto cmd = new FuncCommand();
 		cmd->func = [id = id, input = input, func = func] {
 			input->handlers[id] = func;
 		};
-
-		//input->handlers[id] = func;
 
 		return id++;
 	}
@@ -251,7 +248,6 @@ public:
 		cmd->func = [id = id, input = input] {
 			input->handlers.erase(id);
 		};
-		//input->handlers.erase(id);
 	}
 
 

@@ -35,7 +35,6 @@ class Renderer {
 		fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 	}
 
-
 	bool InitGL()
 	{
 		// Setup window
@@ -61,10 +60,10 @@ class Renderer {
 #endif
 
 	// Create window with graphics context
-		window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
-		if (window == NULL)
+		glWindow = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+		if (glWindow == NULL)
 			return false;
-		glfwMakeContextCurrent(window);
+		glfwMakeContextCurrent(glWindow);
 		glfwSwapInterval(1); // Enable vsync
 
 		// Initialize OpenGL loader
@@ -86,8 +85,6 @@ class Renderer {
 		return true;
 	}
 
-	
-
 	void CreateShaders()
 	{
 		std::string vertexShaderSource1		  = GLLoader::ReadShader("shaders/.vert");
@@ -101,7 +98,6 @@ class Renderer {
 		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
 		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
 	}
-
 	void CreateBuffers()
 	{
 		glGenVertexArrays(1, &VAOLeft);
@@ -110,29 +106,126 @@ class Renderer {
 		glGenBuffers(1, &VBORight);
 	}
 
-	//void BindLeft(Line* line) {
-	//	line->VBO = VBOLeft;
-	//	line->VAO = VAOLeft;
-	//	line->ShaderProgram = ShaderLeft;
-	//}
+	void DrawLineLeft(Line line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
 
-	//void BindRight(Line* line) {
-	//	line->VBO = VBORight;
-	//	line->VAO = VAORight;
-	//	line->ShaderProgram = ShaderRight;
-	//}
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-public:
-	GLFWwindow* window;
+		// Apply shader
+		glUseProgram(ShaderLeft);
+
+		glBindVertexArray(VAOLeft);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+	void DrawLineRight(Line line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-	const char* glsl_version;
-	float LineThickness = 1;
-	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 1);
+		// Apply shader
+		glUseProgram(ShaderRight);
 
-	WhiteSquare whiteSquare;
+		glBindVertexArray(VAORight);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
 
+
+	void DrawLine(Line line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(line.ShaderProgram);
+
+		glBindVertexArray(line.VAO);
+		glDrawArrays(GL_LINES, 0, 2);
+
+		//glBindVertexArray(0);
+
+	}
+	void DrawLine(Line line, function<void()> updateWhitePartOfShader)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
+
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		updateWhitePartOfShader();
+
+		// Apply shader
+		glUseProgram(line.ShaderProgram);
+
+		glBindVertexArray(line.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+
+	void DrawTriangle(Triangle& triangle)
+	{
+		// left top
+		glBindBuffer(GL_ARRAY_BUFFER, triangle.VBO);
+		glBufferData(GL_ARRAY_BUFFER, Triangle::VerticesSize, &triangle, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(triangle.ShaderProgram);
+		glBindVertexArray(triangle.VAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+	}
+	void DrawSquare(WhiteSquare& square)
+	{
+		// left top
+		glBindBuffer(GL_ARRAY_BUFFER, square.VBOLeftTop);
+		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.leftTop, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(square.ShaderProgramLeftTop);
+		glBindVertexArray(square.VAOLeftTop);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+
+		// right bottom
+		glBindBuffer(GL_ARRAY_BUFFER, square.VBORightBottom);
+		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.rightBottom, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(square.ShaderProgramRightBottom);
+		glBindVertexArray(square.VAORightBottom);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	}
 
 	// Determines which parts of line is white.
 	// Finds left and right limits of white in x
@@ -145,7 +238,7 @@ public:
 		/*start += config.camera.transformVec;
 		end += config.camera.transformVec;*/
 
-		bool isZero = (start.z == end.z) && (whiteZ + precision > start.z && start.z > whiteZ - precision);
+		bool isZero = (start.z == end.z) && (whiteZ + precision > start.z&& start.z > whiteZ - precision);
 		if (!isZero)
 		{
 			float xSize = end.x > start.x ? end.x - start.x : start.x - end.x;
@@ -174,6 +267,27 @@ public:
 
 		return res;
 	}
+
+	void UpdateWhitePartOfShader(GLuint shader, WhitePartOfShader whitePartOfShader)
+	{
+		// i for integer. I guess bool suits int more but it works in any case.
+		// f for float
+		glUniform1i(glGetUniformLocation(shader, "isZero"), whitePartOfShader.isZero);
+		glUniform1i(glGetUniformLocation(shader, "isX"), whitePartOfShader.isX);
+		glUniform1f(glGetUniformLocation(shader, "min"), whitePartOfShader.min);
+		glUniform1f(glGetUniformLocation(shader, "max"), whitePartOfShader.max);
+	}
+
+
+public:
+	GLFWwindow* glWindow;
+
+
+	const char* glsl_version;
+	float LineThickness = 1;
+	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 1);
+
+	WhiteSquare whiteSquare;
 
 	void Pipeline(StereoLine ** lines, size_t lineCount, Scene & config)
 	{
@@ -257,143 +371,6 @@ public:
 		glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
 	}
-
-	void DrawLineLeft(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(ShaderLeft);
-
-		glBindVertexArray(VAOLeft);
-		glDrawArrays(GL_LINES, 0, 2);
-	}
-	void DrawLineRight(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(ShaderRight);
-
-		glBindVertexArray(VAORight);
-		glDrawArrays(GL_LINES, 0, 2);
-	}
-
-
-	void DrawLine(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(line.ShaderProgram);
-
-		glBindVertexArray(line.VAO);
-		glDrawArrays(GL_LINES, 0, 2);
-
-		//glBindVertexArray(0);
-
-	}
-
-	void DrawLine(Line line, function<void()> updateWhitePartOfShader)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
-
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		updateWhitePartOfShader();
-
-		// Apply shader
-		glUseProgram(line.ShaderProgram);
-
-		glBindVertexArray(line.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		glDrawArrays(GL_LINES, 0, 2);
-	}
-
-	void DrawTriangle(Triangle & triangle)
-	{
-		// left top
-		glBindBuffer(GL_ARRAY_BUFFER, triangle.VBO);
-		glBufferData(GL_ARRAY_BUFFER, Triangle::VerticesSize, &triangle, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(triangle.ShaderProgram);
-		glBindVertexArray(triangle.VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-	}
-
-	void DrawSquare(WhiteSquare & square)
-	{
-		// left top
-		glBindBuffer(GL_ARRAY_BUFFER, square.VBOLeftTop);
-		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.leftTop, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(square.ShaderProgramLeftTop);
-		glBindVertexArray(square.VAOLeftTop);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-
-
-
-		// right bottom
-		glBindBuffer(GL_ARRAY_BUFFER, square.VBORightBottom);
-		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.rightBottom, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(square.ShaderProgramRightBottom);
-		glBindVertexArray(square.VAORightBottom);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-
-	}
-
-
-	void UpdateWhitePartOfShader(GLuint shader, WhitePartOfShader whitePartOfShader)
-	{
-		// i for integer. I guess bool suits int more but it works in any case.
-		// f for float
-		glUniform1i(glGetUniformLocation(shader, "isZero"), whitePartOfShader.isZero);
-		glUniform1i(glGetUniformLocation(shader, "isX"), whitePartOfShader.isX);
-		glUniform1f(glGetUniformLocation(shader, "min"), whitePartOfShader.min);
-		glUniform1f(glGetUniformLocation(shader, "max"), whitePartOfShader.max);
-	}
-
 
 	bool Init()
 	{
