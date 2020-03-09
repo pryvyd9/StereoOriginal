@@ -533,22 +533,20 @@ public:
 	GLFWwindow* glWindow;
 
 	bool Insert(std::vector<SceneObject*>* source, SceneObject* obj) {
+		if (source == &defaultObject.Children && root != &defaultObject)
+			root->Children.push_back(obj);
+		else
+			source->push_back(obj);
+
 		objects.push_back(obj);
-		source->push_back(obj);
 		return true;
 	}
 
 	bool Insert(SceneObject* obj) {
+		root->Children.push_back(obj);
 		objects.push_back(obj);
 		return true;
 	}
-
-
-	//bool DeleteAll() {
-	//	for (auto o : objects)
-	//		delete o;
-
-	//}
 
 	bool Delete(std::vector<SceneObject*>* source, SceneObject* obj) {
 		for (size_t i = 0; i < source->size(); i++)

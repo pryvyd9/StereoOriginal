@@ -61,7 +61,11 @@ protected:
 		if (!CheckScene())
 			return false;
 
-		scene->Insert(source, func());
+		if (source == nullptr)
+			scene->Insert(func());
+		else
+			scene->Insert(source, func());
+
 		return true;
 	};
 public:
