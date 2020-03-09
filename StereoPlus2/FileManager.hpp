@@ -423,7 +423,7 @@ public:
 		buffer >> val[0];
 		skip();//,
 		skipName();
-		buffer >> val[0];
+		buffer >> val[1];
 		skip();//}
 
 		return val;
