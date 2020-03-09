@@ -71,6 +71,25 @@ public:
 
 			break;
 		}
+		case LineMeshT:
+		{
+			auto o = (LineMesh*)&so;
+
+			put(so.GetType());
+			put(o->Name.size());
+			put(o->Name);
+
+			put(o->GetVertices()->size());
+			for (auto p : *o->GetVertices())
+				put(p);
+
+			put(o->GetLinearConnections().size());
+			for (auto c : o->GetLinearConnections())
+				for (auto p : c)
+					put(p);
+
+			break;
+		}
 		default:
 			throw std::exception("Unsupported Scene Object Type found while writing file.");
 		}
@@ -86,6 +105,7 @@ public:
 };
 
 class ibstream {
+	const Log log = Log::For<ibstream>();
 	char* buffer = nullptr;
 	size_t pos = 0;
 public:
@@ -159,7 +179,26 @@ public:
 
 			return o;
 		}
+		case LineMeshT:
+		{
+			auto o = new LineMesh();
+			scene->Insert(o);
+
+			auto nameSize = get<size_t>();
+			o->Name = get<std::string>(nameSize);
+
+			auto verticeCount = get<size_t>();
+			for (size_t i = 0; i < verticeCount; i++)
+				o->AddVertice(get<glm::vec3>());
+
+			auto linearConnectionCount = get<size_t>();
+			for (size_t i = 0; i < linearConnectionCount; i++)
+				o->Connect(get<size_t>(), get<size_t>());
+
+			return o;
+		}
 		default:
+			log.Error("Unsupported Scene Object Type found while reading file.");
 			throw std::exception("Unsupported Scene Object Type found while reading file.");
 		}
 	}
@@ -197,6 +236,11 @@ public:
 	template<>
 	void put<std::string>(const std::string& val) {
 		buffer << '"' << val << '"';
+	}
+
+	template<>
+	void put<std::array<size_t, 2>>(const std::array<size_t, 2>& val) {
+		buffer << "{\"a\":" << val[0] << ",\"b\":" << val[1] << '}';
 	}
 
 	template<>
@@ -262,6 +306,36 @@ public:
 
 			buffer << ",\"end\":";
 			put(o->End);
+
+			break;
+		}
+		case LineMeshT:
+		{
+			auto o = (LineMesh*)&so;
+
+			buffer << "\"type\":";
+			put(so.GetType());
+
+			buffer << ",\"name\":";
+			put(o->Name);
+
+			buffer << ",\"vertices\":[";
+			put((*o->GetVertices())[0]);
+			for (size_t i = 1; i < o->GetVertices()->size(); i++)
+			{
+				buffer << ',';
+				put((*o->GetVertices())[i]);
+			}
+			buffer << ']';
+
+			buffer << ",\"linearConnections\":[";
+			put(o->GetLinearConnections()[0]);
+			for (size_t i = 1; i < o->GetLinearConnections().size(); i++)
+			{
+				buffer << ',';
+				put(o->GetLinearConnections()[i]);
+			}
+			buffer << ']';
 
 			break;
 		}
@@ -332,6 +406,21 @@ public:
 		return val;
 	}
 
+	template<>
+	std::array<size_t, 2> get<std::array<size_t, 2>>() {
+		std::array<size_t, 2> val;
+
+		skip();//{
+		skipName();
+		buffer >> val[0];
+		skip();//,
+		skipName();
+		buffer >> val[0];
+		skip();//}
+
+		return val;
+	}
+
 
 	template<>
 	SceneObject* get<SceneObject*>() {
@@ -391,6 +480,29 @@ public:
 
 			skipName();
 			o->End = get<glm::vec3>();
+
+			skip();//}
+
+			return o;
+		}
+		case LineMeshT:
+		{
+			auto o = new LineMesh();
+			scene->Insert(o);
+
+			skipName();
+			o->Name = get<std::string>();
+			skip();//,
+
+			skipName();
+			while (buffer.get() != ']')//[]
+				o->AddVertice(get<glm::vec3>());
+
+			skipName();
+			while (buffer.get() != ']') {//[]
+				auto connection = get<std::array<size_t, 2>>();
+				o->Connect(connection[0], connection[1]);
+			}
 
 			skip();//}
 
@@ -502,10 +614,10 @@ public:
 		return true;
 	}
 
-	//static bool Load(std::string filename, Scene* inScene, std::string type) {
-	//	if (type == FileType::Json)
-	//	{
-	//		return LoadJson(
-	//	}
-	//}
+	/*static bool Load(std::string filename, Scene* inScene) {
+		if (type == FileType::Json)
+		{
+			return LoadJson(
+		}
+	}*/
 };

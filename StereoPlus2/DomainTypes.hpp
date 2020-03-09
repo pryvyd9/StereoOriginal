@@ -62,6 +62,7 @@ enum ObjectType {
 	StereoPolyLineT,
 	LineMeshT,
 	MeshT,
+	QuadMeshT,
 };
 
 class SceneObject {
@@ -168,7 +169,7 @@ public:
 };
 
 struct LineMesh : Mesh{
-	virtual ObjectType GetType() {
+	virtual ObjectType GetType() const {
 		return LineMeshT;
 	}
 
@@ -185,6 +186,10 @@ struct LineMesh : Mesh{
 
 		lines.erase(pos);
 	}
+
+	const std::vector<std::array<size_t, 2>>& GetLinearConnections() {
+		return lines;
+	}
 };
 
 struct TriangleMesh : LineMesh {
@@ -192,6 +197,9 @@ struct TriangleMesh : LineMesh {
 };
 
 struct QuadMesh : TriangleMesh {
+	virtual ObjectType GetType() const {
+		return QuadMeshT;
+	}
 	std::vector<std::array<size_t, 4>> quads;
 };
 
