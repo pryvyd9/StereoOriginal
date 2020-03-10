@@ -144,6 +144,11 @@ class PointPenEditingTool : public EditingTool {
 		// If the cos between vectors is less than E
 		// then we merge those vectors.
 		double E = 1e-6;
+
+		// If distance between previous point and 
+		// cursor is less than this number 
+		// then don't create a new point.
+		double Precision = 1e-4;
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
@@ -186,7 +191,8 @@ class PointPenEditingTool : public EditingTool {
 		auto points = &GetTarget<StereoPolyLine>()->Points;
 		auto pointsCount = points->size();
 
-		if (!GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 2)
+
+		if (GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 3)
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
@@ -196,30 +202,36 @@ class PointPenEditingTool : public EditingTool {
 			return;
 		}
 
+
+
 		// Drawing optimizing
+		
+		// If cross is located at distance less than Precision then don't create a new point
+		// but move the last one to cross position.
+		if (glm::length(cross->Position - (*points)[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision)
+		{
+			(*points)[pointsCount - 1] = points->back() = cross->Position;
+			return;
+		}
+
+
 		// If the line goes straight then instead of adding 
 		// a new point - move the previous point to current cross position.
-		if (pointsCount > 2)
-		{
-			auto E = GetConfig<Mode::Immediate>()->E;
+		auto E = GetConfig<Mode::Immediate>()->E;
 
-			glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
-			glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
+		glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
+		glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
 
-			auto p = glm::dot(r1, r2);
-			auto l1 = glm::length(r1);
-			auto l2 = glm::length(r2);
+		auto p = glm::dot(r1, r2);
+		auto l1 = glm::length(r1);
+		auto l2 = glm::length(r2);
 
-			auto cos = p / l1 / l2;
+
+		auto cos = p / l1 / l2;
 				
-			if (abs(cos) > 1 - E || isnan(cos))
-			{
-				(*points)[pointsCount - 2] = points->back() = cross->Position;
-			}
-			else
-			{
-				points->push_back(cross->Position);
-			}
+		if (abs(cos) > 1 - E || isnan(cos))
+		{
+			(*points)[pointsCount - 2] = points->back() = cross->Position;
 		}
 		else
 		{

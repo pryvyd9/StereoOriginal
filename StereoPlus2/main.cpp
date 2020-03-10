@@ -169,7 +169,7 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 			LineConverter::Convert(scene.objects[i], &convertedObjects[k]);
 	//auto t = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
-	//std::cout << "FPS: " << t << std::endl;
+	//std::cout << "line count: " << sizeSum << std::endl;
 
 
 	// Put cross' lines
