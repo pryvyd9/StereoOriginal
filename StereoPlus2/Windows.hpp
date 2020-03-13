@@ -13,8 +13,8 @@
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
-//
-//#include <algorithm>
+//#include <experimental/type_traits>
+#include "TemplateExtensions.hpp"
 
 
 namespace ImGui::Extensions {
@@ -886,18 +886,31 @@ public:
 	}
 };
 
+
+
 class ToolWindow : Window {
-	template<typename TWindow, typename TTool>
+	template<typename T>
+	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
+
+	template<typename T>
+	static constexpr bool hasUnbindSceneobjects = is_detected_v<unbindSceneObjects, T>;
+
+	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindSceneobjects<TTool>> * = nullptr>
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
 
+		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
+
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->onUnbindTool = [t = tool] {
+			t->tool->UnbindSceneObjects();
 			delete t;
 		};
 	}
+
+
 public:
 	AttributesWindow* attributesWindow;
 

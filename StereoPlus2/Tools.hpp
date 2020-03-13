@@ -742,3 +742,9 @@ public:
 		return CreatingTool<LineMesh>::Create();
 	};
 };
+
+
+template<ObjectType type>
+class TransformTool : EditingTool {
+
+};
