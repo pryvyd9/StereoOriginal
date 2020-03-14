@@ -131,6 +131,7 @@ enum class ExtrusionEditingToolMode {
 
 enum class TransformToolMode {
 	Translate,
+	Scale,
 };
 
 #pragma endregion
@@ -754,13 +755,24 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Translate> : EditingTool::Config {
-
-		float speed = 1e-2;
 	};
-	/*template<>
-	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
-		bool isPointCreated = false;
-	};*/
+	//template<>
+	//struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
+	//	bool isRotateCenterSet = false;
+	//	glm::vec3 rotateCenter;
+	//	float scale;
+	//	StereoLine* axe = nullptr;
+
+	//};
+	template<>
+	struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
+		bool isScaleCenterSet = false;
+		float mouseStart = 0;
+		glm::vec3 scaleCenter;
+		float lastScale = 1;
+		float speed = 1e-1;
+		float scaleMinMagnitude = 1e-4;
+	};
 
 	size_t handlerId;
 	Mode mode;
@@ -787,8 +799,20 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		if (this->target == nullptr)
 			return;
 
+		DeleteConfig();
+
 		this->target = nullptr;
 	}
+	template<>
+	void UnbindSceneObjects<StereoPolyLineT, Mode::Scale>() {
+		if (this->target == nullptr)
+			return;
+
+		DeleteConfig();
+
+		this->target = nullptr;
+	}
+
 	void ResetTool() {
 		keyBinding->RemoveHandler(handlerId);
 
@@ -800,6 +824,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		{
 		case Mode::Translate:
 			return ProcessInput<type, Mode::Translate>(input);
+		case Mode::Scale:
+			return ProcessInput<type, Mode::Scale>(input);
 		default:
 			std::cout << "Not suported mode was given" << std::endl;
 			return;
@@ -820,6 +846,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			return;
 		}
 
+
 		auto points = &static_cast<StereoPolyLine*>(target)->Points;
 		auto transformVector = cross->Position - crossOldPos;
 
@@ -828,25 +855,39 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		crossOldPos = cross->Position;
 	}
-	//template<>
-	//void ProcessInput<StereoPolyLineT, Mode::Translate>(Input* input) {
-	//	if (target == nullptr)
-	//		return;
+	template<>
+	void ProcessInput<StereoPolyLineT, Mode::Scale>(Input* input) {
+		if (target == nullptr)
+			return;
 
-	//	if (input->IsDown(Key::Escape))
-	//	{
-	//		UnbindSceneObjects();
-	//		return;
-	//	}
+		if (input->IsDown(Key::Escape))
+		{
+			UnbindSceneObjects();
+			return;
+		}
 
-	//	auto points = &static_cast<StereoPolyLine*>(target)->Points;
-	//	auto transformVector = cross->Position - crossOldPos;
+		if (!GetConfig<Mode::Scale>()->isScaleCenterSet) {
+			GetConfig<Mode::Scale>()->scaleCenter = cross->Position;
+			GetConfig<Mode::Scale>()->mouseStart = input->MousePosition().x;
+			GetConfig<Mode::Scale>()->isScaleCenterSet = true;
+			return;
+		}
 
-	//	for (size_t i = 0; i < points->size(); i++)
-	//		(*points)[i] += transformVector;
+		if (!input->MouseMoved())
+			return;
 
-	//	crossOldPos = cross->Position;
-	//}
+		auto scale = 1 + (input->MousePosition().x - GetConfig<Mode::Scale>()->mouseStart) * GetConfig<Mode::Scale>()->speed;
+
+		if (abs(scale) < GetConfig<Mode::Scale>()->scaleMinMagnitude)
+			return;
+
+		auto points = &static_cast<StereoPolyLine*>(target)->Points;
+
+		for (size_t i = 0; i < points->size(); i++) 
+			(*points)[i] = GetConfig<Mode::Scale>()->scaleCenter + ((*points)[i] - GetConfig<Mode::Scale>()->scaleCenter) * scale / GetConfig<Mode::Scale>()->lastScale;
+
+		GetConfig<Mode::Scale>()->lastScale = scale;
+	}
 
 
 public:
@@ -880,7 +921,9 @@ public:
 		case  Mode::Translate:
 			UnbindSceneObjects<type, Mode::Translate>();
 			break;
-
+		case  Mode::Scale:
+			UnbindSceneObjects<type, Mode::Scale>();
+			break;
 		default:
 			Logger.Error("Not suported mode was given");
 			return false;
@@ -903,8 +946,7 @@ public:
 
 
 	void SetMode(Mode mode) {
-		//UnbindSceneObjects();
-		DeleteConfig();
+		UnbindSceneObjects();
 		this->mode = mode;
 	}
 

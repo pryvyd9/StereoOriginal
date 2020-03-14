@@ -897,8 +897,8 @@ class TransformToolWindow : Window, Attributes
 			static int mode = 0;
 			if (ImGui::RadioButton("TransitionMode", &mode, 0))
 				tool->SetMode(TransformToolMode::Translate);
-			/*if (ImGui::RadioButton("StepMode", &mode, 1))
-				tool->SetMode(ExtrusionEditingToolMode::Step);*/
+			if (ImGui::RadioButton("ScaleMode", &mode, 1))
+				tool->SetMode(TransformToolMode::Scale);
 		}
 
 		return true;
@@ -1049,17 +1049,12 @@ public:
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
-		if (ImGui::Button("extrusion")) {
+		if (ImGui::Button("extrusion")) 
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		}
-
-		if (ImGui::Button("penTool")) {
+		if (ImGui::Button("penTool")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		}
-
-		if (ImGui::Button("transformTool")) {
+		if (ImGui::Button("transformTool"))
 			ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
-		}
 
 		ImGui::End();
 
