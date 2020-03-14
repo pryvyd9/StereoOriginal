@@ -825,6 +825,129 @@ public:
 };
 
 
+
+template<ObjectType type>
+class TransformToolWindow : Window, Attributes
+{
+	SceneObject** target = nullptr;
+
+
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case Group:
+		case Leaf:
+		case StereoLineT:
+			return "noname";
+		case StereoPolyLineT:
+			return "PolyLine";
+		default:
+			return "noname";
+		}
+	}
+	std::string GetName(ObjectType type, SceneObject** obj) {
+		return
+			(*obj) != nullptr && type == (*obj)->GetType()
+			? (*obj)->Name
+			: "Empty";
+	}
+
+	bool DesignInternal() {
+		ImGui::Text(GetName(type, target).c_str());
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			ImGuiDragDropFlags target_flags = 0;
+			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+			std::vector<SceneObject*> objects;
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			{
+				if (objects.size() > 1) {
+					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+				}
+				else {
+					if (!tool->BindSceneObjects(objects))
+						return false;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (ImGui::Extensions::PushActive(*target != nullptr))
+		{
+			if (ImGui::Button("Release"))
+			{
+				tool->UnbindSceneObjects();
+			}
+			ImGui::Extensions::PopActive();
+		}
+
+		/*if (ImGui::Extensions::PushActive(*target != nullptr))
+		{
+			if (ImGui::Button("New"))
+			{
+				tool->Create();
+			}
+			ImGui::Extensions::PopActive();
+		}*/
+
+
+		{
+			static int mode = 0;
+			if (ImGui::RadioButton("TransitionMode", &mode, 0))
+				tool->SetMode(TransformToolMode::Translate);
+			/*if (ImGui::RadioButton("StepMode", &mode, 1))
+				tool->SetMode(ExtrusionEditingToolMode::Step);*/
+		}
+
+		return true;
+	}
+
+public:
+	TransformTool<type>* tool = nullptr;
+
+	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+
+		target = tool->GetTarget();
+		Window::name = Attributes::name = "Extrusion " + GetName(type);
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+	virtual bool Window::Design() {
+		ImGui::Begin(Window::name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
+		ImGui::End();
+
+		return true;
+	}
+
+	virtual bool Attributes::Design() {
+		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+};
+
+
 class AttributesWindow : Window {
 	Attributes* toolAttributes = nullptr;
 	Attributes* targetAttributes = nullptr;
@@ -932,6 +1055,10 @@ public:
 
 		if (ImGui::Button("penTool")) {
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
+		}
+
+		if (ImGui::Button("transformTool")) {
+			ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
 		}
 
 		ImGui::End();

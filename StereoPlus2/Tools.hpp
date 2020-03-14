@@ -82,9 +82,11 @@ public:
 };
 
 
-
+template<typename EditMode>
 class EditingTool : Tool {
 protected:
+	using Mode = EditMode;
+
 	struct Config {
 		template<typename T>
 		T* Get() { return (T*)this; };
@@ -104,6 +106,7 @@ public:
 	enum Type {
 		PointPen,
 		Extrusion,
+		Transform,
 	};
 
 
@@ -126,13 +129,15 @@ enum class ExtrusionEditingToolMode {
 	Step,
 };
 
+enum class TransformToolMode {
+	Translate,
+};
+
 #pragma endregion
 
 template<ObjectType type>
-class PointPenEditingTool : public EditingTool {
+class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 #pragma region Types
-	using Mode = PointPenEditingToolMode;
-
 	template<ObjectType type, Mode mode>
 	struct Config : EditingTool::Config {
 
@@ -188,6 +193,7 @@ class PointPenEditingTool : public EditingTool {
 			UnbindSceneObjects();
 			return;
 		}
+		
 		auto points = &GetTarget<StereoPolyLine>()->Points;
 		auto pointsCount = points->size();
 
@@ -401,10 +407,8 @@ public:
 
 
 template<ObjectType type>
-class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
+class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, public CreatingTool<LineMesh> {
 #pragma region Types
-	using Mode = ExtrusionEditingToolMode;
-
 	template<ObjectType type, Mode mode>
 	struct Config : EditingTool::Config {
 
@@ -425,6 +429,7 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
 		bool isPointCreated = false;
 	};
 #pragma endregion
+	Log Logger = Log::For<ExtrusionEditingTool>();
 
 	size_t handlerId;
 	Mode mode;
@@ -441,11 +446,6 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
 			config = new Config<type, mode>();
 
 		return (Config<type, mode>*) config;
-	}
-
-	template<typename T>
-	T* GetTarget() {
-		return (T*)this->pen;
 	}
 
 #pragma region ProcessInput
@@ -678,13 +678,13 @@ public:
 
 		if (keyBinding == nullptr)
 		{
-			std::cout << "KeyBinding wasn't assigned" << std::endl;
+			Logger.Error("KeyBinding wasn't assigned");
 			return false;
 		}
 
 		if (objs[0]->GetType() != type)
 		{
-			std::cout << "Invalid Object passed to ExtrusionEditingTool" << std::endl;
+			Logger.Warning("Invalid Object passed to ExtrusionEditingTool");
 			return true;
 		}
 		pen = objs[0];
@@ -745,6 +745,167 @@ public:
 
 
 template<ObjectType type>
-class TransformTool : EditingTool {
+class TransformTool : public EditingTool<TransformToolMode> {
+	Log Logger = Log::For<TransformTool>();
+
+	template<ObjectType type, Mode mode>
+	struct Config : EditingTool::Config {
+
+	};
+	template<>
+	struct Config<StereoPolyLineT, Mode::Translate> : EditingTool::Config {
+
+		float speed = 1e-2;
+	};
+	/*template<>
+	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
+		bool isPointCreated = false;
+	};*/
+
+	size_t handlerId;
+	Mode mode;
+
+	Cross* cross = nullptr;
+
+	SceneObject* target = nullptr;
+
+	glm::vec3 crossOldPos;
+
+	template<Mode mode>
+	Config<type, mode>* GetConfig() {
+		if (config == nullptr)
+			config = new Config<type, mode>();
+
+		return (Config<type, mode>*) config;
+	}
+	template<ObjectType type, Mode mode>
+	void UnbindSceneObjects() {
+
+	}
+	template<>
+	void UnbindSceneObjects<StereoPolyLineT, Mode::Translate>() {
+		if (this->target == nullptr)
+			return;
+
+		this->target = nullptr;
+	}
+	void ResetTool() {
+		keyBinding->RemoveHandler(handlerId);
+
+		DeleteConfig();
+	}
+
+	void ProcessInput(Input* input) {
+		switch (mode)
+		{
+		case Mode::Translate:
+			return ProcessInput<type, Mode::Translate>(input);
+		default:
+			std::cout << "Not suported mode was given" << std::endl;
+			return;
+		}
+	}
+	template<ObjectType type, Mode mode>
+	void ProcessInput(Input* input) {
+		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode");
+	}
+	template<>
+	void ProcessInput<StereoPolyLineT, Mode::Translate>(Input* input) {
+		if (target == nullptr)
+			return;
+
+		if (input->IsDown(Key::Escape))
+		{
+			UnbindSceneObjects();
+			return;
+		}
+
+		auto points = &static_cast<StereoPolyLine*>(target)->Points;
+		auto transformVector = cross->Position - crossOldPos;
+
+		for (size_t i = 0; i < points->size(); i++)
+			(*points)[i] += transformVector;
+
+		crossOldPos = cross->Position;
+	}
+	//template<>
+	//void ProcessInput<StereoPolyLineT, Mode::Translate>(Input* input) {
+	//	if (target == nullptr)
+	//		return;
+
+	//	if (input->IsDown(Key::Escape))
+	//	{
+	//		UnbindSceneObjects();
+	//		return;
+	//	}
+
+	//	auto points = &static_cast<StereoPolyLine*>(target)->Points;
+	//	auto transformVector = cross->Position - crossOldPos;
+
+	//	for (size_t i = 0; i < points->size(); i++)
+	//		(*points)[i] += transformVector;
+
+	//	crossOldPos = cross->Position;
+	//}
+
+
+public:
+	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
+		if (!UnbindSceneObjects())
+			return false;
+
+		if (keyBinding == nullptr)
+		{
+			Logger.Error("KeyBinding wasn't assigned");
+			return false;
+		}
+
+		if (objs[0]->GetType() != type)
+		{
+			Logger.Warning("Invalid Object passed to TransformTool");
+			return true;
+		}
+
+		target = objs[0];
+		
+		crossOldPos = cross->Position;
+
+		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(input); });
+
+		return true;
+	}
+	virtual bool UnbindSceneObjects() {
+		switch (mode)
+		{
+		case  Mode::Translate:
+			UnbindSceneObjects<type, Mode::Translate>();
+			break;
+
+		default:
+			Logger.Error("Not suported mode was given");
+			return false;
+		}
+
+		ResetTool();
+
+		return true;
+	}
+	SceneObject** GetTarget() {
+		return &target;
+	}
+	virtual Type GetType() {
+		return Type::Transform;
+	}
+
+	bool BindCross(Cross* cross) {
+		return this->cross = cross;
+	}
+
+
+	void SetMode(Mode mode) {
+		//UnbindSceneObjects();
+		DeleteConfig();
+		this->mode = mode;
+	}
 
 };

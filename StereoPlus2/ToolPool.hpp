@@ -34,14 +34,16 @@ class ToolPool {
 			!tool->BindSource(&(*GetScene())->root->Children))
 			return false;
 
-		//tool->func = [](SceneObject * o) {
-		//	std::stringstream ss;
-		//	ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
-		//	o->Name = ss.str();
-		//};
-
 		return true;
 	}
+	template<>
+	static bool Init<TransformTool<StereoPolyLineT>>(TransformTool<StereoPolyLineT>* tool) {
+		return
+			tool->BindInput(*GetKeyBinding()) &&
+			tool->BindCross(*GetCross());
+	}
+
+
 
 public:
 	static KeyBinding** GetKeyBinding() {

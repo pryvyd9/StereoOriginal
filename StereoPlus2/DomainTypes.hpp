@@ -25,6 +25,10 @@ public:
 		Line("[Error](" + contextName + ") " + message);
 	}
 
+	void Warning(std::string message) const {
+		Line("[Warning](" + contextName + ") " + message);
+	}
+
 	void Information(std::string message) const  {
 		Line("[Information](" + contextName + ") " + message);
 	}
