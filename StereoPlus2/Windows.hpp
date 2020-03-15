@@ -1022,7 +1022,7 @@ class ToolWindow : Window {
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
-
+		
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
 
@@ -1054,7 +1054,8 @@ public:
 		if (ImGui::Button("penTool")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
 		if (ImGui::Button("transformTool"))
-			ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
+			//ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
+			ApplyTool<TransformToolWindow<LineMeshT>, TransformTool<LineMeshT>>();
 
 		ImGui::End();
 

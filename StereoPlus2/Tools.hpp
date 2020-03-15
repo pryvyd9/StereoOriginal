@@ -8,6 +8,8 @@
 #include <stack>
 #include <vector>
 #include <queue>
+#include "TemplateExtensions.hpp"
+
 
 class Tool {
 protected:
@@ -132,6 +134,7 @@ enum class ExtrusionEditingToolMode {
 enum class TransformToolMode {
 	Translate,
 	Scale,
+	Rotate,
 };
 
 #pragma endregion
@@ -753,17 +756,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	struct Config : EditingTool::Config {
 
 	};
-	template<>
-	struct Config<StereoPolyLineT, Mode::Translate> : EditingTool::Config {
-	};
-	//template<>
-	//struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
-	//	bool isRotateCenterSet = false;
-	//	glm::vec3 rotateCenter;
-	//	float scale;
-	//	StereoLine* axe = nullptr;
 
-	//};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
 		bool isScaleCenterSet = false;
@@ -790,12 +783,12 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		return (Config<type, mode>*) config;
 	}
-	template<ObjectType type, Mode mode>
+
+
+
+	template<ObjectType type, Mode mode, 
+		std::enable_if_t<any(type, StereoPolyLineT, LineMeshT) && any(mode, Mode::Scale, Mode::Translate)>* = nullptr>
 	void UnbindSceneObjects() {
-
-	}
-	template<>
-	void UnbindSceneObjects<StereoPolyLineT, Mode::Translate>() {
 		if (this->target == nullptr)
 			return;
 
@@ -803,15 +796,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		this->target = nullptr;
 	}
-	template<>
-	void UnbindSceneObjects<StereoPolyLineT, Mode::Scale>() {
-		if (this->target == nullptr)
-			return;
 
-		DeleteConfig();
-
-		this->target = nullptr;
-	}
 
 	void ResetTool() {
 		keyBinding->RemoveHandler(handlerId);
@@ -848,6 +833,26 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 
 		auto points = &static_cast<StereoPolyLine*>(target)->Points;
+		auto transformVector = cross->Position - crossOldPos;
+
+		for (size_t i = 0; i < points->size(); i++)
+			(*points)[i] += transformVector;
+
+		crossOldPos = cross->Position;
+	}
+	template<>
+	void ProcessInput<LineMeshT, Mode::Translate>(Input* input) {
+		if (target == nullptr)
+			return;
+
+		if (input->IsDown(Key::Escape))
+		{
+			UnbindSceneObjects();
+			return;
+		}
+
+
+		auto points = static_cast<LineMesh*>(target)->GetVertices();
 		auto transformVector = cross->Position - crossOldPos;
 
 		for (size_t i = 0; i < points->size(); i++)

@@ -43,6 +43,13 @@ class ToolPool {
 			tool->BindCross(*GetCross());
 	}
 
+	template<>
+	static bool Init<TransformTool<LineMeshT>>(TransformTool<LineMeshT>* tool) {
+		return
+			tool->BindInput(*GetKeyBinding()) &&
+			tool->BindCross(*GetCross());
+	}
+
 
 
 public:
