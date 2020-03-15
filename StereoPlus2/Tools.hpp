@@ -784,10 +784,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		return (Config<type, mode>*) config;
 	}
 
-
-
-
-
 	void ResetTool() {
 		keyBinding->RemoveHandler(handlerId);
 
@@ -981,15 +977,11 @@ public:
 	virtual Type GetType() {
 		return Type::Transform;
 	}
-
 	bool BindCross(Cross* cross) {
 		return this->cross = cross;
 	}
-
-
 	void SetMode(Mode mode) {
 		UnbindSceneObjects();
 		this->mode = mode;
 	}
-
 };

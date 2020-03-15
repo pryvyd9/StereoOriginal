@@ -10,7 +10,7 @@
 class Log {
 	std::string contextName = "";
 
-	void Line(const std::string& message) const {
+	static void Line(const std::string& message) {
 		std::cout << message << std::endl;
 	}
 public:
