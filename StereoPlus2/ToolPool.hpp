@@ -37,18 +37,18 @@ class ToolPool {
 		return true;
 	}
 	template<>
-	static bool Init<TransformTool<StereoPolyLineT>>(TransformTool<StereoPolyLineT>* tool) {
+	static bool Init<TransformTool>(TransformTool* tool) {
 		return
 			tool->BindInput(*GetKeyBinding()) &&
 			tool->BindCross(*GetCross());
 	}
 
-	template<>
+	/*template<>
 	static bool Init<TransformTool<LineMeshT>>(TransformTool<LineMeshT>* tool) {
 		return
 			tool->BindInput(*GetKeyBinding()) &&
 			tool->BindCross(*GetCross());
-	}
+	}*/
 
 
 

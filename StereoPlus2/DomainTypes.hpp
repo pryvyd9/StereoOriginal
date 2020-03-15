@@ -10,7 +10,7 @@
 class Log {
 	std::string contextName = "";
 
-	void Line(std::string message) const {
+	void Line(const std::string& message) const {
 		std::cout << message << std::endl;
 	}
 public:
@@ -25,11 +25,11 @@ public:
 		Line("[Error](" + contextName + ") " + message);
 	}
 
-	void Warning(std::string message) const {
+	void Warning(const std::string& message) const {
 		Line("[Warning](" + contextName + ") " + message);
 	}
 
-	void Information(std::string message) const  {
+	void Information(const std::string& message) const  {
 		Line("[Information](" + contextName + ") " + message);
 	}
 };

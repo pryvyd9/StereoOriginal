@@ -826,34 +826,20 @@ public:
 
 
 
-template<ObjectType type>
+//template<ObjectType type>
 class TransformToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
 
-
-	std::string GetName(ObjectType type) {
-		switch (type)
-		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
-		case StereoPolyLineT:
-			return "PolyLine";
-		default:
-			return "noname";
-		}
-	}
-	std::string GetName(ObjectType type, SceneObject** obj) {
+	std::string GetName(SceneObject** obj) {
 		return
-			(*obj) != nullptr && type == (*obj)->GetType()
+			(*obj) != nullptr
 			? (*obj)->Name
 			: "Empty";
 	}
 
 	bool DesignInternal() {
-		ImGui::Text(GetName(type, target).c_str());
+		ImGui::Text(GetName(target).c_str());
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -905,7 +891,7 @@ class TransformToolWindow : Window, Attributes
 	}
 
 public:
-	TransformTool<type>* tool = nullptr;
+	TransformTool* tool = nullptr;
 
 	virtual bool Init() {
 		if (tool == nullptr)
@@ -915,7 +901,7 @@ public:
 		}
 
 		target = tool->GetTarget();
-		Window::name = Attributes::name = "Extrusion " + GetName(type);
+		Window::name = Attributes::name = "Transformation";
 		Attributes::isInitialized = true;
 
 		return true;
@@ -1055,7 +1041,7 @@ public:
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
 		if (ImGui::Button("transformTool"))
 			//ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
-			ApplyTool<TransformToolWindow<LineMeshT>, TransformTool<LineMeshT>>();
+			ApplyTool<TransformToolWindow, TransformTool>();
 
 		ImGui::End();
 

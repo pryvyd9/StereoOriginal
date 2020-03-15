@@ -40,6 +40,7 @@ constexpr bool is_detected_v = is_detected<Op, Args...>::value;
 //template <class Default, template<class...> class Op, class... Args>
 //using detected_or = detail::detector<Default, void, Op, Args...>;
 
+// Fold expression
 template<typename T, typename... Ts>
 constexpr bool any(T target, Ts... types) {
     return ((types == target) || ...);

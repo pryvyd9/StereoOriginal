@@ -748,9 +748,9 @@ public:
 };
 
 
-template<ObjectType type>
+//template<ObjectType type>
 class TransformTool : public EditingTool<TransformToolMode> {
-	Log Logger = Log::For<TransformTool>();
+	const Log Logger = Log::For<TransformTool>();
 
 	template<ObjectType type, Mode mode>
 	struct Config : EditingTool::Config {
@@ -769,6 +769,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 	size_t handlerId;
 	Mode mode;
+	ObjectType type;
 
 	Cross* cross = nullptr;
 
@@ -776,7 +777,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 	glm::vec3 crossOldPos;
 
-	template<Mode mode>
+	template<ObjectType type, Mode mode>
 	Config<type, mode>* GetConfig() {
 		if (config == nullptr)
 			config = new Config<type, mode>();
@@ -786,16 +787,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 
 
-	template<ObjectType type, Mode mode, 
-		std::enable_if_t<any(type, StereoPolyLineT, LineMeshT) && any(mode, Mode::Scale, Mode::Translate)>* = nullptr>
-	void UnbindSceneObjects() {
-		if (this->target == nullptr)
-			return;
-
-		DeleteConfig();
-
-		this->target = nullptr;
-	}
 
 
 	void ResetTool() {
@@ -804,98 +795,109 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		DeleteConfig();
 	}
 
-	void ProcessInput(Input* input) {
-		switch (mode)
-		{
-		case Mode::Translate:
-			return ProcessInput<type, Mode::Translate>(input);
-		case Mode::Scale:
-			return ProcessInput<type, Mode::Scale>(input);
-		default:
-			std::cout << "Not suported mode was given" << std::endl;
+	void ProcessInput(ObjectType type, Mode mode, Input* input) {
+		if (type == StereoPolyLineT && mode == Mode::Translate) {
+			if (target == nullptr)
+				return;
+
+			if (input->IsDown(Key::Escape))
+			{
+				UnbindSceneObjects();
+				return;
+			}
+
+
+			auto points = &static_cast<StereoPolyLine*>(target)->Points;
+			auto transformVector = cross->Position - crossOldPos;
+
+			for (size_t i = 0; i < points->size(); i++)
+				(*points)[i] += transformVector;
+
+			crossOldPos = cross->Position;
+
 			return;
 		}
-	}
-	template<ObjectType type, Mode mode>
-	void ProcessInput(Input* input) {
-		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode");
-	}
-	template<>
-	void ProcessInput<StereoPolyLineT, Mode::Translate>(Input* input) {
-		if (target == nullptr)
-			return;
+		if (type == LineMeshT && mode == Mode::Translate) {
+			if (target == nullptr)
+				return;
 
-		if (input->IsDown(Key::Escape))
-		{
-			UnbindSceneObjects();
+			if (input->IsDown(Key::Escape))
+			{
+				UnbindSceneObjects();
+				return;
+			}
+
+
+			auto points = static_cast<LineMesh*>(target)->GetVertices();
+			auto transformVector = cross->Position - crossOldPos;
+
+			for (size_t i = 0; i < points->size(); i++)
+				(*points)[i] += transformVector;
+
+			crossOldPos = cross->Position;
+
+			return;
+		}
+		if (type == StereoPolyLineT && mode == Mode::Scale) {
+			if (target == nullptr)
+				return;
+
+			if (input->IsDown(Key::Escape))
+			{
+				UnbindSceneObjects();
+				return;
+			}
+
+			auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
+
+			if (!config->isScaleCenterSet) {
+				config->scaleCenter = cross->Position;
+				config->mouseStart = input->MousePosition().x;
+				config->isScaleCenterSet = true;
+				return;
+			}
+
+			if (!input->MouseMoved())
+				return;
+
+			auto scale = 1 + (input->MousePosition().x - config->mouseStart) * config->speed;
+
+			if (abs(scale) < config->scaleMinMagnitude)
+				return;
+
+			auto points = &static_cast<StereoPolyLine*>(target)->Points;
+
+			for (size_t i = 0; i < points->size(); i++)
+				(*points)[i] = config->scaleCenter + ((*points)[i] - config->scaleCenter) * scale / config->lastScale;
+
+			config->lastScale = scale;
+
 			return;
 		}
 
-
-		auto points = &static_cast<StereoPolyLine*>(target)->Points;
-		auto transformVector = cross->Position - crossOldPos;
-
-		for (size_t i = 0; i < points->size(); i++)
-			(*points)[i] += transformVector;
-
-		crossOldPos = cross->Position;
-	}
-	template<>
-	void ProcessInput<LineMeshT, Mode::Translate>(Input* input) {
-		if (target == nullptr)
-			return;
-
-		if (input->IsDown(Key::Escape))
-		{
-			UnbindSceneObjects();
-			return;
-		}
-
-
-		auto points = static_cast<LineMesh*>(target)->GetVertices();
-		auto transformVector = cross->Position - crossOldPos;
-
-		for (size_t i = 0; i < points->size(); i++)
-			(*points)[i] += transformVector;
-
-		crossOldPos = cross->Position;
-	}
-	template<>
-	void ProcessInput<StereoPolyLineT, Mode::Scale>(Input* input) {
-		if (target == nullptr)
-			return;
-
-		if (input->IsDown(Key::Escape))
-		{
-			UnbindSceneObjects();
-			return;
-		}
-
-		if (!GetConfig<Mode::Scale>()->isScaleCenterSet) {
-			GetConfig<Mode::Scale>()->scaleCenter = cross->Position;
-			GetConfig<Mode::Scale>()->mouseStart = input->MousePosition().x;
-			GetConfig<Mode::Scale>()->isScaleCenterSet = true;
-			return;
-		}
-
-		if (!input->MouseMoved())
-			return;
-
-		auto scale = 1 + (input->MousePosition().x - GetConfig<Mode::Scale>()->mouseStart) * GetConfig<Mode::Scale>()->speed;
-
-		if (abs(scale) < GetConfig<Mode::Scale>()->scaleMinMagnitude)
-			return;
-
-		auto points = &static_cast<StereoPolyLine*>(target)->Points;
-
-		for (size_t i = 0; i < points->size(); i++) 
-			(*points)[i] = GetConfig<Mode::Scale>()->scaleCenter + ((*points)[i] - GetConfig<Mode::Scale>()->scaleCenter) * scale / GetConfig<Mode::Scale>()->lastScale;
-
-		GetConfig<Mode::Scale>()->lastScale = scale;
+		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
 	}
 
+	template<typename K, typename V>
+	static bool exists(std::multimap<K, V> map, K key, V val) {
+		auto h = map.equal_range(key);
 
+		for (auto i = h.first; i != h.second; i++)
+			if (i->second == val)
+				return true;
+
+		return false;
+	}
 public:
+
+	const std::multimap<ObjectType, Mode> supportedConfigs{
+		{ StereoPolyLineT, Mode::Translate },
+		{ StereoPolyLineT, Mode::Scale },
+		{ LineMeshT, Mode::Translate },
+	};
+
+	
+
 	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
 		if (!UnbindSceneObjects())
 			return false;
@@ -906,9 +908,14 @@ public:
 			return false;
 		}
 
-		if (objs[0]->GetType() != type)
-		{
+		type = objs[0]->GetType();
+
+		if (supportedConfigs.find(type) == supportedConfigs.end()) {
 			Logger.Warning("Invalid Object passed to TransformTool");
+			return true;
+		}
+		if (!exists(supportedConfigs, type, mode)) {
+			Logger.Warning("Unsupported Mode for ObjectType");
 			return true;
 		}
 
@@ -916,23 +923,17 @@ public:
 		
 		crossOldPos = cross->Position;
 
-		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(input); });
+		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		switch (mode)
-		{
-		case  Mode::Translate:
-			UnbindSceneObjects<type, Mode::Translate>();
-			break;
-		case  Mode::Scale:
-			UnbindSceneObjects<type, Mode::Scale>();
-			break;
-		default:
-			Logger.Error("Not suported mode was given");
-			return false;
-		}
+		if (this->target == nullptr)
+			return true;
+
+		DeleteConfig();
+
+		this->target = nullptr;
 
 		ResetTool();
 
