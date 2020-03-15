@@ -748,7 +748,6 @@ public:
 };
 
 
-//template<ObjectType type>
 class TransformTool : public EditingTool<TransformToolMode> {
 	const Log Logger = Log::For<TransformTool>();
 
@@ -874,12 +873,48 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 			return;
 		}
+		if (type == LineMeshT && mode == Mode::Scale) {
+			if (target == nullptr)
+				return;
+
+			if (input->IsDown(Key::Escape))
+			{
+				UnbindSceneObjects();
+				return;
+			}
+
+			auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
+
+			if (!config->isScaleCenterSet) {
+				config->scaleCenter = cross->Position;
+				config->mouseStart = input->MousePosition().x;
+				config->isScaleCenterSet = true;
+				return;
+			}
+
+			if (!input->MouseMoved())
+				return;
+
+			auto scale = 1 + (input->MousePosition().x - config->mouseStart) * config->speed;
+
+			if (abs(scale) < config->scaleMinMagnitude)
+				return;
+
+			auto points = static_cast<LineMesh*>(target)->GetVertices();
+
+			for (size_t i = 0; i < points->size(); i++)
+				(*points)[i] = config->scaleCenter + ((*points)[i] - config->scaleCenter) * scale / config->lastScale;
+
+			config->lastScale = scale;
+
+			return;
+		}
 
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
 	}
 
 	template<typename K, typename V>
-	static bool exists(std::multimap<K, V> map, K key, V val) {
+	static bool exists(const std::multimap<K, V>& map, const K& key, const V& val) {
 		auto h = map.equal_range(key);
 
 		for (auto i = h.first; i != h.second; i++)
@@ -894,6 +929,7 @@ public:
 		{ StereoPolyLineT, Mode::Translate },
 		{ StereoPolyLineT, Mode::Scale },
 		{ LineMeshT, Mode::Translate },
+		{ LineMeshT, Mode::Scale },
 	};
 
 	
