@@ -13,8 +13,8 @@
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
-//
-//#include <algorithm>
+//#include <experimental/type_traits>
+#include "TemplateExtensions.hpp"
 
 
 namespace ImGui::Extensions {
@@ -825,6 +825,115 @@ public:
 };
 
 
+
+//template<ObjectType type>
+class TransformToolWindow : Window, Attributes
+{
+	SceneObject** target = nullptr;
+
+	std::string GetName(SceneObject** obj) {
+		return
+			(*obj) != nullptr
+			? (*obj)->Name
+			: "Empty";
+	}
+
+	bool DesignInternal() {
+		ImGui::Text(GetName(target).c_str());
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			ImGuiDragDropFlags target_flags = 0;
+			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+			std::vector<SceneObject*> objects;
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			{
+				if (objects.size() > 1) {
+					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+				}
+				else {
+					if (!tool->BindSceneObjects(objects))
+						return false;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (ImGui::Extensions::PushActive(*target != nullptr))
+		{
+			if (ImGui::Button("Release"))
+			{
+				tool->UnbindSceneObjects();
+			}
+			ImGui::Extensions::PopActive();
+		}
+
+		/*if (ImGui::Extensions::PushActive(*target != nullptr))
+		{
+			if (ImGui::Button("New"))
+			{
+				tool->Create();
+			}
+			ImGui::Extensions::PopActive();
+		}*/
+
+
+		{
+			static int mode = 0;
+			if (ImGui::RadioButton("TransitionMode", &mode, 0))
+				tool->SetMode(TransformToolMode::Translate);
+			if (ImGui::RadioButton("ScaleMode", &mode, 1))
+				tool->SetMode(TransformToolMode::Scale);
+		}
+
+		return true;
+	}
+
+public:
+	TransformTool* tool = nullptr;
+
+	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+
+		target = tool->GetTarget();
+		Window::name = Attributes::name = "Transformation";
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+	virtual bool Window::Design() {
+		ImGui::Begin(Window::name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
+		ImGui::End();
+
+		return true;
+	}
+
+	virtual bool Attributes::Design() {
+		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+};
+
+
 class AttributesWindow : Window {
 	Attributes* toolAttributes = nullptr;
 	Attributes* targetAttributes = nullptr;
@@ -886,18 +995,31 @@ public:
 	}
 };
 
+
+
 class ToolWindow : Window {
-	template<typename TWindow, typename TTool>
+	template<typename T>
+	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
+
+	template<typename T>
+	static constexpr bool hasUnbindSceneobjects = is_detected_v<unbindSceneObjects, T>;
+
+	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindSceneobjects<TTool>> * = nullptr>
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
-
+		
+		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
+
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->onUnbindTool = [t = tool] {
+			t->tool->UnbindSceneObjects();
 			delete t;
 		};
 	}
+
+
 public:
 	AttributesWindow* attributesWindow;
 
@@ -913,13 +1035,13 @@ public:
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
-		if (ImGui::Button("extrusion")) {
+		if (ImGui::Button("extrusion")) 
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		}
-
-		if (ImGui::Button("penTool")) {
+		if (ImGui::Button("penTool")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		}
+		if (ImGui::Button("transformTool"))
+			//ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
+			ApplyTool<TransformToolWindow, TransformTool>();
 
 		ImGui::End();
 

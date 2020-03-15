@@ -96,6 +96,10 @@ class Input
 
 	std::map<Key::KeyPair, KeyStatus*, KeyPairComparator> keyStatuses;
 
+	float mouseSensivity = 1e-2;
+	float mouseMaxMagnitude = 1e4;
+
+
 	void UpdateStatus(Key::KeyPair key, KeyStatus* status) {
 		bool isPressed = 
 			key.type == Key::Mouse 
@@ -152,6 +156,10 @@ public:
 
 	glm::vec2 MouseMoveDirection() {
 		return glm::length(mouseNewPos - mouseOldPos) == 0 ? glm::vec2(0) : glm::normalize(mouseNewPos - mouseOldPos);
+	}
+
+	bool MouseMoved() {
+		return MouseSpeed() > mouseSensivity && MouseSpeed() < mouseMaxMagnitude;
 	}
 
 	float MouseSpeed() {
