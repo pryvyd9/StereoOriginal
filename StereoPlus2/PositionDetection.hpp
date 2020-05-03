@@ -39,13 +39,29 @@ class PositionDetector {
         return glm::length(sum / (float)q.size());
     }
 
+    struct less_than_key
+    {
+        inline bool operator() (const glm::vec2& a, const glm::vec2& b)
+        {
+            return glm::length(a) < glm::length(b);
+        }
+    };
+
+    bool compareVec2(glm::vec2 a, glm::vec2 b) {
+        return glm::length(a) < glm::length(b);
+    }
+    float med(std::vector<glm::vec2> q) {
+        std::sort(q.begin(), q.end(), less_than_key());
+        return glm::length(q[q.size() / 2]);
+    }
+
     float getDistance(float orSize, float f, std::vector<float> q) {
         float d = orSize * f / avg(q);
 
         return d;
     }
-    float getPosition(float center, std::vector<glm::vec2> q) {
-        float d = center - avg(q);
+    float getPosition(float center, std::vector<glm::vec2>& q) {
+        float d = center - med(q);
 
         return d;
     }
@@ -91,13 +107,13 @@ class PositionDetector {
                         distanceLeft = getDistance(3, 900, distanceLeftEye);
                         //std::cout << "left: " << distanceLeft << " ";
                     }
-                    positionLeftEye.push_back(eye_center);
-                    if (positionLeftEye.size() > windowSize)
-                    {
-                        positionLeftEye.erase(positionLeftEye.begin());
-                        positionLeft = getPosition(frame.size[0] / 2, positionLeftEye);
-                        //std::cout << "left: " << distanceLeft << " ";
-                    }
+                    //positionLeftEye.push_back(eye_center);
+                    //if (positionLeftEye.size() > windowSize)
+                    //{
+                    //    positionLeftEye.erase(positionLeftEye.begin());
+                    //    positionLeft = getPosition(frame.size[0] / 2, positionLeftEye);
+                    //    //std::cout << "left: " << distanceLeft << " ";
+                    //}
                 }
                 if (j == 1)
                 {
@@ -109,6 +125,22 @@ class PositionDetector {
                         //std::cout << "right: " << distanceRight << " ";
 
                     }
+                    positionLeftEye.push_back(eye_center);
+                    positionRightEye.push_back(eye_center);
+                    if (positionLeftEye.size() > windowSize)
+                    {
+                        positionLeftEye.erase(positionLeftEye.begin());
+                        positionLeft = getPosition(frame.size[0] / 2, positionLeftEye);
+                        //std::cout << "left: " << distanceLeft << " ";
+                    }
+                    if (positionRightEye.size() > windowSize)
+                    {
+                        positionRightEye.erase(positionRightEye.begin());
+                        positionRight = getPosition(frame.size[0] / 2, positionRightEye);
+                        //std::cout << "left: " << distanceLeft << " ";
+                    }
+                    positionHorizontal = (positionLeft + positionRight) / 2.0;
+
                 }
             }
         }
@@ -119,7 +151,13 @@ class PositionDetector {
 
 
 public:
-    float distanceLeft, distanceRight, positionLeft, positionRight;
+    float 
+        distanceLeft,
+        distanceRight, 
+        positionLeft,
+        positionRight,
+        positionHorizontal
+        ;
 
     bool Init() {
        /* CommandLineParser parser(argc, argv,

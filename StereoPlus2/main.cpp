@@ -148,7 +148,7 @@ bool LoadScene(Scene* scene) {
 }
 
 std::atomic<float> distanceLeft;
-std::atomic<float> positionLeft;
+std::atomic<float> positionHorizontal;
 std::thread distanceProcessThread;
 
 void distanceProcess(PositionDetector& positionDetector) {
@@ -158,7 +158,7 @@ void distanceProcess(PositionDetector& positionDetector) {
 			break;
 
 		distanceLeft = positionDetector.distanceLeft;
-		positionLeft = positionDetector.positionLeft;
+		positionHorizontal = positionDetector.positionHorizontal;
 	}
 }
 
@@ -187,8 +187,8 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	auto d = convertedObjects.data();
 
 	scene.camera->position.z = -distanceLeft/10.0;
-	scene.camera->position.x = -positionLeft / 10.0;
-	std::cout << positionLeft << std::endl;
+	scene.camera->position.x = -positionHorizontal / 100.0;
+	std::cout << positionHorizontal << std::endl;
 
 	renderPipeline.Pipeline(&d, sizeSum, scene);
 
