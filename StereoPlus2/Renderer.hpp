@@ -7,7 +7,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <glm/gtc/quaternion.hpp>
+//#include <glm/gtc/quaternion.hpp>
 #include <functional>
 
 using namespace std;
