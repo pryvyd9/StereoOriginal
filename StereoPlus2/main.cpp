@@ -147,8 +147,9 @@ bool LoadScene(Scene* scene) {
 	return true;
 }
 
-std::atomic<float> distanceLeft;
+std::atomic<float> distanceToEye;
 std::atomic<float> positionHorizontal;
+std::atomic<float> positionVertical;
 std::thread distanceProcessThread;
 
 void distanceProcess(PositionDetector& positionDetector) {
@@ -157,8 +158,9 @@ void distanceProcess(PositionDetector& positionDetector) {
 		if (!positionDetector.ProcessFrame())
 			break;
 
-		distanceLeft = positionDetector.distanceLeft;
+		distanceToEye = positionDetector.distance;
 		positionHorizontal = positionDetector.positionHorizontal;
+		positionVertical = positionDetector.positionVertical;
 	}
 }
 
@@ -186,9 +188,10 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 
 	auto d = convertedObjects.data();
 
-	scene.camera->position.z = -distanceLeft/10.0;
-	scene.camera->position.x = -positionHorizontal / 100.0;
-	std::cout << positionHorizontal << std::endl;
+	scene.camera->position.z = -distanceToEye /10.0;
+	scene.camera->position.x = positionHorizontal / 500.0;
+	scene.camera->position.y = positionVertical / 500.0;
+	//std::cout << distanceToEye << std::endl;
 
 	renderPipeline.Pipeline(&d, sizeSum, scene);
 
