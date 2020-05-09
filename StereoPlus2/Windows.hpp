@@ -15,6 +15,7 @@
 #include "FileManager.hpp"
 //#include <experimental/type_traits>
 #include "TemplateExtensions.hpp"
+#include "InfrastructureTypes.hpp"
 
 
 namespace ImGui::Extensions {
@@ -284,7 +285,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::PushID(GetID()++);
 
-		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf;
+		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 		bool open = ImGui::TreeNodeEx(t->Name.c_str(), target_flags);
 
 		if (ImGui::BeginDragDropTarget())
@@ -502,60 +503,6 @@ public:
 
 	virtual bool OnExit()
 	{
-		return true;
-	}
-};
-
-
-class CreatingToolWindow : Window {
-	CreatingTool<StereoLine> lineTool;
-	CreatingTool<StereoPolyLine> polyLineTool;
-public:
-	Scene* scene = nullptr;
-
-	virtual bool Init() {
-		if (scene == nullptr)
-		{
-			std::cout << "Scene wasn't assigned" << std::endl;
-			return false;
-		}
-
-		lineTool.BindScene(scene);
-		lineTool.BindSource(&((GroupObject*)scene->root)->Children);
-		lineTool.func = [](SceneObject * o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "Line" << id++;
-			o->Name = ss.str();
-		};
-
-		polyLineTool.BindScene(scene);
-		polyLineTool.BindSource(&((GroupObject*)scene->root)->Children);
-		polyLineTool.func = [](SceneObject * o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "PolyLine" << id++;
-			o->Name = ss.str();
-		};
-
-		return true;
-	}
-	virtual bool Design() {
-		ImGui::Begin("Creating tool window");
-		
-		if (ImGui::Button("Line")) {
-			lineTool.Create();
-		}
-
-		if (ImGui::Button("PolyLine")) {
-			polyLineTool.Create();
-		}
-
-		ImGui::End();
-
-		return true;
-	}
-	virtual bool OnExit() {
 		return true;
 	}
 };
@@ -999,6 +946,13 @@ public:
 
 
 class ToolWindow : Window {
+	const Log log = Log::For<ToolWindow>();
+
+	CreatingTool<StereoLine> lineTool;
+	CreatingTool<StereoPolyLine> polyLineTool;
+	CreatingTool<GroupObject> groupObjectTool;
+
+
 	template<typename T>
 	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
 
@@ -1020,29 +974,70 @@ class ToolWindow : Window {
 		};
 	}
 
+	template<typename T>
+	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
+		creatingTool.BindScene(scene);
+		creatingTool.BindSource(&((GroupObject*)scene->root)->Children);
+		creatingTool.func = initFunc;
+	}
 
 public:
 	AttributesWindow* attributesWindow;
+	Scene* scene = nullptr;
 
 	virtual bool Init() {
 		if (attributesWindow == nullptr)
 		{
-			std::cout << "AttributesWindow was null" << std::endl;
+			log.Error("AttributesWindow was null");
 			return false;
 		}
+
+		if (scene == nullptr)
+		{
+			log.Error("Scene wasn't assigned");
+			return false;
+		}
+
+		ConfigureCreationTool(lineTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "Line" << id++;
+			o->Name = ss.str();
+		});
+		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "PolyLine" << id++;
+			o->Name = ss.str();
+		});
+		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "Group" << id++;
+			o->Name = ss.str();
+		});
 
 		return true;
 	}
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
+		if (ImGui::Button("Line"))
+			lineTool.Create();
+		if (ImGui::Button("PolyLine"))
+			polyLineTool.Create();
+		if (ImGui::Button("Group"))
+			groupObjectTool.Create();
+
+		ImGui::Separator();
+
 		if (ImGui::Button("extrusion")) 
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
 		if (ImGui::Button("penTool")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
 		if (ImGui::Button("transformTool"))
-			//ApplyTool<TransformToolWindow<StereoPolyLineT>, TransformTool<StereoPolyLineT>>();
 			ApplyTool<TransformToolWindow, TransformTool>();
+
 
 		ImGui::End();
 

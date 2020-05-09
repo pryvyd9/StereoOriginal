@@ -71,7 +71,6 @@ int main(int, char**)
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
 
-	CreatingToolWindow creatingToolWindow;
 	AttributesWindow attributesWindow;
 	ToolWindow toolWindow;
 
@@ -82,11 +81,10 @@ int main(int, char**)
 	Cross cross;
 
 	toolWindow.attributesWindow = &attributesWindow;
+	toolWindow.scene = &scene;
 
 	inspectorWindow.rootObject = &scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
-
-	creatingToolWindow.scene = &scene;
 
 	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
@@ -99,7 +97,6 @@ int main(int, char**)
 		(Window*)&cameraPropertiesWindow,
 		(Window*)&crossPropertiesWindow,
 		(Window*)&inspectorWindow,
-		(Window*)&creatingToolWindow,
 		(Window*)&attributesWindow,
 		(Window*)&toolWindow,
 	};
