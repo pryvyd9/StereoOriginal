@@ -536,6 +536,10 @@ public:
 	float whiteZPrecision = 0.1;
 	GLFWwindow* glWindow;
 
+	Scene() {
+		defaultObject.Name = "Root";
+	}
+
 	bool Insert(std::vector<SceneObject*>* source, SceneObject* obj) {
 		if (source == &defaultObject.Children && root != &defaultObject)
 			root->Children.push_back(obj);

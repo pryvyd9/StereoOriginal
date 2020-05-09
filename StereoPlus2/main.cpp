@@ -9,7 +9,8 @@
 #include "FileManager.hpp"
 #include <filesystem> // C++17 standard header file name
 #include <chrono>
-
+#include "PositionDetection.hpp"
+#include <future>
 using namespace std;
 
 
@@ -146,17 +147,30 @@ bool LoadScene(Scene* scene) {
 	return true;
 }
 
+std::atomic<float> distanceToEye;
+std::atomic<float> positionHorizontal;
+std::atomic<float> positionVertical;
+std::thread distanceProcessThread;
+
+void distanceProcess(PositionDetector& positionDetector) {
+	while (true)
+	{
+		if (!positionDetector.ProcessFrame())
+			break;
+
+		distanceToEye = positionDetector.distance;
+		positionHorizontal = positionDetector.positionHorizontal;
+		positionVertical = positionDetector.positionVertical;
+	}
+}
+
 bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
-	//std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
-
+	//std::cout << distanceLeft << std::endl;
 
 	std::vector<size_t> sizes(scene.objects.size());
 	size_t sizeSum = 0;
 	for (size_t i = 0; i < scene.objects.size(); i++)
 		sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
-
-	//auto t0 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
 
 	// We will put cross' lines there too.
 	sizeSum += cross.lineCount;
@@ -167,22 +181,19 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
 		if (sizes[i] > 0)
 			LineConverter::Convert(scene.objects[i], &convertedObjects[k]);
-	//auto t = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
-
-	//std::cout << "line count: " << sizeSum << std::endl;
-
 
 	// Put cross' lines
 	for (size_t i = 0; i < cross.lineCount; i++, k++)
 		convertedObjects[k] = cross.lines[i];
 
-	//auto t2 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
-
 	auto d = convertedObjects.data();
 
-	renderPipeline.Pipeline(&d, sizeSum, scene);
+	scene.camera->position.z = -distanceToEye /10.0;
+	scene.camera->position.x = positionHorizontal / 500.0;
+	scene.camera->position.y = positionVertical / 500.0;
+	//std::cout << distanceToEye << std::endl;
 
-	//auto t3 = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
+	renderPipeline.Pipeline(&d, sizeSum, scene);
 
 	//Log::For<void>().Information(Time::GetDeltaTime())
 
@@ -259,8 +270,12 @@ int main(int, char**)
 
 	crossPropertiesWindow.Object = &cross;
 	gui.keyBinding.cross = &cross;
-	if (!gui.Init())
+	if (!gui.Init()
+		//|| !positionDetector.Init()
+		)
 		return false;
+
+	
 
 #pragma region Init Tools
 
@@ -273,13 +288,21 @@ int main(int, char**)
 
 #pragma endregion
 
+	distanceProcessThread = std::thread([]() {
+		PositionDetector positionDetector;
+		positionDetector.Init();
+		distanceProcess(positionDetector);
+	});
+
 	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
 		return CustomRenderFunc(cross, scene, renderPipeline);
 	};
+
 
 	if (!gui.MainLoop() || 
 		!gui.OnExit())
 		return false;
 
+	distanceProcessThread.join();
     return true;
 }
