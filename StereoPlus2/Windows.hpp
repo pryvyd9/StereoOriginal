@@ -244,6 +244,7 @@ public:
 
 	template<>
 	bool DesignProperties(StereoCamera* obj) {
+		ImGui::InputFloat3("startPosition", (float*)& obj->startPosition, "%f", 0);
 		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
 		ImGui::InputFloat2("view center", (float*)& obj->viewCenter, "%f", 0);
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);

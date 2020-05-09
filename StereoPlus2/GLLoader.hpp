@@ -7,6 +7,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include "InfrastructureTypes.hpp"
 
 //#include <GLFW/glfw3.h>
 //#include <GL/gl3w.h>
@@ -49,6 +50,8 @@ public:
 
 	static GLuint CreateShaderProgram(const char* vertexShaderSource, const char* fragmentShaderSource)
 	{
+		const Log log = Log::For<GLLoader>();
+
 		int success;
 		char infoLog[512];
 
@@ -59,7 +62,7 @@ public:
 		if (!success)
 		{
 			glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-			std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+			log.Error("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" + std::string(infoLog));
 		}
 		GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
@@ -69,7 +72,7 @@ public:
 		if (!success)
 		{
 			glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-			std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+			log.Error("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" + std::string(infoLog));
 		}
 		// link shaders
 		GLuint shaderProgram = glCreateProgram();
@@ -81,7 +84,7 @@ public:
 		if (!success)
 		{
 			glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-			std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+			log.Error("ERROR::SHADER::PROGRAM::LINKING_FAILED\n" + std::string(infoLog));
 		}
 		glDeleteShader(vertexShader);
 		glDeleteShader(fragmentShader);

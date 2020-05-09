@@ -1,64 +1,10 @@
 #pragma once
 #include "GLLoader.hpp"
-
 #include <stdlib.h>
 #include <set>
 #include <array>
-#include <chrono>
 
 
-class Log {
-	std::string contextName = "";
-
-	static void Line(const std::string& message) {
-		std::cout << message << std::endl;
-	}
-public:
-	template<typename T>
-	static const Log For() {
-		Log log;
-		log.contextName = typeid(T).name();
-		return log;
-	}
-
-	void Error(const std::string& message) const {
-		Line("[Error](" + contextName + ") " + message);
-	}
-
-	void Warning(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message);
-	}
-
-	void Information(const std::string& message) const  {
-		Line("[Information](" + contextName + ") " + message);
-	}
-};
-
-class Time {
-	static std::chrono::steady_clock::time_point* GetBegin() {
-		static std::chrono::steady_clock::time_point instance;
-		return &instance;
-	}
-
-	static size_t* GetDeltaTimeMicroseconds() {
-		static size_t instance;
-		return &instance;
-	}
-public:
-	static void UpdateFrame() {
-		auto end = std::chrono::steady_clock::now();
-		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
-		*GetBegin() = end;
-	};
-
-	static float GetFrameRate() {
-		return 1 / GetDeltaTime();
-	}
-
-	static float GetDeltaTime() {
-		return (float)*GetDeltaTimeMicroseconds() / 1e6;
-	}
-};
 
 #pragma region Scene Objects
 
@@ -370,14 +316,24 @@ public:
 
 class StereoCamera : public LeafObject
 {
+	glm::vec3 GetPos() {
+		return startPosition + position;
+	}
+
 public:
 	glm::vec2* viewSize = nullptr;
 	glm::vec2 viewCenter = glm::vec2(0, 0);
 	glm::vec3 transformVec = glm::vec3(0, 0, 0);
 
-	glm::vec3 position = glm::vec3(0, 3, -10);
+	glm::vec3 startPosition = glm::vec3(0, 3, -10);
+	glm::vec3 position = glm::vec3(0);
+
 
 	float eyeToCenterDistance = 0.5;
+
+	StereoCamera() {
+		Name = "camera";
+	}
 
 	// Preserve aspect ratio
 	// From [0;1] to ([0;viewSize->x];[0;viewSize->y])
@@ -390,6 +346,7 @@ public:
 	}
 
 	glm::vec3 GetLeft(glm::vec3 pos) {
+		auto position = GetPos();
 		float denominator = position.z - pos.z - transformVec.z;
 		return glm::vec3(
 			(pos.x * position.z - (pos.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator,
@@ -399,6 +356,7 @@ public:
 	}
 
 	glm::vec3 GetRight(glm::vec3 pos) {
+		auto position = GetPos();
 		float denominator = position.z - pos.z - transformVec.z;
 		return glm::vec3(
 			(pos.x * position.z - (pos.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator,
@@ -426,43 +384,6 @@ public:
 
 		return line;
 	}
-
-//#pragma region Move
-//
-//	void Move(glm::vec3 value)
-//	{
-//		//position += value;
-//		viewCenter.x += value.x;
-//		viewCenter.y += value.y;
-//
-//		transformVec += value;
-//	}
-//
-//	void MoveLeft(float value) {
-//		Move(left * value);
-//	}
-//
-//	void MoveRight(float value) {
-//		Move(-left * value);
-//	}
-//
-//	void MoveUp(float value) {
-//		Move(up * value);
-//	}
-//
-//	void MoveDown(float value) {
-//		Move(-up * value);
-//	}
-//
-//	void MoveForward(float value) {
-//		Move(forward * value);
-//	}
-//
-//	void MoveBack(float value) {
-//		Move(-forward * value);
-//	}
-//
-//#pragma endregion
 };
 
 #pragma endregion

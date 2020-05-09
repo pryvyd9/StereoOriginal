@@ -57,6 +57,9 @@
     <ClCompile Include="PositionDetection.hpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="InfrastructureTypes.hpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\GL\gl3w.h">

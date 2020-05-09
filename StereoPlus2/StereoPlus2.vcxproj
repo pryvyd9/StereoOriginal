@@ -135,6 +135,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="include\imgui\imgui_stdlib.cpp" />
+    <ClCompile Include="InfrastructureTypes.hpp" />
     <ClCompile Include="PositionDetection.hpp" />
     <ClCompile Include="Windows.hpp">
       <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MinimalRebuild>
