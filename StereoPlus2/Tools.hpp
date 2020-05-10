@@ -137,6 +137,9 @@ enum class TransformToolMode {
 	Rotate,
 };
 
+enum class Axe { X, Y, Z };
+
+
 #pragma endregion
 
 template<ObjectType type>
@@ -751,31 +754,28 @@ public:
 class TransformTool : public EditingTool<TransformToolMode> {
 	const Log Logger = Log::For<TransformTool>();
 
-	template<ObjectType type, Mode mode>
-	struct Config : EditingTool::Config {
 
-	};
+	template<ObjectType type, Mode mode>
+	struct Config : EditingTool::Config {};
 
 	template<>
 	struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
 		float scaleMinMagnitude = 1e-4;
-		float lastScale = 1;
 	};
 	template<>
 	struct Config<LineMeshT, Mode::Scale> : EditingTool::Config {
 		float scaleMinMagnitude = 1e-4;
-		float lastScale = 1;
 	};
 
 	size_t handlerId;
 	Mode mode;
 	ObjectType type;
+	Axe axe;
 
 	Cross* cross = nullptr;
-
 	SceneObject* target = nullptr;
-
 	glm::vec3 crossOldPos;
+	std::vector<glm::vec3> originalVertices;
 
 	template<ObjectType type, Mode mode>
 	Config<type, mode>* GetConfig() {
@@ -791,6 +791,11 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		if (input->IsDown(Key::Escape))
 		{
+			Cancel();
+			return;
+		}
+		if (input->IsDown(Key::Enter))
+		{
 			UnbindSceneObjects();
 			return;
 		}
@@ -800,7 +805,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			auto transformVector = cross->Position - crossOldPos;
 
 			Translate(transformVector, points);
-			crossOldPos = cross->Position;
 
 			return;
 		}
@@ -809,7 +813,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			auto transformVector = cross->Position - crossOldPos;
 
 			Translate(transformVector, points);
-			crossOldPos = cross->Position;
 
 			return;
 		}
@@ -819,8 +822,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 				return;
 
 			auto points = &static_cast<StereoPolyLine*>(target)->Points;
-			Scale(cross->Position, config->lastScale, scale, points);
-			config->lastScale = scale;
+			Scale(cross->Position, scale, points);
 
 			return;
 		}
@@ -830,22 +832,56 @@ class TransformTool : public EditingTool<TransformToolMode> {
 				return;
 
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
-			Scale(cross->Position, config->lastScale, scale, points);
-			config->lastScale = scale;
+			Scale(cross->Position, scale, points);
+
+			return;
+		}
+		if (type == StereoPolyLineT && mode == Mode::Rotate) {
+			auto points = &static_cast<StereoPolyLine*>(target)->Points;
+			Rotate(axe, angle, points);
+
+			return;
+		}
+		if (type == LineMeshT && mode == Mode::Rotate) {
+			auto points = static_cast<LineMesh*>(target)->GetVertices();
+			Rotate(axe, angle, points);
 
 			return;
 		}
 
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
 	}
-
-	void Scale(glm::vec3 center, float lastScale, float scale, std::vector<glm::vec3>* points) {
+	void Scale(glm::vec3 center, float scale, std::vector<glm::vec3>* points) {
 		for (size_t i = 0; i < points->size(); i++)
-			(*points)[i] = center + ((*points)[i] - center) * scale / lastScale;
+			(*points)[i] = center + (originalVertices[i] - center) * scale;
 	}
 	void Translate(glm::vec3 transformVector, std::vector<glm::vec3>* points) {
 		for (size_t i = 0; i < points->size(); i++)
-			(*points)[i] += transformVector;
+			(*points)[i] = originalVertices[i] + transformVector;
+	}
+	void Rotate(Axe axe, float angle, std::vector<glm::vec3>* points) {
+		switch (axe) {
+		case Axe::X:
+			for (size_t i = 0; i < points->size(); i++) {
+				(*points)[i].y = originalVertices[i].y * cos(angle) - originalVertices[i].z * sin(angle);
+				(*points)[i].z = originalVertices[i].y * sin(angle) + originalVertices[i].z * cos(angle);
+			}
+			break;
+		case Axe::Y:
+			for (size_t i = 0; i < points->size(); i++) {
+				(*points)[i].x = originalVertices[i].x * cos(angle) + originalVertices[i].z * sin(angle);
+				(*points)[i].z = -originalVertices[i].x * sin(angle) + originalVertices[i].z * cos(angle);
+			}
+			break;
+		case Axe::Z:
+			for (size_t i = 0; i < points->size(); i++) {
+				(*points)[i].x = originalVertices[i].x * cos(angle) - originalVertices[i].y * sin(angle);
+				(*points)[i].y = originalVertices[i].y * sin(angle) + originalVertices[i].y * cos(angle);
+			}
+			break;
+		default:
+			break;
+		}
 	}
 
 	template<typename K, typename V>
@@ -863,11 +899,14 @@ public:
 	const std::multimap<ObjectType, Mode> supportedConfigs{
 		{ StereoPolyLineT, Mode::Translate },
 		{ StereoPolyLineT, Mode::Scale },
+		{ StereoPolyLineT, Mode::Rotate },
 		{ LineMeshT, Mode::Translate },
 		{ LineMeshT, Mode::Scale },
+		{ LineMeshT, Mode::Rotate },
 	};
 
 	float scale = 1;
+	float angle = 0;
 
 	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
 		if (!UnbindSceneObjects())
@@ -896,6 +935,11 @@ public:
 
 		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 
+		if (type == StereoPolyLineT) 
+			originalVertices = static_cast<StereoPolyLine*>(target)->Points;
+		if (type == LineMeshT)
+			originalVertices = *static_cast<LineMesh*>(target)->GetVertices();
+
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
@@ -904,10 +948,19 @@ public:
 
 		this->target = nullptr;
 		scale = 1;
+		angle = 0;
 		keyBinding->RemoveHandler(handlerId);
 		DeleteConfig();
 
 		return true;
+	}
+	void Cancel() {
+		if (type == StereoPolyLineT)
+			static_cast<StereoPolyLine*>(target)->Points = originalVertices;
+		if (type == LineMeshT)
+			*static_cast<LineMesh*>(target)->GetVertices() = originalVertices;
+
+		UnbindSceneObjects();
 	}
 	SceneObject** GetTarget() {
 		return &target;
@@ -922,4 +975,9 @@ public:
 		UnbindSceneObjects();
 		this->mode = mode;
 	}
+	void SetAxe(Axe axe) {
+		UnbindSceneObjects();
+		this->axe = axe;
+	}
+
 };

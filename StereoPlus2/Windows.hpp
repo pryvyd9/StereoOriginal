@@ -811,9 +811,10 @@ class TransformToolWindow : Window, Attributes
 		if (ImGui::Extensions::PushActive(*target != nullptr))
 		{
 			if (ImGui::Button("Release"))
-			{
 				tool->UnbindSceneObjects();
-			}
+			if (ImGui::Button("Cancel"))
+				tool->Cancel();
+
 			ImGui::Extensions::PopActive();
 		}
 
@@ -829,14 +830,28 @@ class TransformToolWindow : Window, Attributes
 
 		{
 			static int mode = 0;
-			if (ImGui::RadioButton("TransitionMode", &mode, 0))
+			if (ImGui::RadioButton("Transition", &mode, 0))
 				tool->SetMode(TransformToolMode::Translate);
-			if (ImGui::RadioButton("ScaleMode", &mode, 1))
+			if (ImGui::RadioButton("Scale", &mode, 1))
 				tool->SetMode(TransformToolMode::Scale);
+			if (ImGui::RadioButton("Rotate", &mode, 2))
+				tool->SetMode(TransformToolMode::Rotate);
 
 			if (mode == (int)TransformToolMode::Scale)
 			{
-				ImGui::InputFloat("scale", (float*)&tool->scale, 0.01, 0.1, "%.2f", 0);
+				ImGui::DragFloat("scale", (float*)&tool->scale, 0.01, 0, 0, "%.2f");
+			}
+			if (mode == (int)TransformToolMode::Rotate)
+			{
+				static int mode = 0;
+				if (ImGui::RadioButton("X", &mode, 0))
+					tool->SetAxe(Axe::X);
+				if (ImGui::RadioButton("Y", &mode, 1))
+					tool->SetAxe(Axe::Y);
+				if (ImGui::RadioButton("Z", &mode, 2))
+					tool->SetAxe(Axe::Z);
+
+				ImGui::DragFloat("radian", (float*)&tool->angle, 0.01, 0, 0, "%.2f");
 			}
 		}
 
