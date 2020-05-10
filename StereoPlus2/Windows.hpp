@@ -154,7 +154,7 @@ public:
 
 	virtual bool Design()
 	{
-		ImGui::Begin("Custom render");
+		ImGui::Begin("Scene");
 
 
 		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
@@ -833,6 +833,11 @@ class TransformToolWindow : Window, Attributes
 				tool->SetMode(TransformToolMode::Translate);
 			if (ImGui::RadioButton("ScaleMode", &mode, 1))
 				tool->SetMode(TransformToolMode::Scale);
+
+			if (mode == (int)TransformToolMode::Scale)
+			{
+				ImGui::InputFloat("scale", (float*)&tool->scale, 0.01, 0.1, "%.2f", 0);
+			}
 		}
 
 		return true;
@@ -1232,7 +1237,7 @@ private:
 				}
 				catch (const FileException & e)
 				{
-					// TODO: Show error message to user
+					log.Error("Failed to save file");
 				}
 			}
 

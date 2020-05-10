@@ -758,12 +758,13 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 	template<>
 	struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
-		bool isScaleCenterSet = false;
-		float mouseStart = 0;
-		glm::vec3 scaleCenter;
-		float lastScale = 1;
-		float speed = 1e-1;
 		float scaleMinMagnitude = 1e-4;
+		float lastScale = 1;
+	};
+	template<>
+	struct Config<LineMeshT, Mode::Scale> : EditingTool::Config {
+		float scaleMinMagnitude = 1e-4;
+		float lastScale = 1;
 	};
 
 	size_t handlerId;
@@ -784,129 +785,67 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		return (Config<type, mode>*) config;
 	}
 
-	void ResetTool() {
-		keyBinding->RemoveHandler(handlerId);
-
-		DeleteConfig();
-	}
-
 	void ProcessInput(ObjectType type, Mode mode, Input* input) {
+		if (target == nullptr)
+			return;
+
+		if (input->IsDown(Key::Escape))
+		{
+			UnbindSceneObjects();
+			return;
+		}
+
 		if (type == StereoPolyLineT && mode == Mode::Translate) {
-			if (target == nullptr)
-				return;
-
-			if (input->IsDown(Key::Escape))
-			{
-				UnbindSceneObjects();
-				return;
-			}
-
-
 			auto points = &static_cast<StereoPolyLine*>(target)->Points;
 			auto transformVector = cross->Position - crossOldPos;
 
-			for (size_t i = 0; i < points->size(); i++)
-				(*points)[i] += transformVector;
-
+			Translate(transformVector, points);
 			crossOldPos = cross->Position;
 
 			return;
 		}
 		if (type == LineMeshT && mode == Mode::Translate) {
-			if (target == nullptr)
-				return;
-
-			if (input->IsDown(Key::Escape))
-			{
-				UnbindSceneObjects();
-				return;
-			}
-
-
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
 			auto transformVector = cross->Position - crossOldPos;
 
-			for (size_t i = 0; i < points->size(); i++)
-				(*points)[i] += transformVector;
-
+			Translate(transformVector, points);
 			crossOldPos = cross->Position;
 
 			return;
 		}
 		if (type == StereoPolyLineT && mode == Mode::Scale) {
-			if (target == nullptr)
-				return;
-
-			if (input->IsDown(Key::Escape))
-			{
-				UnbindSceneObjects();
-				return;
-			}
-
 			auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
-
-			if (!config->isScaleCenterSet) {
-				config->scaleCenter = cross->Position;
-				config->mouseStart = input->MousePosition().x;
-				config->isScaleCenterSet = true;
-				return;
-			}
-
-			if (!input->MouseMoved())
-				return;
-
-			auto scale = 1 + (input->MousePosition().x - config->mouseStart) * config->speed;
-
 			if (abs(scale) < config->scaleMinMagnitude)
 				return;
 
 			auto points = &static_cast<StereoPolyLine*>(target)->Points;
-
-			for (size_t i = 0; i < points->size(); i++)
-				(*points)[i] = config->scaleCenter + ((*points)[i] - config->scaleCenter) * scale / config->lastScale;
-
+			Scale(cross->Position, config->lastScale, scale, points);
 			config->lastScale = scale;
 
 			return;
 		}
 		if (type == LineMeshT && mode == Mode::Scale) {
-			if (target == nullptr)
-				return;
-
-			if (input->IsDown(Key::Escape))
-			{
-				UnbindSceneObjects();
-				return;
-			}
-
-			auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
-
-			if (!config->isScaleCenterSet) {
-				config->scaleCenter = cross->Position;
-				config->mouseStart = input->MousePosition().x;
-				config->isScaleCenterSet = true;
-				return;
-			}
-
-			if (!input->MouseMoved())
-				return;
-
-			auto scale = 1 + (input->MousePosition().x - config->mouseStart) * config->speed;
-
+			auto config = GetConfig<LineMeshT, Mode::Scale>();
 			if (abs(scale) < config->scaleMinMagnitude)
 				return;
 
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
-
-			for (size_t i = 0; i < points->size(); i++)
-				(*points)[i] = config->scaleCenter + ((*points)[i] - config->scaleCenter) * scale / config->lastScale;
-
+			Scale(cross->Position, config->lastScale, scale, points);
 			config->lastScale = scale;
 
 			return;
 		}
 
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
+	}
+
+	void Scale(glm::vec3 center, float lastScale, float scale, std::vector<glm::vec3>* points) {
+		for (size_t i = 0; i < points->size(); i++)
+			(*points)[i] = center + ((*points)[i] - center) * scale / lastScale;
+	}
+	void Translate(glm::vec3 transformVector, std::vector<glm::vec3>* points) {
+		for (size_t i = 0; i < points->size(); i++)
+			(*points)[i] += transformVector;
 	}
 
 	template<typename K, typename V>
@@ -928,7 +867,7 @@ public:
 		{ LineMeshT, Mode::Scale },
 	};
 
-	
+	float scale = 1;
 
 	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
 		if (!UnbindSceneObjects())
@@ -963,11 +902,10 @@ public:
 		if (this->target == nullptr)
 			return true;
 
-		DeleteConfig();
-
 		this->target = nullptr;
-
-		ResetTool();
+		scale = 1;
+		keyBinding->RemoveHandler(handlerId);
+		DeleteConfig();
 
 		return true;
 	}
