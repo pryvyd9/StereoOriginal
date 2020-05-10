@@ -163,7 +163,7 @@ public:
 			return false;
 
 		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
-
+		
 		//glBindRenderbuffer(GL_RENDERBUFFER, 0);
 		ImGui::Image((void*)(intptr_t)texture, renderSize);
 		
@@ -818,16 +818,6 @@ class TransformToolWindow : Window, Attributes
 			ImGui::Extensions::PopActive();
 		}
 
-		/*if (ImGui::Extensions::PushActive(*target != nullptr))
-		{
-			if (ImGui::Button("New"))
-			{
-				tool->Create();
-			}
-			ImGui::Extensions::PopActive();
-		}*/
-
-
 		{
 			static int mode = 0;
 			if (ImGui::RadioButton("Transition", &mode, 0))
@@ -839,19 +829,23 @@ class TransformToolWindow : Window, Attributes
 
 			if (mode == (int)TransformToolMode::Scale)
 			{
+				ImGui::Separator();
 				ImGui::DragFloat("scale", (float*)&tool->scale, 0.01, 0, 0, "%.2f");
 			}
 			if (mode == (int)TransformToolMode::Rotate)
 			{
-				static int mode = 0;
-				if (ImGui::RadioButton("X", &mode, 0))
+				ImGui::Separator();
+
+				static int axe = 0;
+				if (ImGui::RadioButton("X", &axe, 0))
 					tool->SetAxe(Axe::X);
-				if (ImGui::RadioButton("Y", &mode, 1))
+				if (ImGui::RadioButton("Y", &axe, 1))
 					tool->SetAxe(Axe::Y);
-				if (ImGui::RadioButton("Z", &mode, 2))
+				if (ImGui::RadioButton("Z", &axe, 2))
 					tool->SetAxe(Axe::Z);
 
-				ImGui::DragFloat("radian", (float*)&tool->angle, 0.01, 0, 0, "%.2f");
+				ImGui::DragFloat("radian", &tool->angle, 0.01, 0, 0, "%.2f");
+
 			}
 		}
 

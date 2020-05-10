@@ -863,20 +863,24 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		switch (axe) {
 		case Axe::X:
 			for (size_t i = 0; i < points->size(); i++) {
-				(*points)[i].y = originalVertices[i].y * cos(angle) - originalVertices[i].z * sin(angle);
-				(*points)[i].z = originalVertices[i].y * sin(angle) + originalVertices[i].z * cos(angle);
+				auto relative = originalVertices[i] - cross->Position;
+				(*points)[i].y = relative.y * cos(angle) - relative.z * sin(angle) + cross->Position.y;
+				(*points)[i].z = relative.y * sin(angle) + relative.z * cos(angle) + cross->Position.z;
+
 			}
 			break;
 		case Axe::Y:
 			for (size_t i = 0; i < points->size(); i++) {
-				(*points)[i].x = originalVertices[i].x * cos(angle) + originalVertices[i].z * sin(angle);
-				(*points)[i].z = -originalVertices[i].x * sin(angle) + originalVertices[i].z * cos(angle);
+				auto relative = originalVertices[i] - cross->Position;
+				(*points)[i].x = relative.x * cos(angle) + relative.z * sin(angle) + cross->Position.x;
+				(*points)[i].z = -relative.x * sin(angle) + relative.z * cos(angle) + cross->Position.z;
 			}
 			break;
 		case Axe::Z:
 			for (size_t i = 0; i < points->size(); i++) {
-				(*points)[i].x = originalVertices[i].x * cos(angle) - originalVertices[i].y * sin(angle);
-				(*points)[i].y = originalVertices[i].y * sin(angle) + originalVertices[i].y * cos(angle);
+				auto relative = originalVertices[i] - cross->Position;
+				(*points)[i].x = relative.x * cos(angle) - relative.y * sin(angle) + cross->Position.x;
+				(*points)[i].y = relative.y * sin(angle) + relative.y * cos(angle) + cross->Position.y;
 			}
 			break;
 		default:
