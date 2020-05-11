@@ -10,28 +10,9 @@
 #include <filesystem> // C++17 standard header file name
 #include <chrono>
 #include "PositionDetection.hpp"
-#include <future>
 using namespace std;
 
-std::atomic<bool> mustStopPositionProcessing;
-std::atomic<float> distanceToEye;
-std::atomic<float> positionHorizontal;
-std::atomic<float> positionVertical;
-std::thread distanceProcessThread;
-
-void distanceProcess(PositionDetector& positionDetector) {
-	while (!mustStopPositionProcessing)
-	{
-		if (!positionDetector.ProcessFrame())
-			break;
-
-		distanceToEye = positionDetector.distance;
-		positionHorizontal = positionDetector.positionHorizontal;
-		positionVertical = positionDetector.positionVertical;
-	}
-}
-
-bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
+bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
 	std::vector<size_t> sizes(scene.objects.size());
 	size_t sizeSum = 0;
 	for (size_t i = 0; i < scene.objects.size(); i++)
@@ -53,9 +34,12 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 
 	auto d = convertedObjects.data();
 
-	scene.camera->position.z = -distanceToEye /10.0;
-	scene.camera->position.x = positionHorizontal / 500.0;
-	scene.camera->position.y = positionVertical / 500.0;
+	// Position detection
+	if (positionDetector.isPositionProcessingWorking)
+		scene.camera->position = glm::vec3(
+			positionDetector.positionHorizontal / 500.0, 
+			positionDetector.positionVertical / 500.0, 
+			-positionDetector.distance / 10.0);
 
 	renderPipeline.Pipeline(&d, sizeSum, scene);
 
@@ -64,15 +48,10 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	return true;
 }
 
-void closePositionDetectionThread() {
-	mustStopPositionProcessing = true;
-
-	// Join the thread to clean it
-	distanceProcessThread.join();
-}
-
 int main(int, char**)
 {
+	PositionDetector positionDetector;
+
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
 	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
@@ -134,23 +113,25 @@ int main(int, char**)
 	if (!ToolPool::Init())
 		return false;
 
-	// A separate thread for position detection
-	distanceProcessThread = std::thread([]() {
-		PositionDetector positionDetector;
+	positionDetector.onStartProcess = [&positionDetector] {
 		positionDetector.Init();
-		distanceProcess(positionDetector);
-	});
+	};
 
-	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline] {
-		return CustomRenderFunc(cross, scene, renderPipeline);
+	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline, shouldUsePositionDetection = &gui.shouldUsePositionDetection, &positionDetector]{
+		if (*shouldUsePositionDetection && !positionDetector.isPositionProcessingWorking)
+			positionDetector.StartPositionDetection();
+		else if (!*shouldUsePositionDetection && positionDetector.isPositionProcessingWorking)
+			positionDetector.StopPositionDetection();
+
+		return CustomRenderFunc(cross, scene, renderPipeline, positionDetector);
 	};
 
 	if (!gui.MainLoop() |
 		!gui.OnExit()) {
-		closePositionDetectionThread();
+		positionDetector.StopPositionDetection();
 		return false;
 	}
 
-	closePositionDetectionThread();
+	positionDetector.StopPositionDetection();
     return true;
 }

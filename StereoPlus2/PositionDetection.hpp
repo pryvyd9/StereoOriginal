@@ -7,23 +7,37 @@
 #include <iostream>
 #include "include/glm/glm.hpp"
 #include <queue>
+#include <future>
+#include "InfrastructureTypes.hpp"
 
 using namespace std;
 using namespace cv;
 
 class PositionDetector {
+    struct less_than_keyX {
+        inline bool operator() (const glm::vec2& a, const glm::vec2& b) {
+            return a.x < b.x;
+        }
+    };
+    struct less_than_keyY {
+        inline bool operator() (const glm::vec2& a, const glm::vec2& b) {
+            return a.y < b.y;
+        }
+    };
+
+    const Log log = Log::For<PositionDetector>();
+
     VideoCapture capture;
-    /** Global variables */
     CascadeClassifier face_cascade;
     CascadeClassifier eyes_cascade;
-
-    std::list<float> distanceLeftEye, distanceRightEye;
-    std::list<glm::vec2> 
-        positionLeftEye, 
-        positionRightEye;
-
-    //std::vector<float> leftEye, rightEye;
+    
     int windowSize = 10;
+    std::list<float> distanceLeftEye, distanceRightEye;
+    std::list<glm::vec2> positionLeftEye, positionRightEye;
+
+    std::atomic<bool> mustStopPositionProcessing;
+    std::thread distanceProcessThread;
+
 
     float avg(std::list<float> q) {
         float sum = 0;
@@ -33,36 +47,6 @@ class PositionDetector {
         return sum / q.size();
     }
 
-    float avg(std::list<glm::vec2> q) {
-        glm::vec2 sum = glm::vec2();
-        for (auto i : q)
-            sum += i;
-
-        return glm::length(sum / (float)q.size());
-    }
-
-    struct less_than_key
-    {
-        inline bool operator() (const glm::vec2& a, const glm::vec2& b)
-        {
-            return glm::length(a) < glm::length(b);
-        }
-    };
-
-    struct less_than_keyX
-    {
-        inline bool operator() (const glm::vec2& a, const glm::vec2& b)
-        {
-            return a.x < b.x;
-        }
-    };
-    struct less_than_keyY
-    {
-        inline bool operator() (const glm::vec2& a, const glm::vec2& b)
-        {
-            return a.y < b.y;
-        }
-    };
     template<typename T>
     const T& at(const std::list<T>& q, int pos) {
         auto i = q.cbegin();
@@ -70,11 +54,6 @@ class PositionDetector {
         while (pos-- > 0) i++;
 
         return i._Ptr->_Myval;
-    }
-
-    float med(std::list<glm::vec2> q) {
-        q.sort(less_than_key());
-        return glm::length(at(q, q.size() / 2));
     }
 
     float medX(std::list<glm::vec2> q) {
@@ -206,9 +185,34 @@ class PositionDetector {
         //imshow("Capture - Face detection", frame);
     }
 
+    void distanceProcess() {
+        while (!mustStopPositionProcessing)
+        {
+            if (!ProcessFrame())
+                break;
+        }
+    }
+
+    bool ProcessFrame() {
+        Mat frame;
+        if (capture.read(frame))
+        {
+            if (frame.empty())
+            {
+                log.Error("No captured frame\n");
+                return false;
+            }
+
+            detectAndDisplay(frame);
+            return true;
+        }
+
+        return false;
+    }
+
 
 public:
-    float 
+    std::atomic<float>
         distanceLeft,
         distanceRight, 
         distance,
@@ -222,6 +226,11 @@ public:
         positionVertical
         ;
 
+    bool isPositionProcessingWorking;
+
+    std::function<void()> onStartProcess = [] {};
+    std::function<void()> onStopProcess = [] {};
+
     bool Init() {
         String face_cascade_name = samples::findFile("data/haarcascades/haarcascade_frontalface_alt.xml");
         String eyes_cascade_name = samples::findFile("data/haarcascades/haarcascade_eye_tree_eyeglasses.xml");
@@ -229,12 +238,12 @@ public:
         //-- 1. Load the cascades
         if (!face_cascade.load(face_cascade_name))
         {
-            cout << "--(!)Error loading face cascade\n";
+            log.Error("Error loading face cascade\n");
             return false;
         };
         if (!eyes_cascade.load(eyes_cascade_name))
         {
-            cout << "--(!)Error loading eyes cascade\n";
+            log.Error("Error loading eyes cascade\n");
             return false;
         };
 
@@ -243,7 +252,7 @@ public:
         capture.open(camera_device);
         if (!capture.isOpened())
         {
-            cout << "--(!)Error opening video capture\n";
+            log.Error("Error opening video capture\n");
             return false;
         }
 
@@ -252,27 +261,30 @@ public:
         return true;
     }
 
-    bool ProcessFrame() {
-       /* if (!capture.isOpened())
-        {
-            cout << "--(!)Error opening video capture\n";
-            return false;
-        }*/
-        Mat frame;
-        if (capture.read(frame))
-        {
-            if (frame.empty())
-            {
-                cout << "--(!) No captured frame -- Break!\n";
-                return false;
-            }
+    void StartPositionDetection() {
+        if (isPositionProcessingWorking)
+            return;
 
-            //-- 3. Apply the classifier to the frame
-            detectAndDisplay(frame);
-            return true;
-        }
+        isPositionProcessingWorking = true;
+        mustStopPositionProcessing = false;
 
-        return false;
+        // A separate thread for position detection
+        distanceProcessThread = std::thread([=]() {
+            onStartProcess();
+            distanceProcess();
+            onStopProcess();
+        });
+    }
+
+    void StopPositionDetection() {
+        if (!isPositionProcessingWorking)
+            return;
+
+        isPositionProcessingWorking = false;
+        mustStopPositionProcessing = true;
+
+        // Join the thread to clean it
+        distanceProcessThread.join();
     }
 };
 

@@ -54,6 +54,26 @@ class GUI {
 		return true;
 	}
 
+	bool DesignMenuBar() {
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("Open", nullptr, false))
+				if (!OpenFileWindow(FileWindow::Load))
+					return false;
+			if (ImGui::MenuItem("Save", nullptr, false))
+				if (!OpenFileWindow(FileWindow::Save))
+					return false;
+
+			ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
+
+			if (ImGui::MenuItem("Exit", nullptr, false))
+				shouldClose = true;
+
+			ImGui::EndMenu();
+		}
+
+		return true;
+	}
+
 	bool DesignMainWindowDockingSpace()
 	{
 		// We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
@@ -92,23 +112,9 @@ class GUI {
 		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
 
-		if (ImGui::BeginMenuBar())
-		{
-			if (ImGui::BeginMenu("File"))
-			{
-				if (ImGui::MenuItem("Open", "", false))
-					if (!OpenFileWindow(FileWindow::Load))
-						return false;
-				if (ImGui::MenuItem("Save", "", false))
-					if (!OpenFileWindow(FileWindow::Save))
-						return false;
-				if (ImGui::MenuItem("Exit", "", false)) {
-					shouldClose = true;
-					return true;
-				}
-
-				ImGui::EndMenu();
-			}
+		if (ImGui::BeginMenuBar()) {
+			if (!DesignMenuBar())
+				return false;
 
 			ImGui::EndMenuBar();
 		}
@@ -128,6 +134,8 @@ public:
 	Input input;
 	KeyBinding keyBinding;
 	Scene* scene;
+
+	bool shouldUsePositionDetection = true;
 
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;
