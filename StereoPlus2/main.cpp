@@ -64,6 +64,13 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline) {
 	return true;
 }
 
+void closePositionDetectionThread() {
+	mustStopPositionProcessing = true;
+
+	// Join the thread to clean it
+	distanceProcessThread.join();
+}
+
 int main(int, char**)
 {
 	CustomRenderWindow customRenderWindow;
@@ -138,13 +145,12 @@ int main(int, char**)
 		return CustomRenderFunc(cross, scene, renderPipeline);
 	};
 
-	if (!gui.MainLoop() || 
-		!gui.OnExit())
+	if (!gui.MainLoop() |
+		!gui.OnExit()) {
+		closePositionDetectionThread();
 		return false;
+	}
 
-	mustStopPositionProcessing = true;
-	
-	// Join the thread to clean it
-	distanceProcessThread.join();
+	closePositionDetectionThread();
     return true;
 }

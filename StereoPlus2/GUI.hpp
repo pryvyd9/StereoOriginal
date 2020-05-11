@@ -11,6 +11,7 @@ class GUI {
 #pragma region Private
 
 	const Log log = Log::For<GUI>();
+	bool shouldClose = false;
 
 	FileWindow* fileWindow = nullptr;
 
@@ -95,15 +96,16 @@ class GUI {
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem("Open", "", false)) {
+				if (ImGui::MenuItem("Open", "", false))
 					if (!OpenFileWindow(FileWindow::Load))
 						return false;
-				}
-				if (ImGui::MenuItem("Save", "", false)) {
+				if (ImGui::MenuItem("Save", "", false))
 					if (!OpenFileWindow(FileWindow::Save))
 						return false;
+				if (ImGui::MenuItem("Exit", "", false)) {
+					shouldClose = true;
+					return true;
 				}
-				if (ImGui::MenuItem("Exit", "", false)) return false;
 
 				ImGui::EndMenu();
 			}
@@ -200,6 +202,9 @@ public:
 		if (!DesignMainWindowDockingSpace())
 			return false;
 
+		if (shouldClose)
+			return true;
+
 		for (Window* window : windows)
 			if (window->ShouldClose()) {
 				if (!window->OnExit())
@@ -233,6 +238,9 @@ public:
 
 			if (!Design())
 				return false;
+
+			if (shouldClose)
+				return true;
 
 			// Rendering
 			ImGui::Render();
