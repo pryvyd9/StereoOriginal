@@ -281,7 +281,7 @@ class Cross : public LeafObject
 	}
 
 public:
-	glm::vec3 Position = glm::vec3(0);
+	glm::vec3 Position = glm::vec3();
 
 	StereoLine* lines;
 	const uint_fast8_t lineCount = 3;
@@ -317,16 +317,13 @@ public:
 class StereoCamera : public LeafObject
 {
 	glm::vec3 GetPos() {
-		return startPosition + position;
+		return positionModifier + position;
 	}
 
 public:
 	glm::vec2* viewSize = nullptr;
-	glm::vec2 viewCenter = glm::vec2(0, 0);
-	glm::vec3 transformVec = glm::vec3(0, 0, 0);
-
-	glm::vec3 startPosition = glm::vec3(0, 3, -10);
-	glm::vec3 position = glm::vec3(0);
+	glm::vec3 positionModifier = glm::vec3(0, 3, -10);
+	glm::vec3 position = glm::vec3();
 
 
 	float eyeToCenterDistance = 0.5;
@@ -346,21 +343,21 @@ public:
 	}
 
 	glm::vec3 GetLeft(glm::vec3 pos) {
-		auto position = GetPos();
-		float denominator = position.z - pos.z - transformVec.z;
+		auto cameraPos = GetPos();
+		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
-			(pos.x * position.z - (pos.z + transformVec.z) * (position.x - eyeToCenterDistance) + position.z * transformVec.x) / denominator,
-			(position.z * (transformVec.y - pos.y) + position.y * (pos.z + transformVec.z)) / denominator,
+			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
+			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
 			0
 		);
 	}
 
 	glm::vec3 GetRight(glm::vec3 pos) {
-		auto position = GetPos();
-		float denominator = position.z - pos.z - transformVec.z;
+		auto cameraPos = GetPos();
+		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
-			(pos.x * position.z - (pos.z + transformVec.z) * (position.x + eyeToCenterDistance) + position.z * transformVec.x) / denominator,
-			(position.z * (transformVec.y - pos.y) + position.y * (pos.z + transformVec.z)) / denominator,
+			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
+			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
 			0
 		);
 	}

@@ -245,15 +245,9 @@ public:
 
 	template<>
 	bool DesignProperties(StereoCamera* obj) {
-		ImGui::InputFloat3("startPosition", (float*)& obj->startPosition, "%f", 0);
+		ImGui::InputFloat3("positionModifier", (float*)& obj->positionModifier, "%f", 0);
 		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
-		ImGui::InputFloat2("view center", (float*)& obj->viewCenter, "%f", 0);
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
-
-		ImGui::InputFloat3("transformVec", (float*)& obj->transformVec, "%f", 0);
-
-
-		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& obj->eyeToCenterDistance, 0, 1, "%.2f", 1);
 		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
 		return true;
 	}
