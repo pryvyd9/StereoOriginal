@@ -7,7 +7,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <glm/gtc/quaternion.hpp>
+//#include <glm/gtc/quaternion.hpp>
 #include <functional>
 
 using namespace std;
@@ -60,7 +60,7 @@ class Renderer {
 #endif
 
 	// Create window with graphics context
-		glWindow = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+		glWindow = glfwCreateWindow(1280, 720, "StereoOriginal", NULL, NULL);
 		if (glWindow == NULL)
 			return false;
 		glfwMakeContextCurrent(glWindow);

@@ -268,7 +268,8 @@ public:
 			put(o->Name);
 			
 			buffer << ",\"children\":[";
-			put(*o->Children[0]);
+			if (o->Children.size() > 0)
+				put(*o->Children[0]);
 			for (size_t i = 1; i < o->Children.size(); i++)
 			{
 				buffer << ',';
@@ -289,7 +290,8 @@ public:
 			put(o->Name);
 
 			buffer << ",\"points\":[";
-			put(o->Points[0]);
+			if(o->Points.size() > 0)
+				put(o->Points[0]);
 			for (size_t i = 1; i < o->Points.size(); i++)
 			{
 				buffer << ',';
@@ -368,6 +370,18 @@ class ijstream {
 	void skip() {
 		char a = buffer.get();
 	}
+
+	bool isArrayEmpty() {
+		bool isEmpty = false;
+
+		skip();//[
+		if (buffer.get() == ']')
+			isEmpty = true;
+
+		buffer.seekg(-2, std::ios_base::cur);
+
+		return isEmpty;
+	}
 public:
 	Scene* scene;
 
@@ -429,7 +443,6 @@ public:
 		return val;
 	}
 
-
 	template<>
 	SceneObject* get<SceneObject*>() {
 		skip();//{
@@ -449,9 +462,9 @@ public:
 			skip();//,
 
 			skipName();
-			while (buffer.get() != ']')//[]
-				o->Children.push_back(get<SceneObject*>());
-
+			if (!isArrayEmpty())
+				while (buffer.get() != ']')//[]
+					o->Children.push_back(get<SceneObject*>());
 			skip();//}
 
 			return o;
@@ -466,9 +479,9 @@ public:
 			skip();//,
 
 			skipName();
-			while (buffer.get() != ']')//[]
-				o->Points.push_back(get<glm::vec3>());
-
+			if (!isArrayEmpty())
+				while (buffer.get() != ']')//[]
+					o->Points.push_back(get<glm::vec3>());
 			skip();//}
 
 			return o;
@@ -503,14 +516,16 @@ public:
 			skip();//,
 
 			skipName();
-			while (buffer.get() != ']')//[]
-				o->AddVertice(get<glm::vec3>());
+			if (!isArrayEmpty())
+				while (buffer.get() != ']')//[]
+					o->AddVertice(get<glm::vec3>());
 
 			skipName();
-			while (buffer.get() != ']') {//[]
-				auto connection = get<std::array<size_t, 2>>();
-				o->Connect(connection[0], connection[1]);
-			}
+			if (!isArrayEmpty())
+				while (buffer.get() != ']') {//[]
+					auto connection = get<std::array<size_t, 2>>();
+					o->Connect(connection[0], connection[1]);
+				}
 
 			skip();//}
 

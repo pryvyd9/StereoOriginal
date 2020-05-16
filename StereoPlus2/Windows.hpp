@@ -13,8 +13,9 @@
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
-//
-//#include <algorithm>
+//#include <experimental/type_traits>
+#include "TemplateExtensions.hpp"
+#include "InfrastructureTypes.hpp"
 
 
 namespace ImGui::Extensions {
@@ -153,7 +154,7 @@ public:
 
 	virtual bool Design()
 	{
-		ImGui::Begin("Custom render");
+		ImGui::Begin("Scene");
 
 
 		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
@@ -162,7 +163,7 @@ public:
 			return false;
 
 		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
-
+		
 		//glBindRenderbuffer(GL_RENDERBUFFER, 0);
 		ImGui::Image((void*)(intptr_t)texture, renderSize);
 		
@@ -244,14 +245,9 @@ public:
 
 	template<>
 	bool DesignProperties(StereoCamera* obj) {
+		ImGui::InputFloat3("positionModifier", (float*)& obj->positionModifier, "%f", 0);
 		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
-		ImGui::InputFloat2("view center", (float*)& obj->viewCenter, "%f", 0);
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
-
-		ImGui::InputFloat3("transformVec", (float*)& obj->transformVec, "%f", 0);
-
-
-		ImGui::SliderFloat("eyeToCenterDistanceSlider", (float*)& obj->eyeToCenterDistance, 0, 1, "%.2f", 1);
 		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
 		return true;
 	}
@@ -283,7 +279,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::PushID(GetID()++);
 
-		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf;
+		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 		bool open = ImGui::TreeNodeEx(t->Name.c_str(), target_flags);
 
 		if (ImGui::BeginDragDropTarget())
@@ -501,60 +497,6 @@ public:
 
 	virtual bool OnExit()
 	{
-		return true;
-	}
-};
-
-
-class CreatingToolWindow : Window {
-	CreatingTool<StereoLine> lineTool;
-	CreatingTool<StereoPolyLine> polyLineTool;
-public:
-	Scene* scene = nullptr;
-
-	virtual bool Init() {
-		if (scene == nullptr)
-		{
-			std::cout << "Scene wasn't assigned" << std::endl;
-			return false;
-		}
-
-		lineTool.BindScene(scene);
-		lineTool.BindSource(&((GroupObject*)scene->root)->Children);
-		lineTool.func = [](SceneObject * o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "Line" << id++;
-			o->Name = ss.str();
-		};
-
-		polyLineTool.BindScene(scene);
-		polyLineTool.BindSource(&((GroupObject*)scene->root)->Children);
-		polyLineTool.func = [](SceneObject * o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "PolyLine" << id++;
-			o->Name = ss.str();
-		};
-
-		return true;
-	}
-	virtual bool Design() {
-		ImGui::Begin("Creating tool window");
-		
-		if (ImGui::Button("Line")) {
-			lineTool.Create();
-		}
-
-		if (ImGui::Button("PolyLine")) {
-			polyLineTool.Create();
-		}
-
-		ImGui::End();
-
-		return true;
-	}
-	virtual bool OnExit() {
 		return true;
 	}
 };
@@ -825,6 +767,129 @@ public:
 };
 
 
+
+//template<ObjectType type>
+class TransformToolWindow : Window, Attributes
+{
+	SceneObject** target = nullptr;
+
+	std::string GetName(SceneObject** obj) {
+		return
+			(*obj) != nullptr
+			? (*obj)->Name
+			: "Empty";
+	}
+
+	bool DesignInternal() {
+		ImGui::Text(GetName(target).c_str());
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			ImGuiDragDropFlags target_flags = 0;
+			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+			std::vector<SceneObject*> objects;
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			{
+				if (objects.size() > 1) {
+					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+				}
+				else {
+					if (!tool->BindSceneObjects(objects))
+						return false;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (ImGui::Extensions::PushActive(*target != nullptr))
+		{
+			if (ImGui::Button("Release"))
+				tool->UnbindSceneObjects();
+			if (ImGui::Button("Cancel"))
+				tool->Cancel();
+
+			ImGui::Extensions::PopActive();
+		}
+
+		{
+			static int mode = 0;
+			if (ImGui::RadioButton("Transition", &mode, 0))
+				tool->SetMode(TransformToolMode::Translate);
+			if (ImGui::RadioButton("Scale", &mode, 1))
+				tool->SetMode(TransformToolMode::Scale);
+			if (ImGui::RadioButton("Rotate", &mode, 2))
+				tool->SetMode(TransformToolMode::Rotate);
+
+			if (mode == (int)TransformToolMode::Scale)
+			{
+				ImGui::Separator();
+				ImGui::DragFloat("scale", (float*)&tool->scale, 0.01, 0, 0, "%.2f");
+			}
+			if (mode == (int)TransformToolMode::Rotate)
+			{
+				ImGui::Separator();
+
+				static int axe = 0;
+				if (ImGui::RadioButton("X", &axe, 0))
+					tool->SetAxe(Axe::X);
+				if (ImGui::RadioButton("Y", &axe, 1))
+					tool->SetAxe(Axe::Y);
+				if (ImGui::RadioButton("Z", &axe, 2))
+					tool->SetAxe(Axe::Z);
+
+				ImGui::DragFloat("radian", &tool->angle, 0.01, 0, 0, "%.2f");
+
+			}
+		}
+
+		return true;
+	}
+
+public:
+	TransformTool* tool = nullptr;
+
+	virtual bool Init() {
+		if (tool == nullptr)
+		{
+			std::cout << "Tool wasn't assigned" << std::endl;
+			return false;
+		}
+
+		target = tool->GetTarget();
+		Window::name = Attributes::name = "Transformation";
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+	virtual bool Window::Design() {
+		ImGui::Begin(Window::name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
+		ImGui::End();
+
+		return true;
+	}
+
+	virtual bool Attributes::Design() {
+		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+};
+
+
 class AttributesWindow : Window {
 	Attributes* toolAttributes = nullptr;
 	Attributes* targetAttributes = nullptr;
@@ -886,40 +951,101 @@ public:
 	}
 };
 
+
+
 class ToolWindow : Window {
-	template<typename TWindow, typename TTool>
+	const Log log = Log::For<ToolWindow>();
+
+	CreatingTool<StereoLine> lineTool;
+	CreatingTool<StereoPolyLine> polyLineTool;
+	CreatingTool<GroupObject> groupObjectTool;
+
+
+	template<typename T>
+	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
+
+	template<typename T>
+	static constexpr bool hasUnbindSceneobjects = is_detected_v<unbindSceneObjects, T>;
+
+	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindSceneobjects<TTool>> * = nullptr>
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
-
+		
+		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
+
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->onUnbindTool = [t = tool] {
+			t->tool->UnbindSceneObjects();
 			delete t;
 		};
 	}
+
+	template<typename T>
+	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
+		creatingTool.BindScene(scene);
+		creatingTool.BindSource(&((GroupObject*)scene->root)->Children);
+		creatingTool.func = initFunc;
+	}
+
 public:
 	AttributesWindow* attributesWindow;
+	Scene* scene = nullptr;
 
 	virtual bool Init() {
 		if (attributesWindow == nullptr)
 		{
-			std::cout << "AttributesWindow was null" << std::endl;
+			log.Error("AttributesWindow was null");
 			return false;
 		}
+
+		if (scene == nullptr)
+		{
+			log.Error("Scene wasn't assigned");
+			return false;
+		}
+
+		ConfigureCreationTool(lineTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "Line" << id++;
+			o->Name = ss.str();
+		});
+		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "PolyLine" << id++;
+			o->Name = ss.str();
+		});
+		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "Group" << id++;
+			o->Name = ss.str();
+		});
 
 		return true;
 	}
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
-		if (ImGui::Button("extrusion")) {
-			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		}
+		if (ImGui::Button("Line"))
+			lineTool.Create();
+		if (ImGui::Button("PolyLine"))
+			polyLineTool.Create();
+		if (ImGui::Button("Group"))
+			groupObjectTool.Create();
 
-		if (ImGui::Button("penTool")) {
+		ImGui::Separator();
+
+		if (ImGui::Button("extrusion")) 
+			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
+		if (ImGui::Button("penTool")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		}
+		if (ImGui::Button("transformTool"))
+			ApplyTool<TransformToolWindow, TransformTool>();
+
 
 		ImGui::End();
 
@@ -1114,7 +1240,7 @@ private:
 				}
 				catch (const FileException & e)
 				{
-					// TODO: Show error message to user
+					log.Error("Failed to save file");
 				}
 			}
 

@@ -11,22 +11,14 @@ class ToolPool {
 		static int i = 0;
 		return i++;
 	}
-
-	template<typename T>
-	static bool Init(T* tool) {
-		std::cout << "Tool type not supported and could not be initialized" << std::endl;
-		return false;
-	}
-
-	template<>
-	static bool Init<PointPenEditingTool<StereoPolyLineT>>(PointPenEditingTool<StereoPolyLineT>* tool) {
+	
+	static bool Init(PointPenEditingTool<StereoPolyLineT>* tool) {
 		return 
 			tool->BindInput(*GetKeyBinding()) &&
 			tool->BindCross(*GetCross());
 	}
 
-	template<>
-	static bool Init<ExtrusionEditingTool<StereoPolyLineT>>(ExtrusionEditingTool<StereoPolyLineT>* tool) {
+	static bool Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
 
 		if (!tool->BindInput(*GetKeyBinding()) ||
 			!tool->BindCross(*GetCross()) ||
@@ -34,13 +26,13 @@ class ToolPool {
 			!tool->BindSource(&(*GetScene())->root->Children))
 			return false;
 
-		//tool->func = [](SceneObject * o) {
-		//	std::stringstream ss;
-		//	ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
-		//	o->Name = ss.str();
-		//};
-
 		return true;
+	}
+
+	static bool Init(TransformTool* tool) {
+		return
+			tool->BindInput(*GetKeyBinding()) &&
+			tool->BindCross(*GetCross());
 	}
 
 public:

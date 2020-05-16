@@ -54,6 +54,12 @@
     <ClCompile Include="include\imgui\imgui_stdlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PositionDetection.hpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="InfrastructureTypes.hpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\GL\gl3w.h">
@@ -120,6 +126,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\imgui\imgui_stdlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TemplateExtensions.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

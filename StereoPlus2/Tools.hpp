@@ -8,6 +8,8 @@
 #include <stack>
 #include <vector>
 #include <queue>
+#include "TemplateExtensions.hpp"
+
 
 class Tool {
 protected:
@@ -82,9 +84,11 @@ public:
 };
 
 
-
+template<typename EditMode>
 class EditingTool : Tool {
 protected:
+	using Mode = EditMode;
+
 	struct Config {
 		template<typename T>
 		T* Get() { return (T*)this; };
@@ -104,6 +108,7 @@ public:
 	enum Type {
 		PointPen,
 		Extrusion,
+		Transform,
 	};
 
 
@@ -126,13 +131,20 @@ enum class ExtrusionEditingToolMode {
 	Step,
 };
 
+enum class TransformToolMode {
+	Translate,
+	Scale,
+	Rotate,
+};
+
+enum class Axe { X, Y, Z };
+
+
 #pragma endregion
 
 template<ObjectType type>
-class PointPenEditingTool : public EditingTool {
+class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 #pragma region Types
-	using Mode = PointPenEditingToolMode;
-
 	template<ObjectType type, Mode mode>
 	struct Config : EditingTool::Config {
 
@@ -144,6 +156,11 @@ class PointPenEditingTool : public EditingTool {
 		// If the cos between vectors is less than E
 		// then we merge those vectors.
 		double E = 1e-6;
+
+		// If distance between previous point and 
+		// cursor is less than this number 
+		// then don't create a new point.
+		double Precision = 1e-4;
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
@@ -183,10 +200,12 @@ class PointPenEditingTool : public EditingTool {
 			UnbindSceneObjects();
 			return;
 		}
+		
 		auto points = &GetTarget<StereoPolyLine>()->Points;
 		auto pointsCount = points->size();
 
-		if (!GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 2)
+
+		if (GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 3)
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
@@ -196,30 +215,36 @@ class PointPenEditingTool : public EditingTool {
 			return;
 		}
 
+
+
 		// Drawing optimizing
+		
+		// If cross is located at distance less than Precision then don't create a new point
+		// but move the last one to cross position.
+		if (glm::length(cross->Position - (*points)[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision)
+		{
+			(*points)[pointsCount - 1] = points->back() = cross->Position;
+			return;
+		}
+
+
 		// If the line goes straight then instead of adding 
 		// a new point - move the previous point to current cross position.
-		if (pointsCount > 2)
-		{
-			auto E = GetConfig<Mode::Immediate>()->E;
+		auto E = GetConfig<Mode::Immediate>()->E;
 
-			glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
-			glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
+		glm::vec3 r1 = cross->Position - (*points)[pointsCount - 1];
+		glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
 
-			auto p = glm::dot(r1, r2);
-			auto l1 = glm::length(r1);
-			auto l2 = glm::length(r2);
+		auto p = glm::dot(r1, r2);
+		auto l1 = glm::length(r1);
+		auto l2 = glm::length(r2);
 
-			auto cos = p / l1 / l2;
+
+		auto cos = p / l1 / l2;
 				
-			if (abs(cos) > 1 - E || isnan(cos))
-			{
-				(*points)[pointsCount - 2] = points->back() = cross->Position;
-			}
-			else
-			{
-				points->push_back(cross->Position);
-			}
+		if (abs(cos) > 1 - E || isnan(cos))
+		{
+			(*points)[pointsCount - 2] = points->back() = cross->Position;
 		}
 		else
 		{
@@ -389,10 +414,8 @@ public:
 
 
 template<ObjectType type>
-class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
+class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, public CreatingTool<LineMesh> {
 #pragma region Types
-	using Mode = ExtrusionEditingToolMode;
-
 	template<ObjectType type, Mode mode>
 	struct Config : EditingTool::Config {
 
@@ -413,6 +436,7 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
 		bool isPointCreated = false;
 	};
 #pragma endregion
+	Log Logger = Log::For<ExtrusionEditingTool>();
 
 	size_t handlerId;
 	Mode mode;
@@ -429,11 +453,6 @@ class ExtrusionEditingTool : public EditingTool, public CreatingTool<LineMesh> {
 			config = new Config<type, mode>();
 
 		return (Config<type, mode>*) config;
-	}
-
-	template<typename T>
-	T* GetTarget() {
-		return (T*)this->pen;
 	}
 
 #pragma region ProcessInput
@@ -666,13 +685,13 @@ public:
 
 		if (keyBinding == nullptr)
 		{
-			std::cout << "KeyBinding wasn't assigned" << std::endl;
+			Logger.Error("KeyBinding wasn't assigned");
 			return false;
 		}
 
 		if (objs[0]->GetType() != type)
 		{
-			std::cout << "Invalid Object passed to ExtrusionEditingTool" << std::endl;
+			Logger.Warning("Invalid Object passed to ExtrusionEditingTool");
 			return true;
 		}
 		pen = objs[0];
@@ -729,4 +748,240 @@ public:
 		
 		return CreatingTool<LineMesh>::Create();
 	};
+};
+
+
+class TransformTool : public EditingTool<TransformToolMode> {
+	const Log Logger = Log::For<TransformTool>();
+
+
+	template<ObjectType type, Mode mode>
+	struct Config : EditingTool::Config {};
+
+	template<>
+	struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
+		float scaleMinMagnitude = 1e-4;
+	};
+	template<>
+	struct Config<LineMeshT, Mode::Scale> : EditingTool::Config {
+		float scaleMinMagnitude = 1e-4;
+	};
+
+	size_t handlerId;
+	Mode mode;
+	ObjectType type;
+	Axe axe;
+
+	Cross* cross = nullptr;
+	SceneObject* target = nullptr;
+	glm::vec3 crossOldPos;
+	std::vector<glm::vec3> originalVertices;
+
+	template<ObjectType type, Mode mode>
+	Config<type, mode>* GetConfig() {
+		if (config == nullptr)
+			config = new Config<type, mode>();
+
+		return (Config<type, mode>*) config;
+	}
+
+	void ProcessInput(ObjectType type, Mode mode, Input* input) {
+		if (target == nullptr)
+			return;
+
+		if (input->IsDown(Key::Escape))
+		{
+			Cancel();
+			return;
+		}
+		if (input->IsDown(Key::Enter))
+		{
+			UnbindSceneObjects();
+			return;
+		}
+
+		if (type == StereoPolyLineT && mode == Mode::Translate) {
+			auto points = &static_cast<StereoPolyLine*>(target)->Points;
+			auto transformVector = cross->Position - crossOldPos;
+
+			Translate(transformVector, points);
+
+			return;
+		}
+		if (type == LineMeshT && mode == Mode::Translate) {
+			auto points = static_cast<LineMesh*>(target)->GetVertices();
+			auto transformVector = cross->Position - crossOldPos;
+
+			Translate(transformVector, points);
+
+			return;
+		}
+		if (type == StereoPolyLineT && mode == Mode::Scale) {
+			auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
+			if (abs(scale) < config->scaleMinMagnitude)
+				return;
+
+			auto points = &static_cast<StereoPolyLine*>(target)->Points;
+			Scale(cross->Position, scale, points);
+
+			return;
+		}
+		if (type == LineMeshT && mode == Mode::Scale) {
+			auto config = GetConfig<LineMeshT, Mode::Scale>();
+			if (abs(scale) < config->scaleMinMagnitude)
+				return;
+
+			auto points = static_cast<LineMesh*>(target)->GetVertices();
+			Scale(cross->Position, scale, points);
+
+			return;
+		}
+		if (type == StereoPolyLineT && mode == Mode::Rotate) {
+			auto points = &static_cast<StereoPolyLine*>(target)->Points;
+			Rotate(axe, angle, points);
+
+			return;
+		}
+		if (type == LineMeshT && mode == Mode::Rotate) {
+			auto points = static_cast<LineMesh*>(target)->GetVertices();
+			Rotate(axe, angle, points);
+
+			return;
+		}
+
+		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
+	}
+	void Scale(glm::vec3 center, float scale, std::vector<glm::vec3>* points) {
+		for (size_t i = 0; i < points->size(); i++)
+			(*points)[i] = center + (originalVertices[i] - center) * scale;
+	}
+	void Translate(glm::vec3 transformVector, std::vector<glm::vec3>* points) {
+		for (size_t i = 0; i < points->size(); i++)
+			(*points)[i] = originalVertices[i] + transformVector;
+	}
+	void Rotate(Axe axe, float angle, std::vector<glm::vec3>* points) {
+		switch (axe) {
+		case Axe::X:
+			for (size_t i = 0; i < points->size(); i++) {
+				auto relative = originalVertices[i] - cross->Position;
+				(*points)[i].y = relative.y * cos(angle) - relative.z * sin(angle) + cross->Position.y;
+				(*points)[i].z = relative.y * sin(angle) + relative.z * cos(angle) + cross->Position.z;
+
+			}
+			break;
+		case Axe::Y:
+			for (size_t i = 0; i < points->size(); i++) {
+				auto relative = originalVertices[i] - cross->Position;
+				(*points)[i].x = relative.x * cos(angle) + relative.z * sin(angle) + cross->Position.x;
+				(*points)[i].z = -relative.x * sin(angle) + relative.z * cos(angle) + cross->Position.z;
+			}
+			break;
+		case Axe::Z:
+			for (size_t i = 0; i < points->size(); i++) {
+				auto relative = originalVertices[i] - cross->Position;
+				(*points)[i].x = relative.x * cos(angle) - relative.y * sin(angle) + cross->Position.x;
+				(*points)[i].y = relative.y * sin(angle) + relative.y * cos(angle) + cross->Position.y;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	template<typename K, typename V>
+	static bool exists(const std::multimap<K, V>& map, const K& key, const V& val) {
+		auto h = map.equal_range(key);
+
+		for (auto i = h.first; i != h.second; i++)
+			if (i->second == val)
+				return true;
+
+		return false;
+	}
+public:
+
+	const std::multimap<ObjectType, Mode> supportedConfigs{
+		{ StereoPolyLineT, Mode::Translate },
+		{ StereoPolyLineT, Mode::Scale },
+		{ StereoPolyLineT, Mode::Rotate },
+		{ LineMeshT, Mode::Translate },
+		{ LineMeshT, Mode::Scale },
+		{ LineMeshT, Mode::Rotate },
+	};
+
+	float scale = 1;
+	float angle = 0;
+
+	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
+		if (!UnbindSceneObjects())
+			return false;
+
+		if (keyBinding == nullptr)
+		{
+			Logger.Error("KeyBinding wasn't assigned");
+			return false;
+		}
+
+		type = objs[0]->GetType();
+
+		if (supportedConfigs.find(type) == supportedConfigs.end()) {
+			Logger.Warning("Invalid Object passed to TransformTool");
+			return true;
+		}
+		if (!exists(supportedConfigs, type, mode)) {
+			Logger.Warning("Unsupported Mode for ObjectType");
+			return true;
+		}
+
+		target = objs[0];
+		
+		crossOldPos = cross->Position;
+
+		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
+
+		if (type == StereoPolyLineT) 
+			originalVertices = static_cast<StereoPolyLine*>(target)->Points;
+		if (type == LineMeshT)
+			originalVertices = *static_cast<LineMesh*>(target)->GetVertices();
+
+		return true;
+	}
+	virtual bool UnbindSceneObjects() {
+		if (this->target == nullptr)
+			return true;
+
+		this->target = nullptr;
+		scale = 1;
+		angle = 0;
+		keyBinding->RemoveHandler(handlerId);
+		DeleteConfig();
+
+		return true;
+	}
+	void Cancel() {
+		if (type == StereoPolyLineT)
+			static_cast<StereoPolyLine*>(target)->Points = originalVertices;
+		if (type == LineMeshT)
+			*static_cast<LineMesh*>(target)->GetVertices() = originalVertices;
+
+		UnbindSceneObjects();
+	}
+	SceneObject** GetTarget() {
+		return &target;
+	}
+	virtual Type GetType() {
+		return Type::Transform;
+	}
+	bool BindCross(Cross* cross) {
+		return this->cross = cross;
+	}
+	void SetMode(Mode mode) {
+		UnbindSceneObjects();
+		this->mode = mode;
+	}
+	void SetAxe(Axe axe) {
+		UnbindSceneObjects();
+		this->axe = axe;
+	}
+
 };
