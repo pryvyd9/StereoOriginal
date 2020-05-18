@@ -79,7 +79,7 @@ public:
 
 			break;
 		}
-		case LineMeshT:
+		case MeshT:
 		{
 			auto o = (LineMesh*)&so;
 
@@ -187,7 +187,7 @@ public:
 
 			return o;
 		}
-		case LineMeshT:
+		case MeshT:
 		{
 			auto o = new LineMesh();
 			scene->Insert(o);
@@ -319,7 +319,7 @@ public:
 
 			break;
 		}
-		case LineMeshT:
+		case MeshT:
 		{
 			auto o = (LineMesh*)&so;
 
@@ -506,7 +506,7 @@ public:
 
 			return o;
 		}
-		case LineMeshT:
+		case MeshT:
 		{
 			auto o = new LineMesh();
 			scene->Insert(o);

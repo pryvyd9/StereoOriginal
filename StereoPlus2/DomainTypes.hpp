@@ -14,9 +14,7 @@ enum ObjectType {
 
 	StereoLineT,
 	StereoPolyLineT,
-	LineMeshT,
 	MeshT,
-	QuadMeshT,
 };
 
 class SceneObject {
@@ -31,8 +29,6 @@ public:
 		return "SceneObject";
 	}
 };
-
-
 
 class GroupObject : public SceneObject {
 public:
@@ -127,7 +123,7 @@ public:
 
 struct LineMesh : Mesh{
 	virtual ObjectType GetType() const {
-		return LineMeshT;
+		return MeshT;
 	}
 
 	std::vector<std::array<size_t, 2>> lines;
@@ -148,18 +144,6 @@ struct LineMesh : Mesh{
 		return lines;
 	}
 };
-
-struct TriangleMesh : LineMesh {
-	std::vector<std::array<size_t, 3>> triangles;
-};
-
-struct QuadMesh : TriangleMesh {
-	virtual ObjectType GetType() const {
-		return QuadMeshT;
-	}
-	std::vector<std::array<size_t, 4>> quads;
-};
-
 
 
 
@@ -385,16 +369,6 @@ public:
 #pragma endregion
 
 
-//struct ObjectPointer {
-//	std::vector<SceneObject*>* source;
-//	int pos;
-//};
-
-//struct ObjectPointerComparator {
-//	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
-//		return lhs.pos < rhs.pos || lhs.source < rhs.source;
-//	}
-//};
 
 class SceneObjectBuffer {
 public:

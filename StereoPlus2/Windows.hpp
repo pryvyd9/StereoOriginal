@@ -316,7 +316,6 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		case StereoLineT:
 		case StereoPolyLineT:
 		case MeshT:
-		case LineMeshT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		}
 

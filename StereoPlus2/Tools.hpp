@@ -763,7 +763,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		float scaleMinMagnitude = 1e-4;
 	};
 	template<>
-	struct Config<LineMeshT, Mode::Scale> : EditingTool::Config {
+	struct Config<MeshT, Mode::Scale> : EditingTool::Config {
 		float scaleMinMagnitude = 1e-4;
 	};
 
@@ -808,7 +808,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 			return;
 		}
-		if (type == LineMeshT && mode == Mode::Translate) {
+		if (type == MeshT && mode == Mode::Translate) {
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
 			auto transformVector = cross->position - crossOldPos;
 
@@ -826,8 +826,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 			return;
 		}
-		if (type == LineMeshT && mode == Mode::Scale) {
-			auto config = GetConfig<LineMeshT, Mode::Scale>();
+		if (type == MeshT && mode == Mode::Scale) {
+			auto config = GetConfig<MeshT, Mode::Scale>();
 			if (abs(scale) < config->scaleMinMagnitude)
 				return;
 
@@ -842,7 +842,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 			return;
 		}
-		if (type == LineMeshT && mode == Mode::Rotate) {
+		if (type == MeshT && mode == Mode::Rotate) {
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
 			Rotate(axe, angle, points);
 
@@ -904,9 +904,9 @@ public:
 		{ StereoPolyLineT, Mode::Translate },
 		{ StereoPolyLineT, Mode::Scale },
 		{ StereoPolyLineT, Mode::Rotate },
-		{ LineMeshT, Mode::Translate },
-		{ LineMeshT, Mode::Scale },
-		{ LineMeshT, Mode::Rotate },
+		{ MeshT, Mode::Translate },
+		{ MeshT, Mode::Scale },
+		{ MeshT, Mode::Rotate },
 	};
 
 	float scale = 1;
@@ -941,7 +941,7 @@ public:
 
 		if (type == StereoPolyLineT) 
 			originalVertices = static_cast<StereoPolyLine*>(target)->Points;
-		if (type == LineMeshT)
+		if (type == MeshT)
 			originalVertices = *static_cast<LineMesh*>(target)->GetVertices();
 
 		return true;
@@ -961,7 +961,7 @@ public:
 	void Cancel() {
 		if (type == StereoPolyLineT)
 			static_cast<StereoPolyLine*>(target)->Points = originalVertices;
-		if (type == LineMeshT)
+		if (type == MeshT)
 			*static_cast<LineMesh*>(target)->GetVertices() = originalVertices;
 
 		UnbindSceneObjects();
