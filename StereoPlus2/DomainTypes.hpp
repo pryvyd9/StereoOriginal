@@ -21,6 +21,10 @@ enum ObjectType {
 
 class SceneObject {
 public:
+	SceneObject* parent;
+	std::vector<SceneObject*> children;
+
+	glm::vec3 position;
 	std::string Name = "noname";
 	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
@@ -32,7 +36,6 @@ public:
 
 class GroupObject : public SceneObject {
 public:
-	std::vector<SceneObject*> Children;
 	virtual ObjectType GetType() const {
 		return Group;
 	}
@@ -256,18 +259,18 @@ class Cross : public LeafObject
 
 	bool CreateLines()
 	{
-		lines[0].Start = Position;
-		lines[0].End = Position;
+		lines[0].Start = position;
+		lines[0].End = position;
 		lines[0].Start.x -= size;
 		lines[0].End.x += size;
 
-		lines[1].Start = Position;
-		lines[1].End = Position;
+		lines[1].Start = position;
+		lines[1].End = position;
 		lines[1].Start.y -= size;
 		lines[1].End.y += size;
 
-		lines[2].Start = Position;
-		lines[2].End = Position;
+		lines[2].Start = position;
+		lines[2].End = position;
 		lines[2].Start.z -= size;
 		lines[2].End.z += size;
 
@@ -281,8 +284,6 @@ class Cross : public LeafObject
 	}
 
 public:
-	glm::vec3 Position = glm::vec3();
-
 	StereoLine* lines;
 	const uint_fast8_t lineCount = 3;
 
@@ -323,8 +324,6 @@ class StereoCamera : public LeafObject
 public:
 	glm::vec2* viewSize = nullptr;
 	glm::vec3 positionModifier = glm::vec3(0, 3, -10);
-	glm::vec3 position = glm::vec3();
-
 
 	float eyeToCenterDistance = 0.5;
 
@@ -386,20 +385,20 @@ public:
 #pragma endregion
 
 
-struct ObjectPointer {
-	std::vector<SceneObject*>* source;
-	int pos;
-};
+//struct ObjectPointer {
+//	std::vector<SceneObject*>* source;
+//	int pos;
+//};
 
-struct ObjectPointerComparator {
-	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
-		return lhs.pos < rhs.pos || lhs.source < rhs.source;
-	}
-};
+//struct ObjectPointerComparator {
+//	bool operator() (const ObjectPointer& lhs, const ObjectPointer& rhs) const {
+//		return lhs.pos < rhs.pos || lhs.source < rhs.source;
+//	}
+//};
 
 class SceneObjectBuffer {
 public:
-	using Buffer = std::set<ObjectPointer, ObjectPointerComparator>*;
+	using Buffer = std::set<SceneObject*>*;
 private:
 	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
 		return ImGui::AcceptDragDropPayload(name, flags);
@@ -419,7 +418,7 @@ public:
 			auto objectPointers = GetBuffer(payload->Data);
 
 			for (auto objectPointer : *objectPointers)
-				outSceneObjects->push_back((*objectPointer.source)[objectPointer.pos]);
+				outSceneObjects->push_back(objectPointer);
 
 			objectPointers->clear();
 
@@ -429,23 +428,52 @@ public:
 		return false;
 	}
 
-	static void EmplaceDragDropSceneObject(const char* name, ObjectPointer objectPointer, Buffer* buffer) {
+	static void EmplaceDragDropSceneObject(const char* name, SceneObject* objectPointer, Buffer* buffer) {
 		(*buffer)->emplace(objectPointer);
 
 		ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
 	}
 };
 
-
+enum InsertPosition
+{
+	Top = 0x01,
+	Bottom = 0x10,
+	Center = 0x100,
+	Any = Top | Bottom | Center,
+};
 
 class Scene {
-	GroupObject defaultObject;
 public:
+	
+	template<InsertPosition p>
+	static bool is(InsertPosition pos) {
+		return p == pos;
+	}
+	template<InsertPosition p>
+	static bool has(InsertPosition pos) {
+		return (p & pos) != 0;
+	}
+private:
+	GroupObject defaultObject;
+
+	template<typename T>
+	static int find(const std::vector<T>& source, T item) {
+		for (size_t i = 0; i < source.size(); i++)
+			if (source[i] == item)
+				return i;
+
+		return -1;
+	}
+
+public:
+	
+
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
 	// Scene selected object buffer.
-	std::set<ObjectPointer, ObjectPointerComparator> selectedObjects;
+	std::set<SceneObject*> selectedObjects;
 	GroupObject* root = &defaultObject;
 	StereoCamera* camera;
 	Cross* cross;
@@ -458,29 +486,27 @@ public:
 		defaultObject.Name = "Root";
 	}
 
-	bool Insert(std::vector<SceneObject*>* source, SceneObject* obj) {
-		if (source == &defaultObject.Children && root != &defaultObject)
-			root->Children.push_back(obj);
-		else
-			source->push_back(obj);
-
+	bool Insert(SceneObject* destination, SceneObject* obj) {
+		destination->children.push_back(obj);
+		obj->parent = destination;
 		objects.push_back(obj);
 		return true;
 	}
 
 	bool Insert(SceneObject* obj) {
-		root->Children.push_back(obj);
+		root->children.push_back(obj);
+		obj->parent = root;
 		objects.push_back(obj);
 		return true;
 	}
 
-	bool Delete(std::vector<SceneObject*>* source, SceneObject* obj) {
-		for (size_t i = 0; i < source->size(); i++)
-			if ((*source)[i] == obj)
+	bool Delete(SceneObject* source, SceneObject* obj) {
+		for (size_t i = 0; i < source->children.size(); i++)
+			if (source->children[i] == obj)
 			{
 				for (size_t j = 0; i < objects.size(); j++)
 					if (objects[j] == obj) {
-						source->erase(source->begin() + i);
+						source->children.erase(source->children.begin() + i);
 						objects.erase(objects.begin() + j);
 						delete obj;
 						return true;
@@ -490,6 +516,55 @@ public:
 		std::cout << "The object for deletion was not found" << std::endl;
 		return false;
 	}
+
+	
+
+	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
+
+		// Move single object
+		if (items->size() > 1)
+		{
+			std::cout << "Moving of multiple objects is not implemented" << std::endl;
+			return false;
+		}
+
+		// Find if item is present in target;
+
+		auto item = items->begin()._Ptr->_Myval;
+
+		auto source = &item->parent->children;
+		auto dest = &destination->children;
+
+		auto sourcePosition = std::find(source->begin(), source->end(), item);
+
+		item->parent = destination;
+
+		if (dest->size() == 0)
+		{
+			dest->push_back(item);
+			source->erase(std::find(source->begin(), source->end(), item));
+			return true;
+		}
+
+		if (has<InsertPosition::Bottom>(pos))
+		{
+			destinationPos++;
+		}
+
+		auto sourcePositionInt = Scene::find(*source, item);
+		if (source == dest && destinationPos < (int)sourcePositionInt)
+		{
+			dest->erase(sourcePosition);
+			dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
+			return true;
+		}
+
+		dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
+		source->erase(sourcePosition);
+
+		return true;
+	}
+
 
 	~Scene() {
 		for (auto o : objects)

@@ -45,9 +45,9 @@ public:
 			put(so.GetType());
 			put(o->Name.size());
 			put(o->Name);
-			put(o->Children.size());
+			put(o->children.size());
 
-			for (auto c : o->Children)
+			for (auto c : o->children)
 				put(*c);
 
 			break;
@@ -156,7 +156,7 @@ public:
 			auto childCount = get<size_t>();
 
 			for (size_t i = 0; i < childCount; i++)
-				o->Children.push_back(get<SceneObject*>());
+				o->children.push_back(get<SceneObject*>());
 
 			return o;
 		}
@@ -268,12 +268,12 @@ public:
 			put(o->Name);
 			
 			buffer << ",\"children\":[";
-			if (o->Children.size() > 0)
-				put(*o->Children[0]);
-			for (size_t i = 1; i < o->Children.size(); i++)
+			if (o->children.size() > 0)
+				put(*o->children[0]);
+			for (size_t i = 1; i < o->children.size(); i++)
 			{
 				buffer << ',';
-				put(*o->Children[i]);
+				put(*o->children[i]);
 			}
 			buffer << ']';
 
@@ -464,7 +464,7 @@ public:
 			skipName();
 			if (!isArrayEmpty())
 				while (buffer.get() != ']')//[]
-					o->Children.push_back(get<SceneObject*>());
+					o->children.push_back(get<SceneObject*>());
 			skip();//}
 
 			return o;

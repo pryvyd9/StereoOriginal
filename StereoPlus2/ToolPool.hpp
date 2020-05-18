@@ -23,7 +23,7 @@ class ToolPool {
 		if (!tool->BindInput(*GetKeyBinding()) ||
 			!tool->BindCross(*GetCross()) ||
 			!tool->BindScene(*GetScene()) ||
-			!tool->BindSource(&(*GetScene())->root->Children))
+			!tool->BindDestination((*GetScene())->root))
 			return false;
 
 		return true;

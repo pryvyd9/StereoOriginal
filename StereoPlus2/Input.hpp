@@ -323,7 +323,7 @@ public:
 					int lockedAxeIndex = axes.x == 2 ? 0 : axes.y == 2 ? 1 : 2;
 
 					// Cross position.
-					float* destination = &c->Position[lockedAxeIndex];
+					float* destination = &c->position[lockedAxeIndex];
 
 					axes -= 1;
 
@@ -354,8 +354,8 @@ public:
 
 				auto m = i->MouseMoveDirection() * sp;
 
-				c->Position[lockedPlane[0]] += m.x;
-				c->Position[lockedPlane[1]] -= m.y;
+				c->position[lockedPlane[0]] += m.x;
+				c->position[lockedPlane[1]] -= m.y;
 
 				c->Refresh();
 
@@ -372,8 +372,8 @@ public:
 				bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
 				auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
-				c->Position.x += m.x;
-				c->Position.y -= m.y;
+				c->position.x += m.x;
+				c->position.y -= m.y;
 				c->Refresh();
 			}
 			});
@@ -392,8 +392,8 @@ public:
 
 				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				c->Position.x += movement.x;
-				c->Position.y -= movement.y;
+				c->position.x += movement.x;
+				c->position.y -= movement.y;
 				c->Refresh();
 			}
 			});
@@ -411,7 +411,7 @@ public:
 
 				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				c->Position += movement;
+				c->position += movement;
 				c->Refresh();
 			}
 			});

@@ -235,7 +235,7 @@ public:
 
 	template<>
 	bool DesignProperties(Cross * obj) {
-		if (ImGui::InputFloat3("position", (float*)& obj->Position, "%f", 0)
+		if (ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0)
 			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
 		{
 			obj->Refresh();
@@ -267,7 +267,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
 		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
 	}
-	void EmplaceDragDropObject(ObjectPointer objectPointer) {
+	void EmplaceDragDropObject(SceneObject* objectPointer) {
 		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", objectPointer, &selectedObjectsBuffer);
 	}
 
@@ -289,13 +289,13 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&t->Children, 0, buffer, GetPosition(Center));
+				ScheduleMove(t, 0, buffer, GetPosition(Center));
 			}
 			ImGui::EndDragDropTarget();
 		}
 
-		for (size_t i = 0; i < t->Children.size(); i++)
-			if (!DesignTreeNode(t->Children[i], t->Children, i))
+		for (size_t i = 0; i < t->children.size(); i++)
+			if (!DesignTreeNode(t->children[i], t->children, i))
 			{
 				ImGui::TreePop();
 				ImGui::PopID();
@@ -338,7 +338,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 
-			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			EmplaceDragDropObject(t);
 
 			ImGui::EndDragDropSource();
 		}
@@ -350,19 +350,19 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				MoveCommandPosition relativePosition = GetPosition(Any);
+				InsertPosition relativePosition = GetPosition(Any);
 				if (relativePosition == Center)
-					ScheduleMove(&t->Children, 0, buffer, relativePosition);
+					ScheduleMove(t, 0, buffer, relativePosition);
 				else
-					ScheduleMove(&source, pos, buffer, relativePosition);
+					ScheduleMove(t->parent, pos, buffer, relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
 
 		if (open)
 		{
-			for (size_t i = 0; i < t->Children.size(); i++)
-				if (!DesignTreeNode(t->Children[i], t->Children, i))
+			for (size_t i = 0; i < t->children.size(); i++)
+				if (!DesignTreeNode(t->children[i], t->children, i))
 				{
 					ImGui::TreePop();
 					ImGui::PopID();
@@ -395,7 +395,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 			
-			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			EmplaceDragDropObject(t);
 			
 			ImGui::EndDragDropSource();
 		}
@@ -407,7 +407,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&source, pos, buffer, GetPosition(Top | Bottom));
+				ScheduleMove(t->parent, pos, buffer, GetPosition(Top | Bottom));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -419,7 +419,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return true;
 	}
 
-	MoveCommandPosition GetPosition(int positionMask) {
+	InsertPosition GetPosition(int positionMask) {
 		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
 		glm::vec2 size = ImGui::GetItemRectSize();
 		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
@@ -434,8 +434,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		if (positionMask == Bottom)
 			return Bottom;
 
-		if ((positionMask & Center) == 0)
-		{
+		if ((positionMask & Center) == 0) {
 			if (vertPos > 0)
 				return Bottom;
 
@@ -451,7 +450,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return Center;
 	}
 
-	void ScheduleMove(std::vector<SceneObject*> * target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator> * items, MoveCommandPosition pos) {
+	void ScheduleMove(SceneObject* target, int targetPos, std::set<SceneObject*> * items, InsertPosition pos) {
 		if (isCommandEmpty)
 		{
 			moveCommand = new MoveCommand();
@@ -467,7 +466,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	}
 
 public:
-	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
+	std::set<SceneObject*>* selectedObjectsBuffer;
 
 	GroupObject** rootObject;
 	float indent = 1;
@@ -985,7 +984,7 @@ class ToolWindow : Window {
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
 		creatingTool.BindScene(scene);
-		creatingTool.BindSource(&((GroupObject*)scene->root)->Children);
+		creatingTool.BindDestination(scene->root);
 		creatingTool.func = initFunc;
 	}
 
