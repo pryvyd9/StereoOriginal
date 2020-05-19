@@ -36,7 +36,7 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline, Posi
 
 	// Position detection
 	if (positionDetector.isPositionProcessingWorking)
-		scene.camera->SetRelativePosition(
+		scene.camera->SetLocalPosition(
 			glm::vec3(
 				positionDetector.positionHorizontal / 500.0,
 				positionDetector.positionVertical / 500.0,

@@ -44,10 +44,10 @@ public:
 		return GetLocalPosition();
 	}
 
-	void SetRelativePosition(glm::vec3 v) {
+	void SetLocalPosition(glm::vec3 v) {
 		position = v;
 	}
-	void SetAbsolutePosition(glm::vec3 v) {
+	void SetWorldPosition(glm::vec3 v) {
 		if (parent) {
 			position += v - GetWorldPosition();
 			return;
