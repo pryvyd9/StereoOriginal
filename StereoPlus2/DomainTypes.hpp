@@ -17,16 +17,48 @@ enum ObjectType {
 	MeshT,
 };
 
+struct Pair {
+	glm::vec3 p1, p2;
+};
+
 class SceneObject {
+	glm::vec3 position;
 public:
 	SceneObject* parent;
 	std::vector<SceneObject*> children;
 
-	glm::vec3 position;
 	std::string Name = "noname";
+
 	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
 		return "SceneObject";
+	}
+
+	const glm::vec3& GetLocalPosition() {
+		return position;
+	}
+	const glm::vec3& GetWorldPosition() {
+		if (parent)
+			return GetLocalPosition() + parent->GetLocalPosition();
+		
+		return GetLocalPosition();
+	}
+
+	void SetRelativePosition(glm::vec3 v) {
+		position = v;
+	}
+	void SetAbsolutePosition(glm::vec3 v) {
+		if (parent) {
+			position += v - GetWorldPosition();
+			return;
+		}
+
+		position = v;
+	}
+
+	virtual const std::vector<Pair>& GetLines() {
+		static const std::vector<Pair> empty;
+		return empty;
 	}
 };
 
@@ -243,18 +275,18 @@ class Cross : public LeafObject
 
 	bool CreateLines()
 	{
-		lines[0].Start = position;
-		lines[0].End = position;
+		lines[0].Start = GetLocalPosition();
+		lines[0].End = GetLocalPosition();
 		lines[0].Start.x -= size;
 		lines[0].End.x += size;
 
-		lines[1].Start = position;
-		lines[1].End = position;
+		lines[1].Start = GetLocalPosition();
+		lines[1].End = GetLocalPosition();
 		lines[1].Start.y -= size;
 		lines[1].End.y += size;
 
-		lines[2].Start = position;
-		lines[2].End = position;
+		lines[2].Start = GetLocalPosition();
+		lines[2].End = GetLocalPosition();
 		lines[2].Start.z -= size;
 		lines[2].End.z += size;
 
@@ -302,7 +334,7 @@ public:
 class StereoCamera : public LeafObject
 {
 	glm::vec3 GetPos() {
-		return positionModifier + position;
+		return positionModifier + GetLocalPosition();
 	}
 
 public:

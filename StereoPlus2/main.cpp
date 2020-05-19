@@ -36,10 +36,11 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline, Posi
 
 	// Position detection
 	if (positionDetector.isPositionProcessingWorking)
-		scene.camera->position = glm::vec3(
-			positionDetector.positionHorizontal / 500.0, 
-			positionDetector.positionVertical / 500.0, 
-			-positionDetector.distance / 10.0);
+		scene.camera->SetRelativePosition(
+			glm::vec3(
+				positionDetector.positionHorizontal / 500.0,
+				positionDetector.positionVertical / 500.0,
+				-positionDetector.distance / 10.0));
 
 	renderPipeline.Pipeline(&d, sizeSum, scene);
 

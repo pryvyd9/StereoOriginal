@@ -235,7 +235,7 @@ public:
 
 	template<>
 	bool DesignProperties(Cross * obj) {
-		if (ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0)
+		if (ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0)
 			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
 		{
 			obj->Refresh();
@@ -246,7 +246,7 @@ public:
 	template<>
 	bool DesignProperties(StereoCamera* obj) {
 		ImGui::InputFloat3("positionModifier", (float*)& obj->positionModifier, "%f", 0);
-		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
+		ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0);
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
 		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
 		return true;

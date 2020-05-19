@@ -209,7 +209,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			points->push_back(cross->position);
+			points->push_back(cross->GetLocalPosition());
 			GetConfig<Mode::Immediate>()->additionalPointCreatedCount++;
 
 			return;
@@ -221,9 +221,9 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		
 		// If cross is located at distance less than Precision then don't create a new point
 		// but move the last one to cross position.
-		if (glm::length(cross->position - (*points)[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision)
+		if (glm::length(cross->GetLocalPosition() - (*points)[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision)
 		{
-			(*points)[pointsCount - 1] = points->back() = cross->position;
+			(*points)[pointsCount - 1] = points->back() = cross->GetLocalPosition();
 			return;
 		}
 
@@ -232,7 +232,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		// a new point - move the previous point to current cross position.
 		auto E = GetConfig<Mode::Immediate>()->E;
 
-		glm::vec3 r1 = cross->position - (*points)[pointsCount - 1];
+		glm::vec3 r1 = cross->GetLocalPosition() - (*points)[pointsCount - 1];
 		glm::vec3 r2 = (*points)[pointsCount - 3] - (*points)[pointsCount - 2];
 
 		auto p = glm::dot(r1, r2);
@@ -244,11 +244,11 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 				
 		if (abs(cos) > 1 - E || isnan(cos))
 		{
-			(*points)[pointsCount - 2] = points->back() = cross->position;
+			(*points)[pointsCount - 2] = points->back() = cross->GetLocalPosition();
 		}
 		else
 		{
-			points->push_back(cross->position);
+			points->push_back(cross->GetLocalPosition());
 		}
 
 		//std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
@@ -267,18 +267,18 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			points->push_back(cross->position);
+			points->push_back(cross->GetLocalPosition());
 			GetConfig<Mode::Step>()->isPointCreated = true;
 		}
 
 		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
 		{
-			points->push_back(cross->position);
+			points->push_back(cross->GetLocalPosition());
 
 			return;
 		}
 
-		points->back() = cross->position;
+		points->back() = cross->GetLocalPosition();
 	}
 
 	void ProcessInput(Input* input) {
@@ -473,14 +473,14 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 		auto meshPoints = mesh->GetVertices();
 		auto penPoints = &((StereoPolyLine*)pen)->Points;
-		auto transformVector = cross->position - startCrossPosition;
+		auto transformVector = cross->GetLocalPosition() - startCrossPosition;
 
 
 		if (GetConfig<Mode::Immediate>()->directingPoints.size() < 1)
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->position);
+			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->GetLocalPosition());
 
 			mesh->AddVertice((*penPoints)[0] + transformVector);
 
@@ -495,7 +495,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		{
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->position);
+			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->GetLocalPosition());
 
 			mesh->Connect(meshPoints->size() - penPoints->size(), meshPoints->size());
 			mesh->AddVertice((*penPoints)[0] + transformVector);
@@ -513,7 +513,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 		auto directingPoints = &GetConfig<Mode::Immediate>()->directingPoints;
 
-		glm::vec3 r1 = cross->position - (*directingPoints)[1];
+		glm::vec3 r1 = cross->GetLocalPosition() - (*directingPoints)[1];
 		glm::vec3 r2 = (*directingPoints)[0] - (*directingPoints)[1];
 
 
@@ -529,7 +529,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 				(*meshPoints)[meshPoints->size() - penPoints->size() + i] = (*penPoints)[i] + transformVector;
 			}
 		
-			(*directingPoints)[1] = cross->position;
+			(*directingPoints)[1] = cross->GetLocalPosition();
 		}
 		else
 		{
@@ -543,7 +543,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			}
 			
 			directingPoints->erase(directingPoints->begin());
-			directingPoints->push_back(cross->position);
+			directingPoints->push_back(cross->GetLocalPosition());
 		}
 		
 		//std::cout << "PointPen tool Immediate mode points count: " << meshPoints->size() << std::endl;
@@ -562,7 +562,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		auto meshPoints = mesh->GetVertices();
 		auto penPoints = &((StereoPolyLine*)pen)->Points;
 
-		auto transformVector = cross->position - startCrossPosition;
+		auto transformVector = cross->GetLocalPosition() - startCrossPosition;
 
 		if (!GetConfig<Mode::Step>()->isPointCreated)
 		{
@@ -744,7 +744,7 @@ public:
 
 		DeleteConfig();
 
-		startCrossPosition = cross->position;
+		startCrossPosition = cross->GetLocalPosition();
 		
 		return CreatingTool<LineMesh>::Create();
 	};
@@ -802,7 +802,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		if (type == StereoPolyLineT && mode == Mode::Translate) {
 			auto points = &static_cast<StereoPolyLine*>(target)->Points;
-			auto transformVector = cross->position - crossOldPos;
+			auto transformVector = cross->GetLocalPosition() - crossOldPos;
 
 			Translate(transformVector, points);
 
@@ -810,7 +810,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		}
 		if (type == MeshT && mode == Mode::Translate) {
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
-			auto transformVector = cross->position - crossOldPos;
+			auto transformVector = cross->GetLocalPosition() - crossOldPos;
 
 			Translate(transformVector, points);
 
@@ -822,7 +822,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 				return;
 
 			auto points = &static_cast<StereoPolyLine*>(target)->Points;
-			Scale(cross->position, scale, points);
+			Scale(cross->GetLocalPosition(), scale, points);
 
 			return;
 		}
@@ -832,7 +832,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 				return;
 
 			auto points = static_cast<LineMesh*>(target)->GetVertices();
-			Scale(cross->position, scale, points);
+			Scale(cross->GetLocalPosition(), scale, points);
 
 			return;
 		}
@@ -863,24 +863,24 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		switch (axe) {
 		case Axe::X:
 			for (size_t i = 0; i < points->size(); i++) {
-				auto relative = originalVertices[i] - cross->position;
-				(*points)[i].y = relative.y * cos(angle) - relative.z * sin(angle) + cross->position.y;
-				(*points)[i].z = relative.y * sin(angle) + relative.z * cos(angle) + cross->position.z;
+				auto relative = originalVertices[i] - cross->GetLocalPosition();
+				(*points)[i].y = relative.y * cos(angle) - relative.z * sin(angle) + cross->GetLocalPosition().y;
+				(*points)[i].z = relative.y * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z;
 
 			}
 			break;
 		case Axe::Y:
 			for (size_t i = 0; i < points->size(); i++) {
-				auto relative = originalVertices[i] - cross->position;
-				(*points)[i].x = relative.x * cos(angle) + relative.z * sin(angle) + cross->position.x;
-				(*points)[i].z = -relative.x * sin(angle) + relative.z * cos(angle) + cross->position.z;
+				auto relative = originalVertices[i] - cross->GetLocalPosition();
+				(*points)[i].x = relative.x * cos(angle) + relative.z * sin(angle) + cross->GetLocalPosition().x;
+				(*points)[i].z = -relative.x * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z;
 			}
 			break;
 		case Axe::Z:
 			for (size_t i = 0; i < points->size(); i++) {
-				auto relative = originalVertices[i] - cross->position;
-				(*points)[i].x = relative.x * cos(angle) - relative.y * sin(angle) + cross->position.x;
-				(*points)[i].y = relative.y * sin(angle) + relative.y * cos(angle) + cross->position.y;
+				auto relative = originalVertices[i] - cross->GetLocalPosition();
+				(*points)[i].x = relative.x * cos(angle) - relative.y * sin(angle) + cross->GetLocalPosition().x;
+				(*points)[i].y = relative.y * sin(angle) + relative.y * cos(angle) + cross->GetLocalPosition().y;
 			}
 			break;
 		default:
@@ -935,7 +935,7 @@ public:
 
 		target = objs[0];
 		
-		crossOldPos = cross->position;
+		crossOldPos = cross->GetLocalPosition();
 
 		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 

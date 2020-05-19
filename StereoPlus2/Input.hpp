@@ -321,10 +321,6 @@ public:
 				if (isAxeLocked)
 				{
 					int lockedAxeIndex = axes.x == 2 ? 0 : axes.y == 2 ? 1 : 2;
-
-					// Cross position.
-					float* destination = &c->position[lockedAxeIndex];
-
 					axes -= 1;
 
 					// Enable or disable Mouose boundless mode 
@@ -333,7 +329,8 @@ public:
 
 					auto m = i->MouseMoveDirection() * sp;
 
-					*destination += m.x;
+					// Cross position.
+					*const_cast<float*>(&c->GetLocalPosition()[lockedAxeIndex]) += m.x;
 
 					c->Refresh();
 
@@ -354,8 +351,9 @@ public:
 
 				auto m = i->MouseMoveDirection() * sp;
 
-				c->position[lockedPlane[0]] += m.x;
-				c->position[lockedPlane[1]] -= m.y;
+				auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
+				(*position)[lockedPlane[0]] += m.x;
+				(*position)[lockedPlane[1]] -= m.y;
 
 				c->Refresh();
 
@@ -372,8 +370,11 @@ public:
 				bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
 				auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
-				c->position.x += m.x;
-				c->position.y -= m.y;
+
+				auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
+				position->x += m.x;
+				position->y -= m.y;
+
 				c->Refresh();
 			}
 			});
@@ -392,8 +393,10 @@ public:
 
 				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				c->position.x += movement.x;
-				c->position.y -= movement.y;
+				auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
+				position->x += movement.x;
+				position->y -= movement.y;
+
 				c->Refresh();
 			}
 			});
@@ -411,7 +414,8 @@ public:
 
 				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				c->position += movement;
+				*const_cast<glm::vec3*>(&c->GetLocalPosition()) += movement;
+
 				c->Refresh();
 			}
 			});
