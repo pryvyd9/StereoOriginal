@@ -983,7 +983,7 @@ class ToolWindow : Window {
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
 		creatingTool.BindScene(scene);
-		creatingTool.BindDestination(scene->root);
+		creatingTool.BindDestination(&scene->root);
 		creatingTool.func = initFunc;
 	}
 

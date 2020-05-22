@@ -70,7 +70,7 @@ int main(int, char**)
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject = &scene.root;
+	inspectorWindow.rootObject = (GroupObject**)&scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
 	cameraPropertiesWindow.Object = &camera;

@@ -11,7 +11,7 @@ public:
 			return 1;
 		case StereoPolyLineT:
 		{
-			auto size = ((StereoPolyLine*)obj)->Points.size();
+			auto size = ((StereoPolyLine*)obj)->GetVertices().size();
 			return size > 0 ? size - 1 : 0;
 		}
 		case MeshT:
@@ -33,10 +33,10 @@ public:
 		{
 			auto polyLine = (StereoPolyLine*)obj;
 
-			for (size_t i = 0; i < polyLine->Points.size() - 1; i++)
+			for (size_t i = 0; i < polyLine->GetVertices().size() - 1; i++)
 			{
-				objs[i].Start = polyLine->Points[i];
-				objs[i].End = polyLine->Points[i + 1];
+				objs[i].Start = polyLine->GetVertices()[i];
+				objs[i].End = polyLine->GetVertices()[i + 1];
 			}
 			break;
 		}

@@ -59,9 +59,9 @@ public:
 			put(so.GetType());
 			put(o->Name.size());
 			put(o->Name);
-			put(o->Points.size());
+			put(o->GetVertices().size());
 
-			for (auto p : o->Points)
+			for (auto p : o->GetVertices())
 				put(p);
 
 			break;
@@ -170,7 +170,7 @@ public:
 			
 			auto pointCount = get<size_t>();
 			for (size_t i = 0; i < pointCount; i++)
-				o->Points.push_back(get<glm::vec3>());
+				o->AddVertice(get<glm::vec3>());
 
 			return o;
 		}
@@ -290,12 +290,12 @@ public:
 			put(o->Name);
 
 			buffer << ",\"points\":[";
-			if(o->Points.size() > 0)
-				put(o->Points[0]);
-			for (size_t i = 1; i < o->Points.size(); i++)
+			if(o->GetVertices().size() > 0)
+				put(o->GetVertices()[0]);
+			for (size_t i = 1; i < o->GetVertices().size(); i++)
 			{
 				buffer << ',';
-				put(o->Points[i]);
+				put(o->GetVertices()[i]);
 			}
 			buffer << ']';
 
@@ -481,7 +481,7 @@ public:
 			skipName();
 			if (!isArrayEmpty())
 				while (buffer.get() != ']')//[]
-					o->Points.push_back(get<glm::vec3>());
+					o->AddVertice(get<glm::vec3>());
 			skip();//}
 
 			return o;

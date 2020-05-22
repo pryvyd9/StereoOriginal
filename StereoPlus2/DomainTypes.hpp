@@ -34,10 +34,10 @@ public:
 		return "SceneObject";
 	}
 
-	const glm::vec3& GetLocalPosition() {
+	const glm::vec3& GetLocalPosition() const {
 		return position;
 	}
-	const glm::vec3& GetWorldPosition() {
+	const glm::vec3& GetWorldPosition() const {
 		if (parent)
 			return GetLocalPosition() + parent->GetLocalPosition();
 		
@@ -56,9 +56,40 @@ public:
 		position = v;
 	}
 
-	virtual const std::vector<Pair>& GetLines() {
+	virtual const std::vector<Pair>& GetLines() const {
 		static const std::vector<Pair> empty;
 		return empty;
+	}
+	virtual const std::vector<glm::vec3>& GetVertices() const {
+		static const std::vector<glm::vec3> empty;
+		return empty;
+	}
+
+	virtual void AddVertice(const glm::vec3& v) {
+		throw new std::exception("not implemented");
+	}
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
+		for (auto v : vs)
+			AddVertice(v);
+	}
+	virtual void SetVertice(size_t index, const glm::vec3& v) {
+		throw new std::exception("not implemented");
+	}
+	virtual void SetVerticeX(size_t index, const float& v) {
+		throw new std::exception("not implemented");
+	}
+	virtual void SetVerticeY(size_t index, const float& v) {
+		throw new std::exception("not implemented");
+	}
+	virtual void SetVerticeZ(size_t index, const float& v) {
+		throw new std::exception("not implemented");
+	}
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+		throw new std::exception("not implemented");
+	}
+
+	virtual void RemoveVertice() {
+		throw new std::exception("not implemented");
 	}
 };
 
@@ -97,18 +128,92 @@ struct StereoLine : LeafObject
 	}
 };
 
-struct StereoPolyLine : LeafObject {
-	std::vector<glm::vec3> Points;
+class StereoPolyLine : public LeafObject {
+	std::vector<Pair> linesCache;
+	std::vector<glm::vec3> points;
+
+public:
 
 	StereoPolyLine() {}
 
 	StereoPolyLine(StereoPolyLine& copy) {
-		for (auto p : copy.Points)
-			Points.push_back(p);
+		for (auto p : copy.points)
+			points.push_back(p);
 	}
 
 	virtual ObjectType GetType() const {
 		return StereoPolyLineT;
+	}
+
+	virtual const std::vector<Pair>& GetLines() const {
+		return linesCache;
+	}
+	virtual const std::vector<glm::vec3>& GetVertices() const {
+		return points;
+	}
+
+	virtual void AddVertice(const glm::vec3& v) {
+		points.push_back(v);
+		linesCache.push_back(Pair{ points[points.size() - 2], points[points.size() - 1] });
+	}
+	virtual void SetVertice(size_t index, const glm::vec3& v) {
+		points[index] = v;
+		
+		if (points.size() == index - 1)
+			linesCache[index].p2 = v;
+		else if (index == 0)
+			linesCache[index].p1 = v;
+		else {
+			linesCache[index - 1].p2 = v;
+			linesCache[index].p1 = v;
+		}
+	}
+	virtual void SetVerticeX(size_t index, const float& v) {
+		points[index].x = v;
+
+		if (points.size() == index - 1)
+			linesCache[index].p2.x = v;
+		else if (index == 0)
+			linesCache[index].p1.x = v;
+		else {
+			linesCache[index - 1].p2.x = v;
+			linesCache[index].p1.x = v;
+		}
+	}
+	virtual void SetVerticeY(size_t index, const float& v) {
+		points[index].y = v;
+
+		if (points.size() == index - 1)
+			linesCache[index].p2.y = v;
+		else if (index == 0)
+			linesCache[index].p1.y = v;
+		else {
+			linesCache[index - 1].p2.y = v;
+			linesCache[index].p1.y = v;
+		}
+	}
+	virtual void SetVerticeZ(size_t index, const float& v) {
+		points[index].z = v;
+
+		if (points.size() == index - 1)
+			linesCache[index].p2.z = v;
+		else if (index == 0)
+			linesCache[index].p1.z = v;
+		else {
+			linesCache[index - 1].p2.z = v;
+			linesCache[index].p1.z = v;
+		}
+	}
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+		points.clear();
+		linesCache.clear();
+		for (auto v : vs)
+			AddVertice(v);
+	}
+
+	virtual void RemoveVertice() {
+		linesCache.pop_back();
+		points.pop_back();
 	}
 };
 
@@ -480,7 +585,7 @@ public:
 
 	// Scene selected object buffer.
 	std::set<SceneObject*> selectedObjects;
-	GroupObject* root = &defaultObject;
+	SceneObject* root = &defaultObject;
 	StereoCamera* camera;
 	Cross* cross;
 
