@@ -75,7 +75,7 @@ class GUI {
 		}
 
 		if (shouldShowFPS)
-			ImGui::LabelText("fps", "FPS: %f", Time::GetDeltaTime());
+			ImGui::LabelText("", "DeltaTime: %f", Time::GetDeltaTime());
 
 		return true;
 	}

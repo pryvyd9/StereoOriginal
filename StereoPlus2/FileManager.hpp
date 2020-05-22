@@ -81,14 +81,14 @@ public:
 		}
 		case MeshT:
 		{
-			auto o = (LineMesh*)&so;
+			auto o = (Mesh*)&so;
 
 			put(so.GetType());
 			put(o->Name.size());
 			put(o->Name);
 
-			put(o->GetVertices()->size());
-			for (auto p : *o->GetVertices())
+			put(o->GetVertices().size());
+			for (auto p : o->GetVertices())
 				put(p);
 
 			put(o->GetLinearConnections().size());
@@ -189,7 +189,7 @@ public:
 		}
 		case MeshT:
 		{
-			auto o = new LineMesh();
+			auto o = new Mesh();
 			scene->Insert(o);
 
 			auto nameSize = get<size_t>();
@@ -321,7 +321,7 @@ public:
 		}
 		case MeshT:
 		{
-			auto o = (LineMesh*)&so;
+			auto o = (Mesh*)&so;
 
 			buffer << "\"type\":";
 			put(so.GetType());
@@ -330,11 +330,11 @@ public:
 			put(o->Name);
 
 			buffer << ",\"vertices\":[";
-			put((*o->GetVertices())[0]);
-			for (size_t i = 1; i < o->GetVertices()->size(); i++)
+			put(o->GetVertices()[0]);
+			for (size_t i = 1; i < o->GetVertices().size(); i++)
 			{
 				buffer << ',';
-				put((*o->GetVertices())[i]);
+				put(o->GetVertices()[i]);
 			}
 			buffer << ']';
 
@@ -508,7 +508,7 @@ public:
 		}
 		case MeshT:
 		{
-			auto o = new LineMesh();
+			auto o = new Mesh();
 			scene->Insert(o);
 
 			skipName();

@@ -16,7 +16,7 @@ public:
 		}
 		case MeshT:
 		{
-			auto size = ((LineMesh*)obj)->lines.size();
+			auto size = ((Mesh*)obj)->lines.size();
 			return size > 0 ? size : 0;
 		}
 		default:
@@ -41,12 +41,12 @@ public:
 			break;
 		}
 		case MeshT:
-			auto lineMesh = (LineMesh*)obj;
+			auto lineMesh = (Mesh*)obj;
 
 			for (size_t i = 0; i < lineMesh->lines.size(); i++)
 			{
-				objs[i].Start = (*lineMesh->GetVertices())[lineMesh->lines[i][0]];
-				objs[i].End = (*lineMesh->GetVertices())[lineMesh->lines[i][1]];
+				objs[i].Start = lineMesh->GetVertices()[lineMesh->lines[i][0]];
+				objs[i].End = lineMesh->GetVertices()[lineMesh->lines[i][1]];
 			}
 			break;
 		}

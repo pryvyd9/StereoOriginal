@@ -6,6 +6,44 @@
 #include "TemplateExtensions.hpp"
 #include <sstream>
 #include <string>
+#include <vector>
+#include <functional>
+
+template<typename T>
+int find(const std::vector<T>& source, const T& item) {
+	for (size_t i = 0; i < source.size(); i++)
+		if (source[i] == item)
+			return i;
+
+	return -1;
+}
+template<typename T>
+int find(const std::vector<T>& source, std::function<bool(const T&)> condition) {
+	for (size_t i = 0; i < source.size(); i++)
+		if (condition(source[i]))
+			return i;
+
+	return -1;
+}
+template<typename T>
+std::vector<int> findAll(const std::vector<T>& source, std::function<bool(const T&)> condition) {
+	std::vector<int> indices;
+	for (size_t i = 0; i < source.size(); i++)
+		if (condition(source[i]))
+			indices.push_back(i);
+
+	return indices;
+}
+template<typename T>
+std::vector<int> findAllBack(const std::vector<T>& source, std::function<bool(const T&)> condition) {
+	std::vector<int> indices;
+	for (size_t i = source.size(); i-- != 0; )
+		if (condition(source[i]))
+			indices.push_back(i);
+
+	return indices;
+}
+
 
 class Log {
 	template<typename T>

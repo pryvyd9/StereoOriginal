@@ -418,7 +418,7 @@ public:
 
 
 template<ObjectType type>
-class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, public CreatingTool<LineMesh> {
+class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, public CreatingTool<Mesh> {
 #pragma region Types
 	template<ObjectType type, Mode mode>
 	struct Config : EditingTool::Config {
@@ -475,7 +475,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			return;
 		}
 
-		auto meshPoints = mesh->GetVertices();
+		auto& meshPoints = mesh->GetVertices();
 		auto& penPoints = pen->GetVertices();
 		auto transformVector = cross->GetLocalPosition() - startCrossPosition;
 
@@ -501,12 +501,12 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			// so that we can perform some optimizations.
 			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->GetLocalPosition());
 
-			mesh->Connect(meshPoints->size() - penPoints.size(), meshPoints->size());
+			mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
 			mesh->AddVertice(penPoints[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->Connect(meshPoints->size() - penPoints.size(), meshPoints->size());
-				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
+				mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
+				mesh->Connect(meshPoints.size() - 1, meshPoints.size());
 				mesh->AddVertice(penPoints[i] + transformVector);
 			}
 
@@ -530,19 +530,20 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		if (abs(cos) > 1 - E || isnan(cos))
 		{
 			for (size_t i = 0; i < penPoints.size(); i++) {
-				(*meshPoints)[meshPoints->size() - penPoints.size() + i] = penPoints[i] + transformVector;
+				mesh->SetVertice(meshPoints.size() - penPoints.size() + i, penPoints[i] + transformVector);
+				//meshPoints[meshPoints->size() - penPoints.size() + i] = penPoints[i] + transformVector;
 			}
 		
 			(*directingPoints)[1] = cross->GetLocalPosition();
 		}
 		else
 		{
-			mesh->Connect(meshPoints->size() - penPoints.size(), meshPoints->size());
+			mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
 			mesh->AddVertice(penPoints[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->Connect(meshPoints->size() - penPoints.size(), meshPoints->size());
-				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
+				mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
+				mesh->Connect(meshPoints.size() - 1, meshPoints.size());
 				mesh->AddVertice(penPoints[i] + transformVector);
 			}
 			
@@ -563,7 +564,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			return;
 		}
 
-		auto meshPoints = mesh->GetVertices();
+		auto& meshPoints = mesh->GetVertices();
 		auto& penPoints = pen->GetVertices();
 
 		auto transformVector = cross->GetLocalPosition() - startCrossPosition;
@@ -584,20 +585,21 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
 		{
-			mesh->Connect(meshPoints->size() - penPoints.size(), meshPoints->size());
+			mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
 			mesh->AddVertice(penPoints[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->Connect(meshPoints->size() - penPoints.size(), meshPoints->size());
-				mesh->Connect(meshPoints->size() - 1, meshPoints->size());
+				mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
+				mesh->Connect(meshPoints.size() - 1, meshPoints.size());
 				mesh->AddVertice(penPoints[i] + transformVector);
 			}
 			return;
 		}
 
-		auto iter = ((std::vector<glm::vec3>*)meshPoints)->end() - penPoints.size();
-		for (size_t i = 0; i < penPoints.size(); i++, iter++)
-			*(iter._Ptr) = penPoints[i] + transformVector;
+		//auto iter = ((std::vector<glm::vec3>*)meshPoints)->end() - penPoints.size();
+		for (size_t i = 0; i < penPoints.size(); i++)
+			mesh->SetVertice(meshPoints.size() - penPoints.size() + i, penPoints[i] + transformVector);
+			//*(iter._Ptr) = penPoints[i] + transformVector;
 	}
 
 	void ProcessInput(Input* input) {
@@ -631,28 +633,28 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 		auto& penPoints = pen->GetVertices();
 
-		if (GetConfig<Mode::Step>()->isPointCreated && mesh->GetVertices()->size() > 0) {
-			if (mesh->GetVertices()->size() > penPoints.size())
+		if (GetConfig<Mode::Step>()->isPointCreated && mesh->GetVertices().size() > 0) {
+			if (mesh->GetVertices().size() > penPoints.size())
 			{
 				for (size_t i = 1; i < penPoints.size(); i++)
 				{
-					mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
-					mesh->Disconnect(mesh->GetVertices()->size() - penPoints.size(), mesh->GetVertices()->size());
-					mesh->Disconnect(mesh->GetVertices()->size() - 1, mesh->GetVertices()->size());
+					mesh->RemoveVertice();
+					mesh->Disconnect(mesh->GetVertices().size() - penPoints.size(), mesh->GetVertices().size());
+					mesh->Disconnect(mesh->GetVertices().size() - 1, mesh->GetVertices().size());
 				}
 
-				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
-				mesh->Disconnect(mesh->GetVertices()->size() - penPoints.size(), mesh->GetVertices()->size());
+				mesh->RemoveVertice();
+				mesh->Disconnect(mesh->GetVertices().size() - penPoints.size(), mesh->GetVertices().size());
 			}
 			else
 			{
 				for (size_t i = 1; i < penPoints.size(); i++)
 				{
-					mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
-					mesh->Disconnect(mesh->GetVertices()->size() - 1, mesh->GetVertices()->size());
+					mesh->RemoveVertice();
+					mesh->Disconnect(mesh->GetVertices().size() - 1, mesh->GetVertices().size());
 				}
 
-				mesh->RemoveVertice(mesh->GetVertices()->size() - 1);
+				mesh->RemoveVertice();
 			}
 		}
 
@@ -675,7 +677,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 public:
 
 	ExtrusionEditingTool() {
-		func = [mesh = &mesh](LineMesh* o) {
+		func = [mesh = &mesh](Mesh* o) {
 			std::stringstream ss;
 			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
 			o->Name = ss.str();
@@ -750,7 +752,7 @@ public:
 
 		startCrossPosition = cross->GetLocalPosition();
 		
-		return CreatingTool<LineMesh>::Create();
+		return CreatingTool<Mesh>::Create();
 	};
 };
 
@@ -929,7 +931,7 @@ public:
 		if (type == StereoPolyLineT) 
 			originalVertices = target->GetVertices();
 		if (type == MeshT)
-			originalVertices = *static_cast<LineMesh*>(target)->GetVertices();
+			originalVertices = target->GetVertices();
 
 		return true;
 	}
@@ -949,7 +951,7 @@ public:
 		if (type == StereoPolyLineT)
 			target->SetVertices(originalVertices);
 		if (type == MeshT)
-			*static_cast<LineMesh*>(target)->GetVertices() = originalVertices;
+			target->SetVertices(originalVertices);
 
 		UnbindSceneObjects();
 	}

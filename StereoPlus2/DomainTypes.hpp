@@ -130,15 +130,15 @@ struct StereoLine : LeafObject
 
 class StereoPolyLine : public LeafObject {
 	std::vector<Pair> linesCache;
-	std::vector<glm::vec3> points;
+	std::vector<glm::vec3> vertices;
 
 public:
 
 	StereoPolyLine() {}
 
 	StereoPolyLine(StereoPolyLine& copy) {
-		for (auto p : copy.points)
-			points.push_back(p);
+		for (auto p : copy.vertices)
+			vertices.push_back(p);
 	}
 
 	virtual ObjectType GetType() const {
@@ -149,17 +149,17 @@ public:
 		return linesCache;
 	}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
-		return points;
+		return vertices;
 	}
 
 	virtual void AddVertice(const glm::vec3& v) {
-		points.push_back(v);
-		linesCache.push_back(Pair{ points[points.size() - 2], points[points.size() - 1] });
+		vertices.push_back(v);
+		linesCache.push_back(Pair{ vertices[vertices.size() - 2], vertices[vertices.size() - 1] });
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
-		points[index] = v;
+		vertices[index] = v;
 		
-		if (points.size() == index - 1)
+		if (vertices.size() == index - 1)
 			linesCache[index].p2 = v;
 		else if (index == 0)
 			linesCache[index].p1 = v;
@@ -169,9 +169,9 @@ public:
 		}
 	}
 	virtual void SetVerticeX(size_t index, const float& v) {
-		points[index].x = v;
+		vertices[index].x = v;
 
-		if (points.size() == index - 1)
+		if (vertices.size() == index - 1)
 			linesCache[index].p2.x = v;
 		else if (index == 0)
 			linesCache[index].p1.x = v;
@@ -181,9 +181,9 @@ public:
 		}
 	}
 	virtual void SetVerticeY(size_t index, const float& v) {
-		points[index].y = v;
+		vertices[index].y = v;
 
-		if (points.size() == index - 1)
+		if (vertices.size() == index - 1)
 			linesCache[index].p2.y = v;
 		else if (index == 0)
 			linesCache[index].p1.y = v;
@@ -193,9 +193,9 @@ public:
 		}
 	}
 	virtual void SetVerticeZ(size_t index, const float& v) {
-		points[index].z = v;
+		vertices[index].z = v;
 
-		if (points.size() == index - 1)
+		if (vertices.size() == index - 1)
 			linesCache[index].p2.z = v;
 		else if (index == 0)
 			linesCache[index].p1.z = v;
@@ -205,7 +205,7 @@ public:
 		}
 	}
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
-		points.clear();
+		vertices.clear();
 		linesCache.clear();
 		for (auto v : vs)
 			AddVertice(v);
@@ -213,7 +213,7 @@ public:
 
 	virtual void RemoveVertice() {
 		linesCache.pop_back();
-		points.pop_back();
+		vertices.pop_back();
 	}
 };
 
@@ -231,6 +231,7 @@ struct Triangle
 struct Mesh : LeafObject {
 protected:
 	std::vector<glm::vec3> vertices;
+	std::vector<Pair> linesCache;
 public:
 	virtual ObjectType GetType() const {
 		return MeshT;
@@ -239,49 +240,110 @@ public:
 		return sizeof(glm::vec3) * vertices.size();
 	}
 
-
-	std::vector<glm::vec3>* GetVertices() {
-		return &vertices;
-	}
-
-	virtual void AddVertice(glm::vec3 v) {
-		vertices.push_back(v);
-	}
-	virtual void RemoveVertice(size_t i) {
-		vertices.erase(vertices.begin() + i);
-	}
-	virtual void ReplaceVertice(size_t i, glm::vec3 v) {
-		vertices[i] = v;
-	}
-
-	virtual void Connect(size_t p1, size_t p2) = 0;
-	virtual void Disconnect(size_t p1, size_t p2) = 0;
-};
-
-struct LineMesh : Mesh{
-	virtual ObjectType GetType() const {
-		return MeshT;
-	}
-
 	std::vector<std::array<size_t, 2>> lines;
+
 
 	virtual void Connect(size_t p1, size_t p2) {
 		lines.push_back({ p1, p2 });
+		linesCache.push_back(Pair{ vertices[p1], vertices[p2] });
 	}
 	virtual void Disconnect(size_t p1, size_t p2) {
-		auto pos = find(lines.begin(), lines.end(), std::array<size_t, 2>{ p1, p2 });
-		
-		if (pos == lines.end())
+		auto pos = find(lines, std::array<size_t, 2>{ p1, p2 });
+
+		if (pos == -1)
 			return;
 
-		lines.erase(pos);
+		lines.erase(lines.begin() + pos);
+		linesCache.erase(linesCache.begin() + pos);
 	}
 
 	const std::vector<std::array<size_t, 2>>& GetLinearConnections() {
 		return lines;
 	}
-};
 
+	virtual const std::vector<Pair>& GetLines() const {
+		return linesCache;
+	}
+	virtual const std::vector<glm::vec3>& GetVertices() const {
+		return vertices;
+	}
+	virtual void AddVertice(const glm::vec3& v) {
+		vertices.push_back(v);
+	}
+	virtual void SetVertice(size_t index, const glm::vec3& v) {
+		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
+		auto pos = findAll(lines, f);
+
+		for (auto p : pos) {
+			if (linesCache[p].p1 == vertices[index])
+				linesCache[p].p1 = v;
+			if (linesCache[p].p2 == vertices[index])
+				linesCache[p].p2 = v;
+		}
+
+		vertices[index] = v;
+	}
+	virtual void SetVerticeX(size_t index, const float& v) {
+		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
+		auto pos = findAll(lines, f);
+
+		for (auto p : pos) {
+			if (linesCache[p].p1 == vertices[index])
+				linesCache[p].p1.x = v;
+			if (linesCache[p].p2 == vertices[index])
+				linesCache[p].p2.x = v;
+		}
+
+		vertices[index].x = v;
+	}
+	virtual void SetVerticeY(size_t index, const float& v) {
+		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
+		auto pos = findAll(lines, f);
+
+		for (auto p : pos) {
+			if (linesCache[p].p1 == vertices[index])
+				linesCache[p].p1.y = v;
+			if (linesCache[p].p2 == vertices[index])
+				linesCache[p].p2.y = v;
+		}
+
+		vertices[index].y = v;
+	}
+	virtual void SetVerticeZ(size_t index, const float& v) {
+		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
+		auto pos = findAll(lines, f);
+
+		for (auto p : pos) {
+			if (linesCache[p].p1 == vertices[index])
+				linesCache[p].p1.z = v;
+			if (linesCache[p].p2 == vertices[index])
+				linesCache[p].p2.z = v;
+		}
+
+		vertices[index].z = v;
+	}
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+		vertices.clear();
+		lines.clear();
+		linesCache.clear();
+		for (auto v : vs)
+			AddVertice(v);
+	}
+
+	virtual void RemoveVertice() {
+		auto index = vertices.size() - 1;
+		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
+		auto pos = findAllBack(lines, f);
+		
+		for (auto p : pos) {
+			linesCache.erase(linesCache.begin() + p);
+			lines.erase(lines.begin() + p);
+		}
+
+		vertices.pop_back();
+	}
+
+};
 
 
 // Created for the sole purpose of crutching the broken 
@@ -568,14 +630,6 @@ public:
 private:
 	GroupObject defaultObject;
 
-	template<typename T>
-	static int find(const std::vector<T>& source, T item) {
-		for (size_t i = 0; i < source.size(); i++)
-			if (source[i] == item)
-				return i;
-
-		return -1;
-	}
 
 public:
 	
@@ -662,7 +716,7 @@ public:
 			destinationPos++;
 		}
 
-		auto sourcePositionInt = Scene::find(*source, item);
+		auto sourcePositionInt = find(*source, item);
 		if (source == dest && destinationPos < (int)sourcePositionInt)
 		{
 			dest->erase(sourcePosition);
