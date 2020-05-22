@@ -138,6 +138,38 @@ class Renderer {
 		glBindVertexArray(VAORight);
 		glDrawArrays(GL_LINES, 0, 2);
 	}
+	void DrawLineLeft(const Pair& line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(ShaderLeft);
+
+		glBindVertexArray(VAOLeft);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+	void DrawLineRight(const Pair& line)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+		// Apply shader
+		glUseProgram(ShaderRight);
+
+		glBindVertexArray(VAORight);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
 
 
 	void DrawLine(Line line)
@@ -227,6 +259,22 @@ class Renderer {
 
 	}
 
+	void DrawObject(StereoCamera* camera, SceneObject* o) {
+		for (auto l : o->GetLines()) {
+			// Lines have to be rendered left - right - left - right...
+			// This is due to the bug of messing shaders.
+			glStencilMask(0x1);
+			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineLeft(camera->GetLeft(l));
+
+			glStencilMask(0x2);
+			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineRight(camera->GetRight(l));
+		}
+	}
+
 	// Determines which parts of line is white.
 	// Finds left and right limits of white in x
 	// or top and bottom limits of white in y.
@@ -288,6 +336,7 @@ public:
 	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 1);
 
 	WhiteSquare whiteSquare;
+
 
 	void Pipeline(StereoLine ** lines, size_t lineCount, Scene & config)
 	{
@@ -371,6 +420,80 @@ public:
 		glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
 	}
+
+	void Pipeline(const Scene& scene)
+	{
+		glDisable(GL_DEPTH_TEST);
+		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
+
+		// This is required before clearing Stencil buffer.
+		// Don't know why though.
+		// ~ is bitwise negation 
+		glStencilMask(~0);
+
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glLineWidth(LineThickness);
+
+		glEnable(GL_STENCIL_TEST);
+
+		// Anti aliasing
+		{
+			//glEnable(GL_LINE_SMOOTH);
+			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			//glEnable(GL_BLEND);
+			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+		}
+
+
+		// Crutch
+		{
+			glStencilMask(0x2);
+			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineRight(Pair());
+		}
+
+		for (auto o : scene.objects)
+			DrawObject(scene.camera, o);
+
+		DrawObject(scene.camera, scene.cross);
+
+		// Crutch
+		{
+			glStencilMask(0x1);
+			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineLeft(Pair());
+		}
+
+		// Crutch to overcome bug with messing fragment shaders and vertices up.
+		// Presumably fragment and vertex are messed up.
+		{
+			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+			glStencilMask(0x00);
+			DrawLine(zeroLine.line);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		}
+
+		glStencilMask(0x00);
+		glStencilFunc(GL_EQUAL, 0x1 | 0x2, 0xFF);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+		// Crutch to overcome bug with messing fragment shaders and vertices up.
+		// Presumably fragment and vertex are messed up.
+		{
+			DrawSquare(whiteSquare);
+		}
+
+		DrawSquare(whiteSquare);
+
+		// Anti aliasing
+		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
+
+		glDisable(GL_STENCIL_TEST);
+		glEnable(GL_DEPTH_TEST);
+	}
+
 
 	bool Init()
 	{

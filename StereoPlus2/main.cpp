@@ -12,28 +12,7 @@
 #include "PositionDetection.hpp"
 using namespace std;
 
-bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
-	std::vector<size_t> sizes(scene.objects.size());
-	size_t sizeSum = 0;
-	for (size_t i = 0; i < scene.objects.size(); i++)
-		sizeSum += sizes[i] = LineConverter::GetLineCount(scene.objects[i]);
-
-	// We will put cross' lines there too.
-	sizeSum += cross.lineCount;
-
-	std::vector<StereoLine> convertedObjects(sizeSum);
-	size_t k = 0;
-
-	for (size_t i = 0; i < scene.objects.size(); k += sizes[i++])
-		if (sizes[i] > 0)
-			LineConverter::Convert(scene.objects[i], &convertedObjects[k]);
-
-	// Put cross' lines
-	for (size_t i = 0; i < cross.lineCount; i++, k++)
-		convertedObjects[k] = cross.lines[i];
-
-	auto d = convertedObjects.data();
-
+bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
 	// Position detection
 	if (positionDetector.isPositionProcessingWorking)
 		scene.camera->SetLocalPosition(
@@ -42,7 +21,7 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline, Posi
 				positionDetector.positionVertical / 500.0,
 				-positionDetector.distance / 10.0));
 
-	renderPipeline.Pipeline(&d, sizeSum, scene);
+	renderPipeline.Pipeline(scene);
 	
 	//Log::For<void>().Information(Time::GetDeltaTime());
 
@@ -95,6 +74,7 @@ int main(int, char**)
 	scene.whiteZPrecision = 0.1;
 	scene.glWindow = gui.glWindow;
 	scene.camera->viewSize = &customRenderWindow.renderSize;
+	scene.cross = &cross;
 
 	gui.scene = &scene;
 
@@ -118,13 +98,13 @@ int main(int, char**)
 		positionDetector.Init();
 	};
 
-	customRenderWindow.customRenderFunc = [&cross, &scene, &renderPipeline, shouldUsePositionDetection = &gui.shouldUsePositionDetection, &positionDetector]{
+	customRenderWindow.customRenderFunc = [&scene, &renderPipeline, shouldUsePositionDetection = &gui.shouldUsePositionDetection, &positionDetector]{
 		if (*shouldUsePositionDetection && !positionDetector.isPositionProcessingWorking)
 			positionDetector.StartPositionDetection();
 		else if (!*shouldUsePositionDetection && positionDetector.isPositionProcessingWorking)
 			positionDetector.StopPositionDetection();
 
-		return CustomRenderFunc(cross, scene, renderPipeline, positionDetector);
+		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
 	if (!gui.MainLoop() |

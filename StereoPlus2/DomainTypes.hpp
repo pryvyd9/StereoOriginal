@@ -154,20 +154,25 @@ public:
 
 	virtual void AddVertice(const glm::vec3& v) {
 		vertices.push_back(v);
+		
+		if (vertices.size() < 2)
+			return;
+
 		linesCache.push_back(Pair{ vertices[vertices.size() - 2], vertices[vertices.size() - 1] });
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
 		vertices[index] = v;
-		
-		if (vertices.size() == index - 1)
-			linesCache[index].p2 = v;
+
+		if (vertices.size() - 1 == index)
+			linesCache.back().p2 = v;
 		else if (index == 0)
-			linesCache[index].p1 = v;
+			linesCache.front().p1 = v;
 		else {
 			linesCache[index - 1].p2 = v;
 			linesCache[index].p1 = v;
 		}
 	}
+
 	virtual void SetVerticeX(size_t index, const float& v) {
 		vertices[index].x = v;
 
@@ -322,13 +327,14 @@ public:
 
 		vertices[index].z = v;
 	}
-	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
-		vertices.clear();
-		lines.clear();
+	virtual void SetVertices(const std::vector<glm::vec3>& vs, const std::vector<std::array<size_t, 2>>& connections) {
+		vertices = vs;
+		lines = connections;
 		linesCache.clear();
-		for (auto v : vs)
-			AddVertice(v);
+		for (size_t i = 0; i < connections.size(); i++)
+			linesCache.push_back(Pair{ vs[connections[i][0]], vs[connections[i][1]] });
 	}
+
 
 	virtual void RemoveVertice() {
 		auto index = vertices.size() - 1;
@@ -436,63 +442,42 @@ public:
 	}
 };
 
-class Cross : public LeafObject
-{
+class Cross : public LeafObject {
 	bool isCreated = false;
+	std::vector<Pair> linesCache;
 
-	bool CreateLines()
-	{
-		lines[0].Start = GetLocalPosition();
-		lines[0].End = GetLocalPosition();
-		lines[0].Start.x -= size;
-		lines[0].End.x += size;
+	bool CreateLines() {
+		linesCache = std::vector<Pair>(3, Pair{ GetLocalPosition() , GetLocalPosition() });
+		
+		linesCache[0].p1.x -= size;
+		linesCache[0].p2.x += size;
 
-		lines[1].Start = GetLocalPosition();
-		lines[1].End = GetLocalPosition();
-		lines[1].Start.y -= size;
-		lines[1].End.y += size;
+		linesCache[1].p1.y -= size;
+		linesCache[1].p2.y += size;
 
-		lines[2].Start = GetLocalPosition();
-		lines[2].End = GetLocalPosition();
-		lines[2].Start.z -= size;
-		lines[2].End.z += size;
+		linesCache[2].p1.z -= size;
+		linesCache[2].p2.z += size;
 
 		return true;
 	}
-
-
-	bool RefreshLines()
-	{
-		return CreateLines();
-	}
-
 public:
-	StereoLine* lines;
 	const uint_fast8_t lineCount = 3;
 
 	float size = 0.1;
 
-	bool Refresh()
-	{
-		if (!isCreated)
-		{
+	bool Refresh() {
+		if (!isCreated) {
 			isCreated = true;
 			return CreateLines();
 		}
-
-		return RefreshLines();
-	}
-
-
-	bool Init()
-	{
-		lines = new StereoLine[lineCount];
-
+		
 		return CreateLines();
 	}
-
-	~Cross() {
-		delete[] lines;
+	bool Init() {
+		return CreateLines();
+	}
+	virtual const std::vector<Pair>& GetLines() const {
+		return linesCache;
 	}
 };
 
@@ -524,7 +509,7 @@ public:
 		);
 	}
 
-	glm::vec3 GetLeft(glm::vec3 pos) {
+	glm::vec3 GetLeft(const glm::vec3& pos) {
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
@@ -534,7 +519,7 @@ public:
 		);
 	}
 
-	glm::vec3 GetRight(glm::vec3 pos) {
+	glm::vec3 GetRight(const glm::vec3& pos) {
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
@@ -560,6 +545,25 @@ public:
 
 		line.Start = PreserveAspectRatio(GetRight(stereoLine->Start));
 		line.End = PreserveAspectRatio(GetRight(stereoLine->End));
+
+		return line;
+	}
+	Pair GetLeft(const Pair& stereoLine)
+	{
+		Pair line;
+
+		line.p1 = PreserveAspectRatio(GetLeft(stereoLine.p1));
+		line.p2 = PreserveAspectRatio(GetLeft(stereoLine.p2));
+
+		return line;
+	}
+
+	Pair GetRight(const Pair& stereoLine)
+	{
+		Pair line;
+
+		line.p1 = PreserveAspectRatio(GetRight(stereoLine.p1));
+		line.p2 = PreserveAspectRatio(GetRight(stereoLine.p2));
 
 		return line;
 	}

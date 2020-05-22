@@ -489,8 +489,8 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			mesh->AddVertice(penPoints[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->Connect(i - 1, i);
 				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->Connect(i - 1, i);
 			}
 
 			return;
@@ -501,13 +501,15 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			// so that we can perform some optimizations.
 			GetConfig<Mode::Immediate>()->directingPoints.push_back(cross->GetLocalPosition());
 
-			mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
+			auto meshPointsSize = meshPoints.size();
 			mesh->AddVertice(penPoints[0] + transformVector);
+			mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
-				mesh->Connect(meshPoints.size() - 1, meshPoints.size());
+				meshPointsSize = meshPoints.size();
 				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
+				mesh->Connect(meshPointsSize - 1, meshPointsSize);
 			}
 
 			return;
@@ -531,20 +533,21 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		{
 			for (size_t i = 0; i < penPoints.size(); i++) {
 				mesh->SetVertice(meshPoints.size() - penPoints.size() + i, penPoints[i] + transformVector);
-				//meshPoints[meshPoints->size() - penPoints.size() + i] = penPoints[i] + transformVector;
 			}
 		
 			(*directingPoints)[1] = cross->GetLocalPosition();
 		}
 		else
 		{
-			mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
+			auto meshPointsSize = meshPoints.size();
 			mesh->AddVertice(penPoints[0] + transformVector);
+			mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->Connect(meshPoints.size() - penPoints.size(), meshPoints.size());
-				mesh->Connect(meshPoints.size() - 1, meshPoints.size());
+				meshPointsSize = meshPoints.size();
 				mesh->AddVertice(penPoints[i] + transformVector);
+				mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
+				mesh->Connect(meshPointsSize - 1, meshPointsSize);
 			}
 			
 			directingPoints->erase(directingPoints->begin());
@@ -782,6 +785,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	SceneObject* target = nullptr;
 	glm::vec3 crossOldPos;
 	std::vector<glm::vec3> originalVertices;
+	std::vector<std::array<size_t, 2>> originalLines;
 
 	template<ObjectType type, Mode mode>
 	Config<type, mode>* GetConfig() {
@@ -930,8 +934,10 @@ public:
 
 		if (type == StereoPolyLineT) 
 			originalVertices = target->GetVertices();
-		if (type == MeshT)
+		if (type == MeshT) {
 			originalVertices = target->GetVertices();
+			originalLines = static_cast<Mesh*>(target)->lines;
+		}
 
 		return true;
 	}
@@ -951,7 +957,7 @@ public:
 		if (type == StereoPolyLineT)
 			target->SetVertices(originalVertices);
 		if (type == MeshT)
-			target->SetVertices(originalVertices);
+			static_cast<Mesh*>(target)->SetVertices(originalVertices, originalLines);
 
 		UnbindSceneObjects();
 	}
