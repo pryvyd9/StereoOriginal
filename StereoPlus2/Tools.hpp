@@ -767,7 +767,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		float scaleMinMagnitude = 1e-4;
 	};
 
-	float crossMinMovement = 1e-4;
+	float crossMinMovement = 1e-6;
 
 	size_t handlerId;
 	Mode mode;
@@ -777,6 +777,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
 	glm::vec3 crossOldPos;
+
+	// Updated passed crossMinMovement
+	glm::vec3 crossOldPosShort;
 	std::vector<glm::vec3> originalVertices;
 	std::vector<std::array<size_t, 2>> originalLines;
 
@@ -788,7 +791,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		return (Config<type, mode>*) config;
 	}
 
-	void ProcessInput(ObjectType type, Mode mode, Input* input) {
+	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
 
 		if (target == nullptr)
 			return;
@@ -800,16 +803,15 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			UnbindSceneObjects();
 			return;
 		}
-		if (glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
-			return;
-
-
-
-		//auto t1 = std::chrono::steady_clock::now();
 
 		switch (mode) {
 		case Mode::Translate:
+			if (glm::length(cross->GetLocalPosition() - crossOldPosShort) < crossMinMovement)
+				return;
+			
 			Translate(cross->GetLocalPosition() - crossOldPos, target);
+			
+			crossOldPosShort = cross->GetLocalPosition();
 			return;
 		case Mode::Scale:
 			switch (type) {
@@ -838,9 +840,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			return;
 		}
 
-
-		crossOldPos = cross->GetLocalPosition();
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
+
 	}
 	void Scale(glm::vec3 center, float scale, SceneObject* target) {
 		for (size_t i = 0; i < target->GetVertices().size(); i++)
@@ -925,7 +926,7 @@ public:
 
 		target = objs[0];
 		
-		crossOldPos = cross->GetLocalPosition();
+		crossOldPosShort = crossOldPos = cross->GetLocalPosition();
 
 		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 
@@ -933,7 +934,7 @@ public:
 			originalVertices = target->GetVertices();
 		if (type == MeshT) {
 			originalVertices = target->GetVertices();
-			originalLines = static_cast<Mesh*>(target)->lines;
+			originalLines = static_cast<Mesh*>(target)->GetLinearConnections();
 		}
 
 		return true;

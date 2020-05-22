@@ -56,7 +56,7 @@ public:
 		position = v;
 	}
 
-	virtual const std::vector<Pair>& GetLines() const {
+	virtual const std::vector<Pair>& GetLines() {
 		static const std::vector<Pair> empty;
 		return empty;
 	}
@@ -129,96 +129,81 @@ struct StereoLine : LeafObject
 };
 
 class StereoPolyLine : public LeafObject {
+	bool shouldUpdateCache;
+
 	std::vector<Pair> linesCache;
 	std::vector<glm::vec3> vertices;
+
+	void UpdateCache() {
+		if (vertices.size() < 2) {
+			linesCache.clear();
+			return;
+		}
+
+		linesCache = std::vector<Pair>(vertices.size() - 1);
+
+		for (size_t i = 0; i < vertices.size() - 1; i++) {
+			linesCache[i].p1 = vertices[i];
+			linesCache[i].p2 = vertices[i + 1];
+		}
+
+		shouldUpdateCache = false;
+	}
 
 public:
 
 	StereoPolyLine() {}
 
 	StereoPolyLine(StereoPolyLine& copy) {
-		for (auto p : copy.vertices)
-			vertices.push_back(p);
+		SetVertices(copy.GetVertices());
 	}
 
 	virtual ObjectType GetType() const {
 		return StereoPolyLineT;
 	}
 
-	virtual const std::vector<Pair>& GetLines() const {
+	virtual const std::vector<Pair>& GetLines() {
 		return linesCache;
 	}
-	virtual const std::vector<glm::vec3>& GetVertices() const {
+	virtual const std::vector<glm::vec3>& GetVertices() {
+		if (shouldUpdateCache)
+			UpdateCache();
+
 		return vertices;
 	}
 
 	virtual void AddVertice(const glm::vec3& v) {
 		vertices.push_back(v);
-		
-		if (vertices.size() < 2)
-			return;
-
-		linesCache.push_back(Pair{ vertices[vertices.size() - 2], vertices[vertices.size() - 1] });
+		shouldUpdateCache = true;
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
 		vertices[index] = v;
-
-		if (vertices.size() - 1 == index)
-			linesCache.back().p2 = v;
-		else if (index == 0)
-			linesCache.front().p1 = v;
-		else {
-			linesCache[index - 1].p2 = v;
-			linesCache[index].p1 = v;
-		}
+		shouldUpdateCache = true;
 	}
-
 	virtual void SetVerticeX(size_t index, const float& v) {
 		vertices[index].x = v;
-
-		if (vertices.size() == index - 1)
-			linesCache[index].p2.x = v;
-		else if (index == 0)
-			linesCache[index].p1.x = v;
-		else {
-			linesCache[index - 1].p2.x = v;
-			linesCache[index].p1.x = v;
-		}
+		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeY(size_t index, const float& v) {
 		vertices[index].y = v;
-
-		if (vertices.size() == index - 1)
-			linesCache[index].p2.y = v;
-		else if (index == 0)
-			linesCache[index].p1.y = v;
-		else {
-			linesCache[index - 1].p2.y = v;
-			linesCache[index].p1.y = v;
-		}
+		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeZ(size_t index, const float& v) {
 		vertices[index].z = v;
-
-		if (vertices.size() == index - 1)
-			linesCache[index].p2.z = v;
-		else if (index == 0)
-			linesCache[index].p1.z = v;
-		else {
-			linesCache[index - 1].p2.z = v;
-			linesCache[index].p1.z = v;
-		}
+		shouldUpdateCache = true;
 	}
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
 		vertices.clear();
 		linesCache.clear();
 		for (auto v : vs)
 			AddVertice(v);
+		shouldUpdateCache = true;
 	}
 
 	virtual void RemoveVertice() {
 		linesCache.pop_back();
 		vertices.pop_back();
+		shouldUpdateCache = true;
 	}
 };
 
@@ -234,9 +219,29 @@ struct Triangle
 };
 
 struct Mesh : LeafObject {
-protected:
+private:
+	bool shouldUpdateCache;
 	std::vector<glm::vec3> vertices;
 	std::vector<Pair> linesCache;
+	std::vector<std::array<size_t, 2>> lines;
+
+
+	void UpdateCache() {
+		if (lines.size() < 1) {
+			linesCache.clear();
+			return;
+		}
+
+		linesCache = std::vector<Pair>(lines.size());
+
+		for (size_t i = 0; i < lines.size(); i++) {
+			linesCache[i].p1 = vertices[lines[i][0]];
+			linesCache[i].p2 = vertices[lines[i][1]];
+		}
+
+		shouldUpdateCache = false;
+	}
+
 public:
 	virtual ObjectType GetType() const {
 		return MeshT;
@@ -245,12 +250,10 @@ public:
 		return sizeof(glm::vec3) * vertices.size();
 	}
 
-	std::vector<std::array<size_t, 2>> lines;
-
-
 	virtual void Connect(size_t p1, size_t p2) {
 		lines.push_back({ p1, p2 });
 		linesCache.push_back(Pair{ vertices[p1], vertices[p2] });
+		shouldUpdateCache = true;
 	}
 	virtual void Disconnect(size_t p1, size_t p2) {
 		auto pos = find(lines, std::array<size_t, 2>{ p1, p2 });
@@ -260,13 +263,17 @@ public:
 
 		lines.erase(lines.begin() + pos);
 		linesCache.erase(linesCache.begin() + pos);
+		shouldUpdateCache = true;
 	}
 
 	const std::vector<std::array<size_t, 2>>& GetLinearConnections() {
 		return lines;
 	}
 
-	virtual const std::vector<Pair>& GetLines() const {
+	virtual const std::vector<Pair>& GetLines() {
+		if (shouldUpdateCache)
+			UpdateCache();
+
 		return linesCache;
 	}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
@@ -274,81 +281,33 @@ public:
 	}
 	virtual void AddVertice(const glm::vec3& v) {
 		vertices.push_back(v);
+		shouldUpdateCache = true;
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
-		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
-		auto pos = findAll(lines, f);
-
-		for (auto p : pos) {
-			if (linesCache[p].p1 == vertices[index])
-				linesCache[p].p1 = v;
-			if (linesCache[p].p2 == vertices[index])
-				linesCache[p].p2 = v;
-		}
-
 		vertices[index] = v;
+		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeX(size_t index, const float& v) {
-		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
-		auto pos = findAll(lines, f);
-
-		for (auto p : pos) {
-			if (linesCache[p].p1 == vertices[index])
-				linesCache[p].p1.x = v;
-			if (linesCache[p].p2 == vertices[index])
-				linesCache[p].p2.x = v;
-		}
-
 		vertices[index].x = v;
+		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeY(size_t index, const float& v) {
-		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
-		auto pos = findAll(lines, f);
-
-		for (auto p : pos) {
-			if (linesCache[p].p1 == vertices[index])
-				linesCache[p].p1.y = v;
-			if (linesCache[p].p2 == vertices[index])
-				linesCache[p].p2.y = v;
-		}
-
 		vertices[index].y = v;
+		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeZ(size_t index, const float& v) {
-		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
-		auto pos = findAll(lines, f);
-
-		for (auto p : pos) {
-			if (linesCache[p].p1 == vertices[index])
-				linesCache[p].p1.z = v;
-			if (linesCache[p].p2 == vertices[index])
-				linesCache[p].p2.z = v;
-		}
-
 		vertices[index].z = v;
+		shouldUpdateCache = true;
 	}
 	virtual void SetVertices(const std::vector<glm::vec3>& vs, const std::vector<std::array<size_t, 2>>& connections) {
 		vertices = vs;
 		lines = connections;
-		linesCache.clear();
-		for (size_t i = 0; i < connections.size(); i++)
-			linesCache.push_back(Pair{ vs[connections[i][0]], vs[connections[i][1]] });
+		shouldUpdateCache = true;
 	}
-
-
 	virtual void RemoveVertice() {
-		auto index = vertices.size() - 1;
-		std::function f = [&index](const std::array<size_t, 2>& a) { return a[0] == index || a[1] == index; };
-		auto pos = findAllBack(lines, f);
-		
-		for (auto p : pos) {
-			linesCache.erase(linesCache.begin() + p);
-			lines.erase(lines.begin() + p);
-		}
-
 		vertices.pop_back();
+		shouldUpdateCache = true;
 	}
-
 };
 
 
@@ -476,7 +435,7 @@ public:
 	bool Init() {
 		return CreateLines();
 	}
-	virtual const std::vector<Pair>& GetLines() const {
+	virtual const std::vector<Pair>& GetLines() {
 		return linesCache;
 	}
 };

@@ -116,9 +116,6 @@
     <ClInclude Include="Input.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Converters.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ToolPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

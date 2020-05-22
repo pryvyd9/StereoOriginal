@@ -1,6 +1,5 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
-#include "Converters.hpp"
 #include "ToolPool.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"

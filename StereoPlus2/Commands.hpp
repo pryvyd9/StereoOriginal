@@ -21,8 +21,7 @@ public:
 	static bool ExecuteAll() {
 		std::list<Command*> deleteQueue;
 		for (auto command : GetQueue())
-			if (command->isReady)
-			{
+			if (command->isReady) {
 				if (!command->Execute())
 					return false;
 
@@ -109,20 +108,6 @@ public:
 
 	std::function<void()> func;
 };
-
-//class CloseWindowCommand : Command {
-//public:
-//	GUI
-//};
-
-
-//enum MoveCommandPosition
-//{
-//	Top = 0x01,
-//	Bottom = 0x10,
-//	Center = 0x100,
-//	Any = Top | Bottom | Center,
-//};
 
 class MoveCommand : Command {
 protected:

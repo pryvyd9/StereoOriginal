@@ -337,90 +337,6 @@ public:
 
 	WhiteSquare whiteSquare;
 
-
-	void Pipeline(StereoLine ** lines, size_t lineCount, Scene & config)
-	{
-		glDisable(GL_DEPTH_TEST);
-		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
-
-		// This is required before clearing Stencil buffer.
-		// Don't know why though.
-		// ~ is bitwise negation 
-		glStencilMask(~0);
-
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		glLineWidth(LineThickness);
-
-		glEnable(GL_STENCIL_TEST);
-
-		// Anti aliasing
-		{
-			//glEnable(GL_LINE_SMOOTH);
-			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			//glEnable(GL_BLEND);
-			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-		}
-
-
-		// Crutch
-		{
-			glStencilMask(0x2);
-			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
-			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineRight(config.camera->GetRight(&(*lines)[0]));
-		}
-
-		for (size_t i = 0; i < lineCount; i++)
-		{
-			// Lines have to be rendered left - right - left - right...
-			// This is due to the bug of messing shaders.
-			glStencilMask(0x1);
-			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
-			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineLeft(config.camera->GetLeft(&(*lines)[i]));
-
-			glStencilMask(0x2);
-			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
-			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineRight(config.camera->GetRight(&(*lines)[i]));
-		}
-		
-		// Crutch
-		{
-			glStencilMask(0x1);
-			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
-			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineLeft(config.camera->GetLeft(&(*lines)[lineCount - 1]));
-		}
-
-		// Crutch to overcome bug with messing fragment shaders and vertices up.
-		// Presumably fragment and vertex are messed up.
-		{
-			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-			glStencilMask(0x00);
-			DrawLine(zeroLine.line);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		}
-
-		glStencilMask(0x00);
-		glStencilFunc(GL_EQUAL, 0x1 | 0x2, 0xFF);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-		// Crutch to overcome bug with messing fragment shaders and vertices up.
-		// Presumably fragment and vertex are messed up.
-		{
-			DrawSquare(whiteSquare);
-		}
-
-		DrawSquare(whiteSquare);
-
-		// Anti aliasing
-		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
-
-		glDisable(GL_STENCIL_TEST);
-		glEnable(GL_DEPTH_TEST);
-	}
-
 	void Pipeline(const Scene& scene)
 	{
 		glDisable(GL_DEPTH_TEST);
@@ -469,10 +385,10 @@ public:
 		// Crutch to overcome bug with messing fragment shaders and vertices up.
 		// Presumably fragment and vertex are messed up.
 		{
-			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+			/*glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 			glStencilMask(0x00);
 			DrawLine(zeroLine.line);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);*/
 		}
 
 		glStencilMask(0x00);
