@@ -400,15 +400,6 @@ public:
 
 	void SetMode(Mode mode) {
 		DeleteConfig();
-		//switch (mode)
-		//{
-		//case Mode::Immediate:
-		//	//GetConfig<Mode::Immediate>()->additionalPointCreatedCount = false;
-		//	break;
-		//default:
-		//	break;
-		//}
-		//UnbindSceneObjects();
 		this->mode = mode;
 	}
 };
@@ -776,6 +767,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		float scaleMinMagnitude = 1e-4;
 	};
 
+	float crossMinMovement = 1e-4;
+
 	size_t handlerId;
 	Mode mode;
 	ObjectType type;
@@ -796,9 +789,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	}
 
 	void ProcessInput(ObjectType type, Mode mode, Input* input) {
+
 		if (target == nullptr)
 			return;
-
 		if (input->IsDown(Key::Escape)) {
 			Cancel();
 			return;
@@ -807,42 +800,46 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			UnbindSceneObjects();
 			return;
 		}
+		if (glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+			return;
 
-		if (type == StereoPolyLineT && mode == Mode::Translate) {
-			auto transformVector = cross->GetLocalPosition() - crossOldPos;
-			Translate(transformVector, target);
+
+
+		//auto t1 = std::chrono::steady_clock::now();
+
+		switch (mode) {
+		case Mode::Translate:
+			Translate(cross->GetLocalPosition() - crossOldPos, target);
 			return;
-		}
-		if (type == MeshT && mode == Mode::Translate) {
-			auto transformVector = cross->GetLocalPosition() - crossOldPos;
-			Translate(transformVector, target);
-			return;
-		}
-		if (type == StereoPolyLineT && mode == Mode::Scale) {
-			auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
-			if (abs(scale) < config->scaleMinMagnitude)
+		case Mode::Scale:
+			switch (type) {
+			case StereoPolyLineT:
+			{
+				auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
+				if (abs(scale) < config->scaleMinMagnitude)
+					return;
+
+				Scale(cross->GetLocalPosition(), scale, target);
 				return;
+			}
+			case MeshT:
+			{
+				auto config = GetConfig<MeshT, Mode::Scale>();
+				if (abs(scale) < config->scaleMinMagnitude)
+					return;
 
-			Scale(cross->GetLocalPosition(), scale, target);
-			return;
-		}
-		if (type == MeshT && mode == Mode::Scale) {
-			auto config = GetConfig<MeshT, Mode::Scale>();
-			if (abs(scale) < config->scaleMinMagnitude)
+				Scale(cross->GetLocalPosition(), scale, target);
 				return;
-
-			Scale(cross->GetLocalPosition(), scale, target);
-			return;
-		}
-		if (type == StereoPolyLineT && mode == Mode::Rotate) {
+			}
+			}
+			break;
+		case Mode::Rotate:
 			Rotate(axe, angle, target);
 			return;
 		}
-		if (type == MeshT && mode == Mode::Rotate) {
-			Rotate(axe, angle, target);
-			return;
-		}
 
+
+		crossOldPos = cross->GetLocalPosition();
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
 	}
 	void Scale(glm::vec3 center, float scale, SceneObject* target) {

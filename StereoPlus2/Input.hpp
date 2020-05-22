@@ -82,14 +82,14 @@ class Input
 	};
 	struct KeyStatus {
 		Key::KeyType keyType;
-		bool isPressed = false;
-		bool isDown = false;
-		bool isUp = false;
+		bool isPressed;
+		bool isDown;
+		bool isUp;
 	};
 
 
-	glm::vec2 mouseOldPos = glm::vec2(0);
-	glm::vec2 mouseNewPos = glm::vec2(0);
+	glm::vec2 mouseOldPos;
+	glm::vec2 mouseNewPos;
 
 	bool isMouseBoundlessMode = false;
 	bool isRawMouseMotionSupported = false;
@@ -99,7 +99,7 @@ class Input
 	float mouseSensivity = 1e-2;
 	float mouseMaxMagnitude = 1e4;
 
-
+	
 	void UpdateStatus(Key::KeyPair key, KeyStatus* status) {
 		bool isPressed = 
 			key.type == Key::Mouse 
@@ -111,15 +111,19 @@ class Input
 		status->isPressed = isPressed;
 	}
 
-	void EnsureKeyStatusExists(Key::KeyPair key) {
-		if (keyStatuses.find(key) != keyStatuses.end())
-			return;
+	KeyStatus* TryGetStatusEnsuringItExists(const Key::KeyPair& key) {
+		auto status = keyStatuses.find(key);
 
-		KeyStatus * status = new KeyStatus();
-		keyStatuses.insert({ key, status });
-		UpdateStatus(key, status);
+		if (status != keyStatuses.end())
+			return status._Ptr->_Myval.second;
+
+		{
+			KeyStatus* status = new KeyStatus();
+			keyStatuses.insert({ key, status });
+			UpdateStatus(key, status);
+			return status;
+		}
 	}
-
 
 public:
 	GLFWwindow* glWindow;
@@ -127,27 +131,18 @@ public:
 	std::map<size_t, std::function<void()>> handlers;
 
 	// Is pressed
-	bool IsPressed(Key::KeyPair key)
-	{
-		EnsureKeyStatusExists(key);
-
-		return keyStatuses[key]->isPressed;
+	bool IsPressed(Key::KeyPair key) {
+		return TryGetStatusEnsuringItExists(key)->isPressed;
 	}
 
 	// Was pressed down
-	bool IsDown(Key::KeyPair key)
-	{
-		EnsureKeyStatusExists(key);
-
-		return keyStatuses[key]->isDown;
+	bool IsDown(Key::KeyPair key) {
+		return TryGetStatusEnsuringItExists(key)->isDown;
 	}
 
 	// Was lift up
-	bool IsUp(Key::KeyPair key)
-	{
-		EnsureKeyStatusExists(key);
-
-		return keyStatuses[key]->isUp;
+	bool IsUp(Key::KeyPair key) {
+		return TryGetStatusEnsuringItExists(key)->isUp;
 	}
 
 	glm::vec2 MousePosition() {
@@ -189,23 +184,18 @@ public:
 		isMouseBoundlessMode = enable;
 	}
 
-	void ProcessInput()
-	{
+	void ProcessInput() {
 		// Update mouse position
 		mouseOldPos = mouseNewPos;
 		mouseNewPos = ImGui::GetMousePos();
 
 		// Update key statuses
 		for (auto node : keyStatuses)
-		{
 			UpdateStatus(node.first, node.second);
-		}
 
 		// Handle OnInput actions
 		for (auto handler : handlers)
-		{
 			handler.second();
-		}
 	}
 
 	bool Init() {
