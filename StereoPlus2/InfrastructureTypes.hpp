@@ -3,13 +3,29 @@
 #include <stdlib.h>
 #include <chrono>
 #include <iostream>
+#include "TemplateExtensions.hpp"
+#include <sstream>
+#include <string>
 
 class Log {
+	template<typename T>
+	using isOstreamable = decltype(std::declval<std::ostringstream>() << std::declval<T>());
+
+	template<typename T>
+	static constexpr bool isOstreamableT = is_detected_v<isOstreamable, T>;
+
 	std::string contextName = "";
 
 	static void Line(const std::string& message) {
 		std::cout << message << std::endl;
 	}
+	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
+	static std::string ToString(const T& message) {
+		std::ostringstream ss;
+		ss << message;
+		return ss.str();
+	}
+
 public:
 	template<typename T>
 	static const Log For() {
@@ -18,16 +34,27 @@ public:
 		return log;
 	}
 
+	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
+	void Error(const T& message) const {
+		Error(Log::ToString(message));
+	}
+	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
+	void Warning(const T& message) const {
+		Warning(Log::ToString(message));
+	}
+	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
+	void Information(const T& message) const {
+		Information(Log::ToString(message));
+	}
+
 	void Error(const std::string& message) const {
 		Line("[Error](" + contextName + ") " + message);
 	}
-
 	void Warning(const std::string& message) const {
 		Line("[Warning](" + contextName + ") " + message);
 	}
-
 	void Information(const std::string& message) const {
-		Line("[Information](" + contextName + ") " + message);
+		Line("[Warning](" + contextName + ") " + message);
 	}
 };
 

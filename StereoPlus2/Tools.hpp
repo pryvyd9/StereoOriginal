@@ -168,6 +168,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	};
 #pragma endregion
 
+	Log Logger = Log::For<PointPenEditingTool>();
 	size_t handlerId;
 	Mode mode;
 
@@ -191,7 +192,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 	template<ObjectType type, Mode mode>
 	void ProcessInput(Input* input) {
-		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
+		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode");
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
@@ -292,7 +293,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		case Mode::Step:
 			return ProcessInput<type, Mode::Step>(input);
 		default:
-			std::cout << "Not suported mode was given" << std::endl;
+			Logger.Warning("Not suported mode was given");
 			return;
 		}
 	}
@@ -310,13 +311,13 @@ public:
 
 		if (keyBinding == nullptr)
 		{
-			std::cout << "KeyBinding wasn't assigned" << std::endl;
+			Logger.Warning("KeyBinding wasn't assigned");
 			return false;
 		}
 
 		if (objs[0]->GetType() != type)
 		{
-			std::cout << "Invalid Object passed to PointPenEditingTool" << std::endl;
+			Logger.Warning("Invalid Object passed to PointPenEditingTool");
 			return true;
 		}
 		target = objs[0];
@@ -354,7 +355,7 @@ public:
 		case Mode::Step:
 			return UnbindSceneObjects<type, Mode::Step>();
 		default:
-			std::cout << "Not suported mode was given" << std::endl;
+			Logger.Warning("Not suported mode was given");
 			return;
 		}
 	}

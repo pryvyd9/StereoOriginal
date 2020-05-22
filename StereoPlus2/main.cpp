@@ -43,8 +43,8 @@ bool CustomRenderFunc(Cross& cross, Scene& scene, Renderer& renderPipeline, Posi
 				-positionDetector.distance / 10.0));
 
 	renderPipeline.Pipeline(&d, sizeSum, scene);
-
-	//Log::For<void>().Information(Time::GetDeltaTime())
+	
+	//Log::For<void>().Information(Time::GetDeltaTime());
 
 	return true;
 }
