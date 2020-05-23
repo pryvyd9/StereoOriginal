@@ -66,19 +66,6 @@ public:
 
 			break;
 		}
-		case StereoLineT:
-		{
-			auto o = (StereoLine*)&so;
-
-			put(so.GetType());
-			put(o->Name.size());
-			put(o->Name);
-
-			put(o->Start);
-			put(o->End);
-
-			break;
-		}
 		case MeshT:
 		{
 			auto o = (Mesh*)&so;
@@ -171,19 +158,6 @@ public:
 			auto pointCount = get<size_t>();
 			for (size_t i = 0; i < pointCount; i++)
 				o->AddVertice(get<glm::vec3>());
-
-			return o;
-		}
-		case StereoLineT:
-		{
-			auto o = new StereoLine();
-			scene->Insert(o);
-
-			auto nameSize = get<size_t>();
-			o->Name = get<std::string>(nameSize);
-
-			o->Start = get<glm::vec3>();
-			o->End = get<glm::vec3>();
 
 			return o;
 		}
@@ -298,24 +272,6 @@ public:
 				put(o->GetVertices()[i]);
 			}
 			buffer << ']';
-
-			break;
-		}
-		case StereoLineT:
-		{
-			auto o = (StereoLine*)&so;
-
-			buffer << "\"type\":";
-			put(so.GetType());
-
-			buffer << ",\"name\":";
-			put(o->Name);
-
-			buffer << ",\"start\":";
-			put(o->Start);
-
-			buffer << ",\"end\":";
-			put(o->End);
 
 			break;
 		}
@@ -482,26 +438,6 @@ public:
 			if (!isArrayEmpty())
 				while (buffer.get() != ']')//[]
 					o->AddVertice(get<glm::vec3>());
-			skip();//}
-
-			return o;
-		}
-		case StereoLineT:
-		{
-			auto o = new StereoLine();
-			scene->Insert(o);
-
-			skipName();
-			o->Name = get<std::string>();
-			skip();//,
-
-			skipName();
-			o->Start = get<glm::vec3>();
-			skip();//,
-
-			skipName();
-			o->End = get<glm::vec3>();
-
 			skip();//}
 
 			return o;

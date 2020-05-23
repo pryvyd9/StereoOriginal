@@ -205,7 +205,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		auto& points = target->GetVertices();
 		auto pointsCount = points.size();
 
-
+		auto h = GetConfig<Mode::Immediate>()->additionalPointCreatedCount;
 		if (GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 3)
 		{
 			// We need to select one point and create an additional point
@@ -776,10 +776,13 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
-	glm::vec3 crossOldPos;
+	glm::vec3 crossOriginalPos;
 
 	// Updated passed crossMinMovement
-	glm::vec3 crossOldPosShort;
+	glm::vec3 crossOldPos;
+	float oldScale;
+	float oldAngle;
+
 	std::vector<glm::vec3> originalVertices;
 	std::vector<std::array<size_t, 2>> originalLines;
 
@@ -792,7 +795,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	}
 
 	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
-
 		if (target == nullptr)
 			return;
 		if (input->IsDown(Key::Escape)) {
@@ -806,42 +808,47 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		switch (mode) {
 		case Mode::Translate:
-			if (glm::length(cross->GetLocalPosition() - crossOldPosShort) < crossMinMovement)
+			if (scale == oldScale
+				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
 				return;
 			
-			Translate(cross->GetLocalPosition() - crossOldPos, target);
-			
-			crossOldPosShort = cross->GetLocalPosition();
+			Translate(cross->GetLocalPosition() - crossOriginalPos, target);
+			crossOldPos = cross->GetLocalPosition();
 			return;
 		case Mode::Scale:
+			if (scale == oldScale
+				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+				return;
+
 			switch (type) {
 			case StereoPolyLineT:
-			{
-				auto config = GetConfig<StereoPolyLineT, Mode::Scale>();
-				if (abs(scale) < config->scaleMinMagnitude)
-					return;
+				if (abs(scale) < GetConfig<StereoPolyLineT, Mode::Scale>()->scaleMinMagnitude)
+					break;
 
 				Scale(cross->GetLocalPosition(), scale, target);
-				return;
-			}
+				break;
 			case MeshT:
-			{
-				auto config = GetConfig<MeshT, Mode::Scale>();
-				if (abs(scale) < config->scaleMinMagnitude)
-					return;
+				if (abs(scale) < GetConfig<MeshT, Mode::Scale>()->scaleMinMagnitude)
+					break;
 
 				Scale(cross->GetLocalPosition(), scale, target);
-				return;
+				break;
 			}
-			}
-			break;
+			oldScale = scale;
+			crossOldPos = cross->GetLocalPosition();
+			return;
 		case Mode::Rotate:
+			if (angle == oldAngle
+				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+				return;
+
 			Rotate(axe, angle, target);
+			oldAngle = angle;
+			crossOldPos = cross->GetLocalPosition();
 			return;
 		}
 
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
-
 	}
 	void Scale(glm::vec3 center, float scale, SceneObject* target) {
 		for (size_t i = 0; i < target->GetVertices().size(); i++)
@@ -926,7 +933,7 @@ public:
 
 		target = objs[0];
 		
-		crossOldPosShort = crossOldPos = cross->GetLocalPosition();
+		crossOldPos = crossOriginalPos = cross->GetLocalPosition();
 
 		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 

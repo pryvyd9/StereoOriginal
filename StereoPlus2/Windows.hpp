@@ -229,11 +229,6 @@ public:
 	}
 
 	template<>
-	bool DesignProperties(StereoLine * obj) {
-		return false;
-	}
-
-	template<>
 	bool DesignProperties(Cross * obj) {
 		if (ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0)
 			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
@@ -312,8 +307,6 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		switch (t->GetType()) {
 		case Group:
 			return DesignTreeNode((GroupObject*)t, source, pos);
-		case Leaf:
-		case StereoLineT:
 		case StereoPolyLineT:
 		case MeshT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
@@ -534,10 +527,6 @@ class PointPenToolWindow : Window, Attributes
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
 		case StereoPolyLineT:
 			return "PolyLine";
 		default:
@@ -652,10 +641,6 @@ class ExtrusionToolWindow : Window, Attributes
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
 		case StereoPolyLineT:
 			return "PolyLine";
 		default:
@@ -954,7 +939,6 @@ public:
 class ToolWindow : Window {
 	const Log log = Log::For<ToolWindow>();
 
-	CreatingTool<StereoLine> lineTool;
 	CreatingTool<StereoPolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
 
@@ -1004,12 +988,6 @@ public:
 			return false;
 		}
 
-		ConfigureCreationTool(lineTool, [](SceneObject* o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "Line" << id++;
-			o->Name = ss.str();
-		});
 		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
 			static int id = 0;
 			std::stringstream ss;
@@ -1028,8 +1006,6 @@ public:
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
-		if (ImGui::Button("Line"))
-			lineTool.Create();
 		if (ImGui::Button("PolyLine"))
 			polyLineTool.Create();
 		if (ImGui::Button("Group"))

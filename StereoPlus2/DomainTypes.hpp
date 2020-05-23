@@ -10,11 +10,10 @@
 
 enum ObjectType {
 	Group,
-	Leaf,
-
-	StereoLineT,
 	StereoPolyLineT,
 	MeshT,
+	CameraT,
+	CrossT,
 };
 
 struct Pair {
@@ -101,31 +100,6 @@ public:
 };
 
 class LeafObject : public SceneObject {
-public:
-	virtual ObjectType GetType() const {
-		return Leaf;
-	}
-};
-
-struct Line
-{
-	glm::vec3 Start, End;
-
-	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
-
-	GLuint VBO, VAO;
-	GLuint ShaderProgram;
-};
-
-struct StereoLine : LeafObject
-{
-	glm::vec3 Start, End;
-
-	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 2;
-
-	virtual ObjectType GetType() const {
-		return StereoLineT;
-	}
 };
 
 class StereoPolyLine : public LeafObject {
@@ -163,12 +137,12 @@ public:
 	}
 
 	virtual const std::vector<Pair>& GetLines() {
-		return linesCache;
-	}
-	virtual const std::vector<glm::vec3>& GetVertices() {
 		if (shouldUpdateCache)
 			UpdateCache();
 
+		return linesCache;
+	}
+	virtual const std::vector<glm::vec3>& GetVertices() const {
 		return vertices;
 	}
 
@@ -205,17 +179,6 @@ public:
 		vertices.pop_back();
 		shouldUpdateCache = true;
 	}
-};
-
-
-struct Triangle
-{
-	glm::vec3 p1, p2, p3;
-
-	static const uint_fast8_t VerticesSize = sizeof(glm::vec3) * 3;
-
-	GLuint VBO, VAO;
-	GLuint ShaderProgram;
 };
 
 struct Mesh : LeafObject {
@@ -310,56 +273,6 @@ public:
 	}
 };
 
-
-// Created for the sole purpose of crutching the broken 
-// Line - triangle drawing mechanism.
-// When you draw line/triangle and then change to other type then 
-// First triangle and First line with the last frame shader's vertices get mixed.
-// Dunno how it happens nor how to fix it. 
-// Will return to it after some more immediate tasks are done.
-struct ZeroLine
-{
-	Line line;
-
-	bool Init()
-	{
-		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
-		auto fragmentShaderSource = GLLoader::ReadShader("shaders/zero.frag");
-
-		line.ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
-
-		glGenVertexArrays(1, &line.VAO);
-		glGenBuffers(1, &line.VBO);
-
-		line.Start = line.End = glm::vec3(-1000);
-
-		return true;
-	}
-};
-struct ZeroTriangle
-{
-	Triangle triangle;
-
-	bool Init()
-	{
-		for (size_t i = 0; i < 9; i++)
-		{
-			((float*)&triangle)[i] = -1000;
-		}
-
-		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
-		auto fragmentShaderSource = GLLoader::ReadShader("shaders/zero.frag");
-
-		triangle.ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
-
-		glGenVertexArrays(1, &triangle.VAO);
-		glGenBuffers(1, &triangle.VBO);
-
-		return true;
-	}
-};
-
-
 class WhiteSquare
 {
 public:
@@ -438,6 +351,10 @@ public:
 	virtual const std::vector<Pair>& GetLines() {
 		return linesCache;
 	}
+	virtual ObjectType GetType() const {
+		return CrossT;
+	}
+
 };
 
 
@@ -477,7 +394,6 @@ public:
 			0
 		);
 	}
-
 	glm::vec3 GetRight(const glm::vec3& pos) {
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
@@ -488,25 +404,6 @@ public:
 		);
 	}
 
-	Line GetLeft(StereoLine* stereoLine)
-	{
-		Line line;
-
-		line.Start = PreserveAspectRatio(GetLeft(stereoLine->Start));
-		line.End = PreserveAspectRatio(GetLeft(stereoLine->End));
-
-		return line;
-	}
-
-	Line GetRight(StereoLine* stereoLine)
-	{
-		Line line;
-
-		line.Start = PreserveAspectRatio(GetRight(stereoLine->Start));
-		line.End = PreserveAspectRatio(GetRight(stereoLine->End));
-
-		return line;
-	}
 	Pair GetLeft(const Pair& stereoLine)
 	{
 		Pair line;
@@ -516,7 +413,6 @@ public:
 
 		return line;
 	}
-
 	Pair GetRight(const Pair& stereoLine)
 	{
 		Pair line;
@@ -526,6 +422,11 @@ public:
 
 		return line;
 	}
+
+	virtual ObjectType GetType() const {
+		return CameraT;
+	}
+
 };
 
 #pragma endregion

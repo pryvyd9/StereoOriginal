@@ -24,9 +24,6 @@ class Renderer {
 		float min, max;
 	};
 
-	ZeroLine zeroLine;
-	ZeroTriangle zeroTriangle;
-
 	GLuint VAOLeft, VAORight, VBOLeft, VBORight, ShaderLeft, ShaderRight;
 
 
@@ -106,42 +103,10 @@ class Renderer {
 		glGenBuffers(1, &VBORight);
 	}
 
-	void DrawLineLeft(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(ShaderLeft);
-
-		glBindVertexArray(VAOLeft);
-		glDrawArrays(GL_LINES, 0, 2);
-	}
-	void DrawLineRight(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(ShaderRight);
-
-		glBindVertexArray(VAORight);
-		glDrawArrays(GL_LINES, 0, 2);
-	}
 	void DrawLineLeft(const Pair& line)
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Pair::p1) * 2, &line, GL_STREAM_DRAW);
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(GL_POINTS);
@@ -157,7 +122,7 @@ class Renderer {
 	void DrawLineRight(const Pair& line)
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Pair::p1) * 2, &line, GL_STREAM_DRAW);
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(GL_POINTS);
@@ -172,61 +137,6 @@ class Renderer {
 	}
 
 
-	void DrawLine(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(line.ShaderProgram);
-
-		glBindVertexArray(line.VAO);
-		glDrawArrays(GL_LINES, 0, 2);
-
-		//glBindVertexArray(0);
-
-	}
-	void DrawLine(Line line, function<void()> updateWhitePartOfShader)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
-
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		updateWhitePartOfShader();
-
-		// Apply shader
-		glUseProgram(line.ShaderProgram);
-
-		glBindVertexArray(line.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		glDrawArrays(GL_LINES, 0, 2);
-	}
-
-	void DrawTriangle(Triangle& triangle)
-	{
-		// left top
-		glBindBuffer(GL_ARRAY_BUFFER, triangle.VBO);
-		glBufferData(GL_ARRAY_BUFFER, Triangle::VerticesSize, &triangle, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(triangle.ShaderProgram);
-		glBindVertexArray(triangle.VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-	}
 	void DrawSquare(WhiteSquare& square)
 	{
 		// left top
@@ -382,15 +292,6 @@ public:
 			DrawLineLeft(Pair());
 		}
 
-		// Crutch to overcome bug with messing fragment shaders and vertices up.
-		// Presumably fragment and vertex are messed up.
-		{
-			/*glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-			glStencilMask(0x00);
-			DrawLine(zeroLine.line);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);*/
-		}
-
 		glStencilMask(0x00);
 		glStencilFunc(GL_EQUAL, 0x1 | 0x2, 0xFF);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -414,9 +315,7 @@ public:
 	bool Init()
 	{
 		if (!InitGL()
-			|| !whiteSquare.Init()
-			|| !zeroLine.Init()
-			|| !zeroTriangle.Init())
+			|| !whiteSquare.Init())
 			return false;
 
 		CreateShaders();
