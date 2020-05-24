@@ -22,6 +22,8 @@ struct Pair {
 
 class SceneObject {
 	glm::vec3 position;
+protected:
+	bool shouldUpdateCache;
 public:
 	SceneObject* parent;
 	std::vector<SceneObject*> children;
@@ -44,15 +46,22 @@ public:
 	}
 
 	void SetLocalPosition(glm::vec3 v) {
+		shouldUpdateCache = true;
 		position = v;
 	}
 	void SetWorldPosition(glm::vec3 v) {
+		shouldUpdateCache = true;
+
 		if (parent) {
 			position += v - GetWorldPosition();
 			return;
 		}
 
 		position = v;
+	}
+
+	void ForceUpdateCache() {
+		shouldUpdateCache = true;
 	}
 
 	virtual const std::vector<Pair>& GetLines() {
@@ -64,32 +73,15 @@ public:
 		return empty;
 	}
 
-	virtual void AddVertice(const glm::vec3& v) {
-		throw new std::exception("not implemented");
-	}
-	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
-		for (auto v : vs)
-			AddVertice(v);
-	}
-	virtual void SetVertice(size_t index, const glm::vec3& v) {
-		throw new std::exception("not implemented");
-	}
-	virtual void SetVerticeX(size_t index, const float& v) {
-		throw new std::exception("not implemented");
-	}
-	virtual void SetVerticeY(size_t index, const float& v) {
-		throw new std::exception("not implemented");
-	}
-	virtual void SetVerticeZ(size_t index, const float& v) {
-		throw new std::exception("not implemented");
-	}
-	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
-		throw new std::exception("not implemented");
-	}
+	virtual void AddVertice(const glm::vec3& v) {}
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) {}
+	virtual void SetVertice(size_t index, const glm::vec3& v) {}
+	virtual void SetVerticeX(size_t index, const float& v) {}
+	virtual void SetVerticeY(size_t index, const float& v) {}
+	virtual void SetVerticeZ(size_t index, const float& v) {}
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) {}
 
-	virtual void RemoveVertice() {
-		throw new std::exception("not implemented");
-	}
+	virtual void RemoveVertice() {}
 };
 
 class GroupObject : public SceneObject {
@@ -103,8 +95,6 @@ class LeafObject : public SceneObject {
 };
 
 class StereoPolyLine : public LeafObject {
-	bool shouldUpdateCache;
-
 	std::vector<Pair> linesCache;
 	std::vector<glm::vec3> vertices;
 
@@ -116,9 +106,11 @@ class StereoPolyLine : public LeafObject {
 
 		linesCache = std::vector<Pair>(vertices.size() - 1);
 
+		auto worldPos = GetWorldPosition();
+
 		for (size_t i = 0; i < vertices.size() - 1; i++) {
-			linesCache[i].p1 = vertices[i];
-			linesCache[i].p2 = vertices[i + 1];
+			linesCache[i].p1 = vertices[i] + worldPos;
+			linesCache[i].p2 = vertices[i + 1] + worldPos;
 		}
 
 		shouldUpdateCache = false;
@@ -149,6 +141,10 @@ public:
 	virtual void AddVertice(const glm::vec3& v) {
 		vertices.push_back(v);
 		shouldUpdateCache = true;
+	}
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
+		for (auto v : vs)
+			AddVertice(v);
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
 		vertices[index] = v;
@@ -183,7 +179,6 @@ public:
 
 struct Mesh : LeafObject {
 private:
-	bool shouldUpdateCache;
 	std::vector<glm::vec3> vertices;
 	std::vector<Pair> linesCache;
 	std::vector<std::array<size_t, 2>> lines;
@@ -197,9 +192,11 @@ private:
 
 		linesCache = std::vector<Pair>(lines.size());
 
+		auto worldPos = GetWorldPosition();
+
 		for (size_t i = 0; i < lines.size(); i++) {
-			linesCache[i].p1 = vertices[lines[i][0]];
-			linesCache[i].p2 = vertices[lines[i][1]];
+			linesCache[i].p1 = vertices[lines[i][0]] + worldPos;
+			linesCache[i].p2 = vertices[lines[i][1]] + worldPos;
 		}
 
 		shouldUpdateCache = false;
@@ -246,6 +243,10 @@ public:
 		vertices.push_back(v);
 		shouldUpdateCache = true;
 	}
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
+		for (auto v : vs)
+			AddVertice(v);
+	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
 		vertices[index] = v;
 		shouldUpdateCache = true;
@@ -262,8 +263,11 @@ public:
 		vertices[index].z = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVertices(const std::vector<glm::vec3>& vs, const std::vector<std::array<size_t, 2>>& connections) {
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
 		vertices = vs;
+		shouldUpdateCache = true;
+	}
+	virtual void SetConnections(const std::vector<std::array<size_t, 2>>& connections) {
 		lines = connections;
 		shouldUpdateCache = true;
 	}

@@ -778,13 +778,24 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	SceneObject* target = nullptr;
 	glm::vec3 crossOriginalPos;
 
+#pragma region ToolState
 	// Updated passed crossMinMovement
 	glm::vec3 crossOldPos;
 	float oldScale;
 	float oldAngle;
 
+	bool areVerticesModified = false;
+	bool areLinesModified = false;
+	bool isPositionModified = false;
+
 	std::vector<glm::vec3> originalVertices;
 	std::vector<std::array<size_t, 2>> originalLines;
+
+	std::vector<std::vector<glm::vec3>> originalVerticesFolded;
+	std::vector<glm::vec3> originalPositionsFolded;
+	std::vector<std::vector<std::array<size_t, 2>>> originalLinesFolded;
+
+#pragma endregion
 
 	template<ObjectType type, Mode mode>
 	Config<type, mode>* GetConfig() {
@@ -808,8 +819,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		switch (mode) {
 		case Mode::Translate:
-			if (scale == oldScale
-				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+			if (glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
 				return;
 			
 			Translate(cross->GetLocalPosition() - crossOriginalPos, target);
@@ -851,12 +861,22 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
 	}
 	void Scale(glm::vec3 center, float scale, SceneObject* target) {
-		for (size_t i = 0; i < target->GetVertices().size(); i++)
-			target->SetVertice(i, center + (originalVertices[i] - center) * scale);
+		int v = 0;
+		CallRecursive(target, [=, &v](SceneObject* o) {
+			o->SetWorldPosition(center + (originalPositionsFolded[v] - center) * scale);
+			for (size_t i = 0; i < o->GetVertices().size(); i++)
+				o->SetVertice(i, originalVerticesFolded[v][i] * scale);
+			v++;
+			});
+		//for (size_t i = 0; i < target->GetVertices().size(); i++)
+		//	target->SetVertice(i, center + (originalVertices[i] - center) * scale);
 	}
 	void Translate(glm::vec3 transformVector, SceneObject* target) {
-		for (size_t i = 0; i < target->GetVertices().size(); i++)
-			target->SetVertice(i, originalVertices[i] + transformVector);
+		isPositionModified = true;
+		target->SetLocalPosition(transformVector);
+		CallRecursive(target, [](SceneObject* o) {
+			o->ForceUpdateCache();
+			});
 	}
 	void Rotate(Axe axe, float angle, SceneObject* target) {
 		switch (axe) {
@@ -896,9 +916,19 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		return false;
 	}
+
+
+	void CallRecursive(SceneObject* o, std::function<void(SceneObject*)> f) {
+		f(o);
+		for (auto c : o->children)
+			CallRecursive(c, f);
+	}
 public:
 
 	const std::multimap<ObjectType, Mode> supportedConfigs{
+		{ Group, Mode::Translate },
+		{ Group, Mode::Scale },
+		{ Group, Mode::Rotate },
 		{ StereoPolyLineT, Mode::Translate },
 		{ StereoPolyLineT, Mode::Scale },
 		{ StereoPolyLineT, Mode::Rotate },
@@ -937,12 +967,15 @@ public:
 
 		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 
-		if (type == StereoPolyLineT) 
-			originalVertices = target->GetVertices();
-		if (type == MeshT) {
-			originalVertices = target->GetVertices();
-			originalLines = static_cast<Mesh*>(target)->GetLinearConnections();
-		}
+		originalVerticesFolded.clear();
+		originalLinesFolded.clear();
+		originalPositionsFolded.clear();
+		CallRecursive(target, [v = &originalVerticesFolded, l = &originalLinesFolded, p = &originalPositionsFolded](SceneObject* o) {
+			v->push_back(o->GetVertices()); 
+			p->push_back(o->GetLocalPosition()); 
+			if (o->GetType() == MeshT)
+				l->push_back(static_cast<Mesh*>(o)->GetLinearConnections());
+			});
 
 		return true;
 	}
@@ -950,6 +983,9 @@ public:
 		if (this->target == nullptr)
 			return true;
 
+		isPositionModified = false;
+		areVerticesModified = false;
+		areLinesModified = false;
 		this->target = nullptr;
 		scale = 1;
 		angle = 0;
@@ -959,11 +995,26 @@ public:
 		return true;
 	}
 	void Cancel() {
-		if (type == StereoPolyLineT)
-			target->SetVertices(originalVertices);
-		if (type == MeshT)
-			static_cast<Mesh*>(target)->SetVertices(originalVertices, originalLines);
+		int sceneObjectI = 0, meshI = 0;
 
+		CallRecursive(target, [=, &sceneObjectI, &meshI](SceneObject* o) {
+			if (isPositionModified)
+				o->SetLocalPosition(originalPositionsFolded[sceneObjectI]);
+			if (areVerticesModified)
+				o->SetVertices(originalVerticesFolded[sceneObjectI]);
+			if (o->GetType() == MeshT) {
+				if (areLinesModified)
+					static_cast<Mesh*>(o)->SetConnections(originalLinesFolded[meshI]);
+				
+				meshI++;
+			}
+			sceneObjectI++;
+		});
+
+		/*isPositionModified = false;
+		areVerticesModified = false;
+		areLinesModified = false;*/
+	
 		UnbindSceneObjects();
 	}
 	SceneObject** GetTarget() {
