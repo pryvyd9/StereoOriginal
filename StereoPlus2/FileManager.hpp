@@ -26,13 +26,11 @@ public:
 		for (size_t i = 0; i < sizeof(T); i++)
 			buffer.push_back(((char*)&val)[i]);
 	}
-
 	template<>
 	void put<std::string>(const std::string& val) {
 		for (size_t i = 0; i < val.size(); i++)
 			buffer.push_back(val[i]);
 	}
-
 	template<>
 	void put<SceneObject>(const SceneObject& so) {
 
@@ -117,14 +115,12 @@ class ibstream {
 		auto size = get<size_t>();
 		*dest = get<T>(size);
 	}
-
 	void readChildren(SceneObject* parent) {
 		readArray(std::function([&parent](SceneObject* v) {
 			v->parent = parent;
 			parent->children.push_back(v);
 			}));
 	}
-
 	template<typename...T>
 	void readArray(std::function<void(T...)> f) {
 		auto count = get<size_t>();
@@ -150,7 +146,6 @@ public:
 
 		return val;
 	}
-
 	template<>
 	std::string get<std::string>(size_t size) {
 		std::string val;
@@ -160,7 +155,6 @@ public:
 
 		return val;
 	}
-
 	template<>
 	SceneObject* get<SceneObject*>(size_t _) {
 		auto type = get<ObjectType>();
@@ -698,7 +692,6 @@ public:
 	void setBuffer(char* buf) {
 		buffer = std::istringstream(buf);
 	}
-
 };
 
 
@@ -707,7 +700,6 @@ class FileManager {
 		static Log log = Log::For<FileManager>();
 		return log;
 	}
-
 	static size_t GetFileSize(std::string filename) {
 		std::ifstream in(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
@@ -738,7 +730,6 @@ class FileManager {
 
 		out.close();
 	}
-
 	static void LoadJson(std::string filename, Scene* inScene) {
 		std::ifstream file(filename, std::ios::binary | std::ios::in);
 
@@ -752,11 +743,11 @@ class FileManager {
 		str.scene = inScene;
 
 		auto o = str.read();
-		inScene->root = (GroupObject*)o;
+		inScene->root = o;
+		o->parent = nullptr;
 
 		file.close();
 	}
-
 
 	static void SaveBinary(std::string filename, Scene* inScene) {
 		std::ofstream file(filename, std::ios::binary | std::ios::out);
@@ -768,7 +759,6 @@ class FileManager {
 
 		file.close();
 	}
-
 	static void LoadBinary(std::string filename, Scene* inScene) {
 		std::ifstream file(filename, std::ios::binary | std::ios::in);
 
@@ -782,7 +772,8 @@ class FileManager {
 		str.scene = inScene;
 
 		auto o = str.get<SceneObject*>();
-		inScene->root = (GroupObject*)o;
+		inScene->root = o;
+		o->parent = nullptr;
 
 		file.close();
 	}
@@ -828,7 +819,6 @@ public:
 		else
 			Fail("File extension not supported");
 	}
-
 	static void Save(std::string filename, Scene* inScene) {
 		auto extension = GetFixedExtension(filename);
 
@@ -839,6 +829,4 @@ public:
 		else
 			Fail("File extension not supported");
 	}
-
-
 };

@@ -754,20 +754,9 @@ public:
 class TransformTool : public EditingTool<TransformToolMode> {
 	const Log Logger = Log::For<TransformTool>();
 
-
-	template<ObjectType type, Mode mode>
-	struct Config : EditingTool::Config {};
-
-	template<>
-	struct Config<StereoPolyLineT, Mode::Scale> : EditingTool::Config {
-		float scaleMinMagnitude = 1e-4;
-	};
-	template<>
-	struct Config<MeshT, Mode::Scale> : EditingTool::Config {
-		float scaleMinMagnitude = 1e-4;
-	};
-
 	float crossMinMovement = 1e-6;
+	float scaleMinMagnitude = 1e-4;
+	float rotateMinMagnitude = 1e-4;
 
 	size_t handlerId;
 	Mode mode;
@@ -796,15 +785,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	std::vector<std::vector<std::array<size_t, 2>>> originalLinesFolded;
 
 #pragma endregion
-
-	template<ObjectType type, Mode mode>
-	Config<type, mode>* GetConfig() {
-		if (config == nullptr)
-			config = new Config<type, mode>();
-
-		return (Config<type, mode>*) config;
-	}
-
 	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
 		if (target == nullptr)
 			return;
@@ -827,29 +807,19 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			return;
 		case Mode::Scale:
 			if (scale == oldScale
-				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement
+				|| abs(scale) < scaleMinMagnitude)
 				return;
 
-			switch (type) {
-			case StereoPolyLineT:
-				if (abs(scale) < GetConfig<StereoPolyLineT, Mode::Scale>()->scaleMinMagnitude)
-					break;
-
-				Scale(cross->GetLocalPosition(), scale, target);
-				break;
-			case MeshT:
-				if (abs(scale) < GetConfig<MeshT, Mode::Scale>()->scaleMinMagnitude)
-					break;
-
-				Scale(cross->GetLocalPosition(), scale, target);
-				break;
-			}
+			Scale(cross->GetLocalPosition(), scale, target);
+			
 			oldScale = scale;
 			crossOldPos = cross->GetLocalPosition();
 			return;
 		case Mode::Rotate:
 			if (angle == oldAngle
-				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement
+				|| abs(angle) < rotateMinMagnitude)
 				return;
 
 			Rotate(axe, angle, target);
@@ -861,15 +831,15 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
 	}
 	void Scale(glm::vec3 center, float scale, SceneObject* target) {
+		isPositionModified = true;
+		areVerticesModified = true;
 		int v = 0;
-		CallRecursive(target, [=, &v](SceneObject* o) {
-			o->SetWorldPosition(center + (originalPositionsFolded[v] - center) * scale);
+		target->SetWorldPosition(center + (originalPositionsFolded[0] - center) * scale);
+		CallRecursive(target, [&](SceneObject* o) {
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
 				o->SetVertice(i, originalVerticesFolded[v][i] * scale);
 			v++;
 			});
-		//for (size_t i = 0; i < target->GetVertices().size(); i++)
-		//	target->SetVertice(i, center + (originalVertices[i] - center) * scale);
 	}
 	void Translate(glm::vec3 transformVector, SceneObject* target) {
 		isPositionModified = true;
@@ -879,32 +849,51 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			});
 	}
 	void Rotate(Axe axe, float angle, SceneObject* target) {
+		isPositionModified = true;
+		areVerticesModified = true;
+		int v = 0;
+
+		auto wp = target->GetWorldPosition();
+		auto relative = originalPositionsFolded[0] - cross->GetLocalPosition();
+
 		switch (axe) {
 		case Axe::X:
-			for (size_t i = 0; i < target->GetVertices().size(); i++) {
-				auto relative = originalVertices[i] - cross->GetLocalPosition();
-				target->SetVerticeY(i, relative.y * cos(angle) - relative.z * sin(angle) + cross->GetLocalPosition().y);
-				target->SetVerticeZ(i, relative.y * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z);
-			}
+			wp.y = relative.y * cos(angle) - relative.z * sin(angle) + cross->GetLocalPosition().y;
+			wp.z = relative.y * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z;
 			break;
 		case Axe::Y:
-			for (size_t i = 0; i < target->GetVertices().size(); i++) {
-				auto relative = originalVertices[i] - cross->GetLocalPosition();
-				target->SetVerticeX(i, relative.x * cos(angle) + relative.z * sin(angle) + cross->GetLocalPosition().x);
-				target->SetVerticeZ(i, -relative.x * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z);
-			}
+			wp.x = relative.x * cos(angle) + relative.z * sin(angle) + cross->GetLocalPosition().x;
+			wp.z = -relative.x * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z;
 			break;
 		case Axe::Z:
-			for (size_t i = 0; i < target->GetVertices().size(); i++) {
-				auto relative = originalVertices[i] - cross->GetLocalPosition();
-				target->SetVerticeX(i, relative.x * cos(angle) - relative.y * sin(angle) + cross->GetLocalPosition().x);
-				target->SetVerticeY(i, relative.y * sin(angle) + relative.y * cos(angle) + cross->GetLocalPosition().y);
-			}
-			break;
-		default:
+			wp.x = relative.x * cos(angle) - relative.y * sin(angle) + cross->GetLocalPosition().x;
+			wp.y = relative.y * sin(angle) + relative.y * cos(angle) + cross->GetLocalPosition().y;
 			break;
 		}
+
+		target->SetWorldPosition(wp);
+
+		CallRecursive(target, [&](SceneObject* o) {
+			for (size_t i = 0; i < o->GetVertices().size(); i++) {
+				switch (axe) {
+				case Axe::X:
+					o->SetVerticeY(i, originalVerticesFolded[v][i].y * cos(angle) - originalVerticesFolded[v][i].z * sin(angle));
+					o->SetVerticeZ(i, originalVerticesFolded[v][i].y * sin(angle) + originalVerticesFolded[v][i].z * cos(angle));
+					break;
+				case Axe::Y:
+					o->SetVerticeX(i, originalVerticesFolded[v][i].x * cos(angle) + originalVerticesFolded[v][i].z * sin(angle));
+					o->SetVerticeZ(i, -originalVerticesFolded[v][i].x * sin(angle) + originalVerticesFolded[v][i].z * cos(angle));
+					break;
+				case Axe::Z:
+					o->SetVerticeX(i, originalVerticesFolded[v][i].x * cos(angle) - originalVerticesFolded[v][i].y * sin(angle));
+					o->SetVerticeY(i, originalVerticesFolded[v][i].y * sin(angle) + originalVerticesFolded[v][i].y * cos(angle));
+					break;
+				}
+			}
+			v++;
+			});
 	}
+
 
 	template<typename K, typename V>
 	static bool exists(const std::multimap<K, V>& map, const K& key, const V& val) {
@@ -1010,10 +999,6 @@ public:
 			}
 			sceneObjectI++;
 		});
-
-		/*isPositionModified = false;
-		areVerticesModified = false;
-		areLinesModified = false;*/
 	
 		UnbindSceneObjects();
 	}

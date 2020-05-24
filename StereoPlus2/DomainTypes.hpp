@@ -38,19 +38,19 @@ public:
 	const glm::vec3& GetLocalPosition() const {
 		return position;
 	}
-	const glm::vec3& GetWorldPosition() const {
+	const glm::vec3 GetWorldPosition() const {
 		if (parent)
-			return GetLocalPosition() + parent->GetLocalPosition();
+			return GetLocalPosition() + parent->GetWorldPosition();
 		
 		return GetLocalPosition();
 	}
 
 	void SetLocalPosition(glm::vec3 v) {
-		shouldUpdateCache = true;
+		ForceUpdateCache();
 		position = v;
 	}
 	void SetWorldPosition(glm::vec3 v) {
-		shouldUpdateCache = true;
+		ForceUpdateCache();
 
 		if (parent) {
 			position += v - GetWorldPosition();
@@ -62,6 +62,8 @@ public:
 
 	void ForceUpdateCache() {
 		shouldUpdateCache = true;
+		for (auto c : children)
+			c->ForceUpdateCache();
 	}
 
 	virtual const std::vector<Pair>& GetLines() {
