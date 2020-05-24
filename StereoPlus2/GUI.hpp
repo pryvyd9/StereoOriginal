@@ -64,11 +64,18 @@ class GUI {
 					return false;
 
 			ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
+			ImGui::MenuItem("Show FPS", nullptr, &shouldShowFPS);
 
 			if (ImGui::MenuItem("Exit", nullptr, false))
 				shouldClose = true;
 
+
+
 			ImGui::EndMenu();
+		}
+
+		if (shouldShowFPS) {
+			ImGui::LabelText("", "FPS: %-12f DeltaTime: %-12f", Time::GetFrameRate(), Time::GetDeltaTime());
 		}
 
 		return true;
@@ -136,6 +143,7 @@ public:
 	Scene* scene;
 
 	bool shouldUsePositionDetection = true;
+	bool shouldShowFPS = true;
 
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;

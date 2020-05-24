@@ -229,13 +229,8 @@ public:
 	}
 
 	template<>
-	bool DesignProperties(StereoLine * obj) {
-		return false;
-	}
-
-	template<>
 	bool DesignProperties(Cross * obj) {
-		if (ImGui::InputFloat3("position", (float*)& obj->Position, "%f", 0)
+		if (ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0)
 			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
 		{
 			obj->Refresh();
@@ -246,7 +241,7 @@ public:
 	template<>
 	bool DesignProperties(StereoCamera* obj) {
 		ImGui::InputFloat3("positionModifier", (float*)& obj->positionModifier, "%f", 0);
-		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
+		ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0);
 		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
 		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
 		return true;
@@ -267,7 +262,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
 		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
 	}
-	void EmplaceDragDropObject(ObjectPointer objectPointer) {
+	void EmplaceDragDropObject(SceneObject* objectPointer) {
 		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", objectPointer, &selectedObjectsBuffer);
 	}
 
@@ -289,13 +284,13 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&t->Children, 0, buffer, GetPosition(Center));
+				ScheduleMove(t, 0, buffer, GetPosition(Center));
 			}
 			ImGui::EndDragDropTarget();
 		}
 
-		for (size_t i = 0; i < t->Children.size(); i++)
-			if (!DesignTreeNode(t->Children[i], t->Children, i))
+		for (size_t i = 0; i < t->children.size(); i++)
+			if (!DesignTreeNode(t->children[i], t->children, i))
 			{
 				ImGui::TreePop();
 				ImGui::PopID();
@@ -312,11 +307,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		switch (t->GetType()) {
 		case Group:
 			return DesignTreeNode((GroupObject*)t, source, pos);
-		case Leaf:
-		case StereoLineT:
 		case StereoPolyLineT:
 		case MeshT:
-		case LineMeshT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		}
 
@@ -338,7 +330,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 
-			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			EmplaceDragDropObject(t);
 
 			ImGui::EndDragDropSource();
 		}
@@ -350,19 +342,19 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				MoveCommandPosition relativePosition = GetPosition(Any);
+				InsertPosition relativePosition = GetPosition(Any);
 				if (relativePosition == Center)
-					ScheduleMove(&t->Children, 0, buffer, relativePosition);
+					ScheduleMove(t, 0, buffer, relativePosition);
 				else
-					ScheduleMove(&source, pos, buffer, relativePosition);
+					ScheduleMove(t->parent, pos, buffer, relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
 
 		if (open)
 		{
-			for (size_t i = 0; i < t->Children.size(); i++)
-				if (!DesignTreeNode(t->Children[i], t->Children, i))
+			for (size_t i = 0; i < t->children.size(); i++)
+				if (!DesignTreeNode(t->children[i], t->children, i))
 				{
 					ImGui::TreePop();
 					ImGui::PopID();
@@ -395,7 +387,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 			
-			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			EmplaceDragDropObject(t);
 			
 			ImGui::EndDragDropSource();
 		}
@@ -407,7 +399,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&source, pos, buffer, GetPosition(Top | Bottom));
+				ScheduleMove(t->parent, pos, buffer, GetPosition(Top | Bottom));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -419,7 +411,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return true;
 	}
 
-	MoveCommandPosition GetPosition(int positionMask) {
+	InsertPosition GetPosition(int positionMask) {
 		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
 		glm::vec2 size = ImGui::GetItemRectSize();
 		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
@@ -434,8 +426,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		if (positionMask == Bottom)
 			return Bottom;
 
-		if ((positionMask & Center) == 0)
-		{
+		if ((positionMask & Center) == 0) {
 			if (vertPos > 0)
 				return Bottom;
 
@@ -451,7 +442,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return Center;
 	}
 
-	void ScheduleMove(std::vector<SceneObject*> * target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator> * items, MoveCommandPosition pos) {
+	void ScheduleMove(SceneObject* target, int targetPos, std::set<SceneObject*> * items, InsertPosition pos) {
 		if (isCommandEmpty)
 		{
 			moveCommand = new MoveCommand();
@@ -467,7 +458,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	}
 
 public:
-	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
+	std::set<SceneObject*>* selectedObjectsBuffer;
 
 	GroupObject** rootObject;
 	float indent = 1;
@@ -536,10 +527,6 @@ class PointPenToolWindow : Window, Attributes
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
 		case StereoPolyLineT:
 			return "PolyLine";
 		default:
@@ -654,10 +641,6 @@ class ExtrusionToolWindow : Window, Attributes
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
 		case StereoPolyLineT:
 			return "PolyLine";
 		default:
@@ -956,7 +939,6 @@ public:
 class ToolWindow : Window {
 	const Log log = Log::For<ToolWindow>();
 
-	CreatingTool<StereoLine> lineTool;
 	CreatingTool<StereoPolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
 
@@ -985,7 +967,7 @@ class ToolWindow : Window {
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
 		creatingTool.BindScene(scene);
-		creatingTool.BindSource(&((GroupObject*)scene->root)->Children);
+		creatingTool.BindDestination(&scene->root);
 		creatingTool.func = initFunc;
 	}
 
@@ -1006,12 +988,6 @@ public:
 			return false;
 		}
 
-		ConfigureCreationTool(lineTool, [](SceneObject* o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "Line" << id++;
-			o->Name = ss.str();
-		});
 		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
 			static int id = 0;
 			std::stringstream ss;
@@ -1030,8 +1006,6 @@ public:
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
-		if (ImGui::Button("Line"))
-			lineTool.Create();
 		if (ImGui::Button("PolyLine"))
 			polyLineTool.Create();
 		if (ImGui::Button("Group"))
