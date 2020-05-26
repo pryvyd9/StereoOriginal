@@ -4,8 +4,6 @@
 #include <set>
 #include <array>
 
-
-
 #pragma region Scene Objects
 
 enum ObjectType {
@@ -22,6 +20,7 @@ struct Pair {
 
 class SceneObject {
 	glm::vec3 position;
+	glm::fquat rotation = glm::fquat(1,0,0,0);
 protected:
 	bool shouldUpdateCache;
 public:
@@ -29,6 +28,19 @@ public:
 	std::vector<SceneObject*> children;
 
 	std::string Name = "noname";
+
+	//glm::vec3 forward = glm::vec3(0,0,1);
+	//glm::vec3 up = glm::vec3(0,1,0);
+
+	glm::vec3 GetRight() {
+		return glm::rotate(GetLocalRotation(), glm::vec3(1, 0, 0));
+	}
+	glm::vec3 GetUp() {
+		return glm::rotate(GetLocalRotation(), glm::vec3(0, 1, 0));
+	}
+	glm::vec3 GetForward() {
+		return glm::rotate(GetLocalRotation(), glm::vec3(0, 0, 1));
+	}
 
 	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
@@ -44,12 +56,11 @@ public:
 		
 		return GetLocalPosition();
 	}
-
-	void SetLocalPosition(glm::vec3 v) {
+	void SetLocalPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 		position = v;
 	}
-	void SetWorldPosition(glm::vec3 v) {
+	void SetWorldPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 
 		if (parent) {
@@ -58,6 +69,31 @@ public:
 		}
 
 		position = v;
+	}
+
+	const glm::quat& GetLocalRotation() const {
+		return rotation;
+	}
+	const glm::quat GetWorldRotation() const {
+		if (parent)
+			return glm::cross(GetLocalRotation(), parent->GetWorldRotation());
+			//return glm::cross(parent->GetWorldRotation(), GetLocalRotation());
+
+		return GetLocalRotation();
+	}
+	void SetLocalRotation(const glm::quat& v) {
+		ForceUpdateCache();
+		rotation = v;
+	}
+	void SetWorldRotation(const glm::quat& v) {
+		ForceUpdateCache();
+
+		if (parent) {
+			rotation = glm::cross(v, glm::inverse(parent->GetWorldRotation()));
+			return;
+		}
+
+		rotation = v;
 	}
 
 	void ForceUpdateCache() {
@@ -109,10 +145,11 @@ class StereoPolyLine : public LeafObject {
 		linesCache = std::vector<Pair>(vertices.size() - 1);
 
 		auto worldPos = GetWorldPosition();
+		auto worldRot = GetWorldRotation();
 
 		for (size_t i = 0; i < vertices.size() - 1; i++) {
-			linesCache[i].p1 = vertices[i] + worldPos;
-			linesCache[i].p2 = vertices[i + 1] + worldPos;
+			linesCache[i].p1 = glm::rotate(worldRot, vertices[i]) + worldPos;
+			linesCache[i].p2 = glm::rotate(worldRot, vertices[i + 1]) + worldPos;
 		}
 
 		shouldUpdateCache = false;
@@ -195,10 +232,11 @@ private:
 		linesCache = std::vector<Pair>(lines.size());
 
 		auto worldPos = GetWorldPosition();
+		auto worldRot = GetWorldRotation();
 
-		for (size_t i = 0; i < lines.size(); i++) {
-			linesCache[i].p1 = vertices[lines[i][0]] + worldPos;
-			linesCache[i].p2 = vertices[lines[i][1]] + worldPos;
+		for (size_t i = 0; i < lines.size() - 1; i++) {
+			linesCache[i].p1 = glm::rotate(worldRot, vertices[lines[i][0]]) + worldPos;
+			linesCache[i].p2 = glm::rotate(worldRot, vertices[lines[i][1]]) + worldPos;
 		}
 
 		shouldUpdateCache = false;

@@ -755,12 +755,24 @@ public:
 class TransformToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
+	int maxPrecision = 5;
+
 
 	std::string GetName(SceneObject** obj) {
 		return
 			(*obj) != nullptr
 			? (*obj)->Name
 			: "Empty";
+	}
+
+	int getPrecision(float v) {
+		int precision = 0;
+		for (size_t i = 0; i < maxPrecision; i++) {
+			v *= 10;
+			if ((int)v % 10 != 0)
+				precision = i + 1;
+		}
+		return precision;
 	}
 
 	bool DesignInternal() {
@@ -821,8 +833,12 @@ class TransformToolWindow : Window, Attributes
 				if (ImGui::RadioButton("Z", &axe, 2))
 					tool->SetAxe(Axe::Z);
 
-				ImGui::DragFloat("radian", &tool->angle, 0.01, 0, 0, "%.2f");
-
+				//ImGui::DragFloat("radian", &tool->angle, 1, 0, 0, "%.2f");
+				{
+					std::stringstream ss;
+					ss << "%." << getPrecision(tool->angle) << "f";
+					ImGui::DragFloat("radian", &tool->angle, 1, 0, 0, ss.str().c_str());
+				}
 			}
 		}
 

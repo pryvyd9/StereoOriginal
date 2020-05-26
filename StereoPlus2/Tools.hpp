@@ -754,9 +754,9 @@ public:
 class TransformTool : public EditingTool<TransformToolMode> {
 	const Log Logger = Log::For<TransformTool>();
 
-	float crossMinMovement = 1e-6;
-	float scaleMinMagnitude = 1e-4;
-	float rotateMinMagnitude = 1e-4;
+	//float crossMinMovement = 1e-6;
+	//float scaleMinMagnitude = 1e-4;
+	//float rotateMinMagnitude = 1e-4;
 
 	size_t handlerId;
 	Mode mode;
@@ -772,16 +772,19 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	glm::vec3 crossOldPos;
 	float oldScale;
 	float oldAngle;
+	glm::fquat originalLocalRotation;
 
 	bool areVerticesModified = false;
 	bool areLinesModified = false;
 	bool isPositionModified = false;
+	bool isRotationModified = false;
 
 	std::vector<glm::vec3> originalVertices;
 	std::vector<std::array<size_t, 2>> originalLines;
 
 	std::vector<std::vector<glm::vec3>> originalVerticesFolded;
-	std::vector<glm::vec3> originalPositionsFolded;
+	std::vector<glm::vec3> originalLocalPositionsFolded;
+	std::vector<glm::vec3> originalWorldPositionsFolded;
 	std::vector<std::vector<std::array<size_t, 2>>> originalLinesFolded;
 
 #pragma endregion
@@ -799,16 +802,14 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		switch (mode) {
 		case Mode::Translate:
-			if (glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement)
+			if (cross->GetLocalPosition() == crossOldPos)
 				return;
 			
 			Translate(cross->GetLocalPosition() - crossOriginalPos, target);
 			crossOldPos = cross->GetLocalPosition();
 			return;
 		case Mode::Scale:
-			if (scale == oldScale
-				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement
-				|| abs(scale) < scaleMinMagnitude)
+			if (scale == oldScale && cross->GetLocalPosition() == crossOldPos)
 				return;
 
 			Scale(cross->GetLocalPosition(), scale, target);
@@ -817,9 +818,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			crossOldPos = cross->GetLocalPosition();
 			return;
 		case Mode::Rotate:
-			if (angle == oldAngle
-				&& glm::length(cross->GetLocalPosition() - crossOldPos) < crossMinMovement
-				|| abs(angle) < rotateMinMagnitude)
+			if (angle == oldAngle && cross->GetLocalPosition() == crossOldPos)
 				return;
 
 			Rotate(axe, angle, target);
@@ -834,7 +833,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		isPositionModified = true;
 		areVerticesModified = true;
 		int v = 0;
-		target->SetWorldPosition(center + (originalPositionsFolded[0] - center) * scale);
+		target->SetWorldPosition(center + (originalLocalPositionsFolded[0] - center) * scale);
 		CallRecursive(target, [&](SceneObject* o) {
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
 				o->SetVertice(i, originalVerticesFolded[v][i] * scale);
@@ -851,49 +850,34 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	void Rotate(Axe axe, float angle, SceneObject* target) {
 		isPositionModified = true;
 		areVerticesModified = true;
-		int v = 0;
+		isRotationModified = true;
+		
+		float trimmedDeltaAngle = getTrimmedAngle(angle - oldAngle) / 360 * 3.1415926 * 2;
+		
+		glm::vec3 rotationAxe =
+			axe == Axe::X
+			? target->GetRight()
+			: axe == Axe::Y
+			? target->GetUp()
+			: target->GetForward();
 
-		auto wp = target->GetWorldPosition();
-		auto relative = originalPositionsFolded[0] - cross->GetLocalPosition();
+		auto k = glm::cross(glm::angleAxis(trimmedDeltaAngle, rotationAxe), target->GetLocalRotation());
+		auto k1 = glm::normalize(k);
+		target->SetLocalRotation(k1);
 
-		switch (axe) {
-		case Axe::X:
-			wp.y = relative.y * cos(angle) - relative.z * sin(angle) + cross->GetLocalPosition().y;
-			wp.z = relative.y * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z;
-			break;
-		case Axe::Y:
-			wp.x = relative.x * cos(angle) + relative.z * sin(angle) + cross->GetLocalPosition().x;
-			wp.z = -relative.x * sin(angle) + relative.z * cos(angle) + cross->GetLocalPosition().z;
-			break;
-		case Axe::Z:
-			wp.x = relative.x * cos(angle) - relative.y * sin(angle) + cross->GetLocalPosition().x;
-			wp.y = relative.y * sin(angle) + relative.y * cos(angle) + cross->GetLocalPosition().y;
-			break;
-		}
-
-		target->SetWorldPosition(wp);
-
-		CallRecursive(target, [&](SceneObject* o) {
-			for (size_t i = 0; i < o->GetVertices().size(); i++) {
-				switch (axe) {
-				case Axe::X:
-					o->SetVerticeY(i, originalVerticesFolded[v][i].y * cos(angle) - originalVerticesFolded[v][i].z * sin(angle));
-					o->SetVerticeZ(i, originalVerticesFolded[v][i].y * sin(angle) + originalVerticesFolded[v][i].z * cos(angle));
-					break;
-				case Axe::Y:
-					o->SetVerticeX(i, originalVerticesFolded[v][i].x * cos(angle) + originalVerticesFolded[v][i].z * sin(angle));
-					o->SetVerticeZ(i, -originalVerticesFolded[v][i].x * sin(angle) + originalVerticesFolded[v][i].z * cos(angle));
-					break;
-				case Axe::Z:
-					o->SetVerticeX(i, originalVerticesFolded[v][i].x * cos(angle) - originalVerticesFolded[v][i].y * sin(angle));
-					o->SetVerticeY(i, originalVerticesFolded[v][i].y * sin(angle) + originalVerticesFolded[v][i].y * cos(angle));
-					break;
-				}
-			}
-			v++;
-			});
+		auto deltaRotation = glm::cross(target->GetWorldRotation(), glm::inverse(originalLocalRotation));
+		auto nr = glm::rotate(deltaRotation, originalWorldPositionsFolded[0] - cross->GetWorldPosition()) + cross->GetWorldPosition();
+		target->SetWorldPosition(nr);
 	}
 
+
+	float getTrimmedAngle(float a) {
+		while (a - 360 > 0)
+			a -= 360;
+		while (a + 360 < 0)
+			a += 360;
+		return a;
+	}
 
 	template<typename K, typename V>
 	static bool exists(const std::multimap<K, V>& map, const K& key, const V& val) {
@@ -952,18 +936,23 @@ public:
 
 		target = objs[0];
 		
-		crossOldPos = crossOriginalPos = cross->GetLocalPosition();
 
 		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 
+		crossOldPos = crossOriginalPos = cross->GetLocalPosition();
+		originalLocalRotation = target->GetLocalRotation();
+
 		originalVerticesFolded.clear();
 		originalLinesFolded.clear();
-		originalPositionsFolded.clear();
-		CallRecursive(target, [v = &originalVerticesFolded, l = &originalLinesFolded, p = &originalPositionsFolded](SceneObject* o) {
-			v->push_back(o->GetVertices()); 
-			p->push_back(o->GetLocalPosition()); 
+		originalLocalPositionsFolded.clear();
+		originalWorldPositionsFolded.clear();
+
+		CallRecursive(target, [&](SceneObject* o) {
+			originalVerticesFolded.push_back(o->GetVertices());
+			originalLocalPositionsFolded.push_back(o->GetLocalPosition());
+			originalWorldPositionsFolded.push_back(o->GetWorldPosition());
 			if (o->GetType() == MeshT)
-				l->push_back(static_cast<Mesh*>(o)->GetLinearConnections());
+				originalLinesFolded.push_back(static_cast<Mesh*>(o)->GetLinearConnections());
 			});
 
 		return true;
@@ -975,9 +964,15 @@ public:
 		isPositionModified = false;
 		areVerticesModified = false;
 		areLinesModified = false;
+		isRotationModified = false;
+
 		this->target = nullptr;
+
 		scale = 1;
+		oldScale = 1;
 		angle = 0;
+		oldAngle = 0;
+
 		keyBinding->RemoveHandler(handlerId);
 		DeleteConfig();
 
@@ -985,10 +980,13 @@ public:
 	}
 	void Cancel() {
 		int sceneObjectI = 0, meshI = 0;
+		
+		if (isRotationModified)
+			target->SetLocalRotation(originalLocalRotation);
 
 		CallRecursive(target, [=, &sceneObjectI, &meshI](SceneObject* o) {
 			if (isPositionModified)
-				o->SetLocalPosition(originalPositionsFolded[sceneObjectI]);
+				o->SetLocalPosition(originalLocalPositionsFolded[sceneObjectI]);
 			if (areVerticesModified)
 				o->SetVertices(originalVerticesFolded[sceneObjectI]);
 			if (o->GetType() == MeshT) {

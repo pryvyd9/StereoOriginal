@@ -142,7 +142,7 @@ public:
 	KeyBinding keyBinding;
 	Scene* scene;
 
-	bool shouldUsePositionDetection = true;
+	bool shouldUsePositionDetection = false;
 	bool shouldShowFPS = true;
 
 	std::vector<Window*> windows;
