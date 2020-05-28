@@ -14,6 +14,13 @@ enum ObjectType {
 	CrossT,
 };
 
+enum InsertPosition {
+	Top = 0x01,
+	Bottom = 0x10,
+	Center = 0x100,
+	Any = Top | Bottom | Center,
+};
+
 struct Pair {
 	glm::vec3 p1, p2;
 };
@@ -21,10 +28,10 @@ struct Pair {
 class SceneObject {
 	glm::vec3 position;
 	glm::fquat rotation = glm::fquat(1,0,0,0);
+	SceneObject* parent;
 protected:
 	bool shouldUpdateCache;
 public:
-	SceneObject* parent;
 	std::vector<SceneObject*> children;
 
 	std::string Name = "noname";
@@ -40,6 +47,66 @@ public:
 	}
 	glm::vec3 GetForward() {
 		return glm::rotate(GetLocalRotation(), glm::vec3(0, 0, 1));
+	}
+
+	const SceneObject* GetParent() const {
+		return parent;
+	}
+	void SetParent(SceneObject* newParent, int newParentPos, InsertPosition pos) {
+		auto oldPosition = GetWorldPosition();
+		auto oldRotation = GetWorldRotation();
+
+		auto source = &parent->children;
+		auto dest = &newParent->children;
+
+		parent = newParent;
+
+		SetWorldPosition(oldPosition);
+		SetWorldRotation(oldRotation);
+
+		auto sourcePositionInt = find(*source, this);
+
+		if (dest->size() == 0) {
+			dest->push_back(this);
+			source->erase(source->begin() + sourcePositionInt);
+			return;
+		}
+
+		if ((InsertPosition::Bottom & pos) != 0) {
+			newParentPos++;
+		}
+
+		if (source == dest && newParentPos < (int)sourcePositionInt) {
+			dest->erase(source->begin() + sourcePositionInt);
+			dest->insert(dest->begin() + newParentPos, 1, this);
+			return;
+		}
+
+		dest->insert(dest->begin() + newParentPos, 1, this);
+		source->erase(source->begin() + sourcePositionInt);
+	}
+	void SetParent(SceneObject* newParent, bool shouldConvertValues = false) {
+		if (shouldConvertValues) {
+			auto oldPosition = GetWorldPosition();
+			auto oldRotation = GetWorldRotation();
+
+			parent = newParent;
+
+			SetWorldPosition(oldPosition);
+			SetWorldRotation(oldRotation);
+		}
+		else {
+			parent = newParent;
+		}
+
+		if (parent && parent->children.size() > 0) {
+			auto pos = std::find(parent->children.begin(), parent->children.end(), this);
+			if (pos != parent->children.end())
+				parent->children.erase(pos);
+		}
+
+		if (newParent)
+			newParent->children.push_back(this);
 	}
 
 	virtual ObjectType GetType() const = 0;
@@ -76,8 +143,8 @@ public:
 	}
 	const glm::quat GetWorldRotation() const {
 		if (parent)
-			return glm::cross(GetLocalRotation(), parent->GetWorldRotation());
-			//return glm::cross(parent->GetWorldRotation(), GetLocalRotation());
+			//return glm::cross(GetLocalRotation(), parent->GetWorldRotation());
+			return glm::cross(parent->GetWorldRotation(), GetLocalRotation());
 
 		return GetLocalRotation();
 	}
@@ -150,6 +217,9 @@ class StereoPolyLine : public LeafObject {
 		for (size_t i = 0; i < vertices.size() - 1; i++) {
 			linesCache[i].p1 = glm::rotate(worldRot, vertices[i]) + worldPos;
 			linesCache[i].p2 = glm::rotate(worldRot, vertices[i + 1]) + worldPos;
+
+			//linesCache[i].p1 = glm::rotate(worldRot, vertices[i] + worldPos);
+			//linesCache[i].p2 = glm::rotate(worldRot, vertices[i + 1] + worldPos);
 		}
 
 		shouldUpdateCache = false;
@@ -516,13 +586,13 @@ public:
 	}
 };
 
-enum InsertPosition
-{
-	Top = 0x01,
-	Bottom = 0x10,
-	Center = 0x100,
-	Any = Top | Bottom | Center,
-};
+//enum InsertPosition
+//{
+//	Top = 0x01,
+//	Bottom = 0x10,
+//	Center = 0x100,
+//	Any = Top | Bottom | Center,
+//};
 
 class Scene {
 public:
@@ -560,15 +630,13 @@ public:
 	}
 
 	bool Insert(SceneObject* destination, SceneObject* obj) {
-		destination->children.push_back(obj);
-		obj->parent = destination;
+		obj->SetParent(destination);
 		objects.push_back(obj);
 		return true;
 	}
 
 	bool Insert(SceneObject* obj) {
-		root->children.push_back(obj);
-		obj->parent = root;
+		obj->SetParent(root);
 		objects.push_back(obj);
 		return true;
 	}
@@ -604,38 +672,41 @@ public:
 		// Find if item is present in target;
 
 		auto item = items->begin()._Ptr->_Myval;
-
-		auto source = &item->parent->children;
-		auto dest = &destination->children;
-
-		auto sourcePosition = std::find(source->begin(), source->end(), item);
-
-		item->parent = destination;
-
-		if (dest->size() == 0)
-		{
-			dest->push_back(item);
-			source->erase(std::find(source->begin(), source->end(), item));
-			return true;
-		}
-
-		if (has<InsertPosition::Bottom>(pos))
-		{
-			destinationPos++;
-		}
-
-		auto sourcePositionInt = find(*source, item);
-		if (source == dest && destinationPos < (int)sourcePositionInt)
-		{
-			dest->erase(sourcePosition);
-			dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
-			return true;
-		}
-
-		dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
-		source->erase(sourcePosition);
+		item->SetParent(destination, destinationPos, pos);
 
 		return true;
+
+		//auto source = &item->parent->children;
+		//auto dest = &destination->children;
+
+		//auto sourcePosition = std::find(source->begin(), source->end(), item);
+
+		//item->parent = destination;
+
+		//if (dest->size() == 0)
+		//{
+		//	dest->push_back(item);
+		//	source->erase(std::find(source->begin(), source->end(), item));
+		//	return true;
+		//}
+
+		//if (has<InsertPosition::Bottom>(pos))
+		//{
+		//	destinationPos++;
+		//}
+
+		//auto sourcePositionInt = find(*source, item);
+		//if (source == dest && destinationPos < (int)sourcePositionInt)
+		//{
+		//	dest->erase(sourcePosition);
+		//	dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
+		//	return true;
+		//}
+
+		//dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
+		//source->erase(sourcePosition);
+
+		//return true;
 	}
 
 

@@ -346,7 +346,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 				if (relativePosition == Center)
 					ScheduleMove(t, 0, buffer, relativePosition);
 				else
-					ScheduleMove(t->parent, pos, buffer, relativePosition);
+					ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -399,7 +399,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(t->parent, pos, buffer, GetPosition(Top | Bottom));
+				ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, GetPosition(Top | Bottom));
 			}
 			ImGui::EndDragDropTarget();
 		}

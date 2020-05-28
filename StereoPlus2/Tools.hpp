@@ -842,7 +842,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	}
 	void Translate(glm::vec3 transformVector, SceneObject* target) {
 		isPositionModified = true;
-		target->SetLocalPosition(transformVector);
+		target->SetLocalPosition(originalLocalPositionsFolded[0] + transformVector);
 		CallRecursive(target, [](SceneObject* o) {
 			o->ForceUpdateCache();
 			});

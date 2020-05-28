@@ -117,8 +117,7 @@ class ibstream {
 	}
 	void readChildren(SceneObject* parent) {
 		readArray(std::function([&parent](SceneObject* v) {
-			v->parent = parent;
-			parent->children.push_back(v);
+			v->SetParent(parent);
 			}));
 	}
 	template<typename...T>
@@ -282,6 +281,12 @@ public:
 		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z) };
 		return j;
 	}
+	template<>
+	JsonObjectAbstract* serialize(const glm::fquat& o) {
+		auto j = new JsonArray();
+		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z), serialize(o.w) };
+		return j;
+	}
 	template<typename T>
 	JsonObjectAbstract* serialize(const std::vector<T*>& v) {
 		auto j = new JsonArray();
@@ -306,38 +311,26 @@ public:
 	template<>
 	JsonObjectAbstract* serialize(const SceneObject& so) {
 		auto jo = new JsonObject();
+		insert(jo, "type", so.GetType());
+		insert(jo, "name", so.Name);
+		insert(jo, "localPosition", so.GetLocalPosition());
+		insert(jo, "localRotation", so.GetLocalRotation());
+		insert(jo, "children", so.children);
+
 		switch (so.GetType()) {
 		case Group:
-		{
-			auto o = (GroupObject*)&so;
-
-			insert(jo, "type", o->GetType());
-			insert(jo, "name", o->Name);
-			insert(jo, "children", o->children);
-
 			break;
-		}
 		case StereoPolyLineT:
 		{
 			auto o = (StereoPolyLine*)&so;
-
-			insert(jo, "type", o->GetType());
-			insert(jo, "name", o->Name);
 			insert(jo, "vertices", o->GetVertices());
-			insert(jo, "children", o->children);
-
 			break;
 		}
 		case MeshT:
 		{
 			auto o = (Mesh*)&so;
-
-			insert(jo, "type", o->GetType());
-			insert(jo, "name", o->Name);
-			insert(jo, "points", o->GetVertices());
+			insert(jo, "vertices", o->GetVertices());
 			insert(jo, "connections", o->GetLinearConnections());
-			insert(jo, "children", o->children);
-
 			break;
 		}
 		}
@@ -546,6 +539,10 @@ class ijstream {
 	void get(JsonObject* joa, std::string name, T& dest) {
 		dest = get<T>(joa->objects[name]);
 	}
+	template<typename T>
+	void get(JsonObject* joa, std::string name, std::function<void(T)> dest) {
+		dest(get<T>(joa->objects[name]));
+	}
 	template<typename...T>
 	void getArray(JsonObject* jo, std::string name, std::function<void(T...)> f) {
 		auto j = (JsonArray*)jo->objects[name];
@@ -555,8 +552,7 @@ class ijstream {
 
 	void getChildren(JsonObject* j, std::string name, SceneObject* parent) {
 		getArray(j, name, std::function([&parent](SceneObject* v) {
-			v->parent = parent;
-			parent->children.push_back(v);
+			v->SetParent(parent);
 			}));
 	}
 public:
@@ -606,6 +602,15 @@ public:
 		return v;
 	}
 	template<>
+	glm::fquat get(JsonObjectAbstract* joa) {
+		auto j = (JsonArray*)joa;
+		glm::fquat v;
+		for (size_t i = 0; i < j->objects.size(); i++) {
+			((float*)&v)[i] = get<float>(j->objects[i]);
+		}
+		return v;
+	}
+	template<>
 	std::vector<SceneObject*> get(JsonObjectAbstract* joa) {
 		auto j = (JsonArray*)joa;
 		std::vector<SceneObject*> v;
@@ -631,6 +636,8 @@ public:
 		{
 			auto o = start<GroupObject>();
 			get(j, "name", o->Name);
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			getChildren(j, "children", o);
 			return o;
 		}
@@ -638,17 +645,21 @@ public:
 		{
 			auto o = start<StereoPolyLine>();
 			get(j, "name", o->Name);
-			getArray(j, "vertices", std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			getChildren(j, "children", o);
+			getArray(j, "vertices", std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			return o;
 		}
 		case MeshT:
 		{
 			auto o = start<Mesh>();
 			get(j, "name", o->Name);
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			getChildren(j, "children", o);
 			getArray(j, "vertices", std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			getArray(j, "connections", std::function([&o](size_t a, size_t b) { o->Connect(a, b); }));
-			getChildren(j, "children", o);
 			return o;
 		}
 		case CameraT:
@@ -744,7 +755,7 @@ class FileManager {
 
 		auto o = str.read();
 		inScene->root = o;
-		o->parent = nullptr;
+		o->SetParent(nullptr);
 
 		file.close();
 	}
@@ -773,7 +784,7 @@ class FileManager {
 
 		auto o = str.get<SceneObject*>();
 		inScene->root = o;
-		o->parent = nullptr;
+		o->SetParent(nullptr);
 
 		file.close();
 	}
