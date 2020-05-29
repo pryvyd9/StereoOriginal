@@ -843,9 +843,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	void Translate(glm::vec3 transformVector, SceneObject* target) {
 		isPositionModified = true;
 		target->SetLocalPosition(originalLocalPositionsFolded[0] + transformVector);
-		CallRecursive(target, [](SceneObject* o) {
-			o->ForceUpdateCache();
-			});
 	}
 	void Rotate(Axe axe, float angle, SceneObject* target) {
 		isPositionModified = true;
@@ -864,6 +861,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		auto k = glm::cross(glm::angleAxis(trimmedDeltaAngle, rotationAxe), target->GetLocalRotation());
 		auto k1 = glm::normalize(k);
 		target->SetLocalRotation(k1);
+		cross->SetLocalRotation(target->GetWorldRotation());
 
 		auto deltaRotation = glm::cross(target->GetWorldRotation(), glm::inverse(originalLocalRotation));
 		auto nr = glm::rotate(deltaRotation, originalWorldPositionsFolded[0] - cross->GetWorldPosition()) + cross->GetWorldPosition();
@@ -955,6 +953,8 @@ public:
 				originalLinesFolded.push_back(static_cast<Mesh*>(o)->GetLinearConnections());
 			});
 
+		cross->SetLocalRotation(target->GetWorldRotation());
+
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
@@ -975,6 +975,8 @@ public:
 
 		keyBinding->RemoveHandler(handlerId);
 		DeleteConfig();
+
+		cross->SetLocalRotation(cross->unitQuat());
 
 		return true;
 	}

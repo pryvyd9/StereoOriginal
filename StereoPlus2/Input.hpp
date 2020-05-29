@@ -322,7 +322,7 @@ public:
 					// Cross position.
 					*const_cast<float*>(&c->GetLocalPosition()[lockedAxeIndex]) += m.x;
 
-					c->Refresh();
+					c->ForceUpdateCache();
 
 					return;
 				}
@@ -345,7 +345,7 @@ public:
 				(*position)[lockedPlane[0]] += m.x;
 				(*position)[lockedPlane[1]] -= m.y;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 
 				return;
 			}
@@ -365,7 +365,7 @@ public:
 				position->x += m.x;
 				position->y -= m.y;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 			}
 			});
 
@@ -387,7 +387,7 @@ public:
 				position->x += movement.x;
 				position->y -= movement.y;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 			}
 			});
 
@@ -406,7 +406,7 @@ public:
 
 				*const_cast<glm::vec3*>(&c->GetLocalPosition()) += movement;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 			}
 			});
 	}
@@ -439,7 +439,7 @@ public:
 					c->size = newSize;
 			}
 
-			c->Refresh();
+			c->ForceUpdateCache();
 			});
 	}
 

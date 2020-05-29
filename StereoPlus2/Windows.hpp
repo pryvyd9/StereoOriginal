@@ -233,7 +233,7 @@ public:
 		if (ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0)
 			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
 		{
-			obj->Refresh();
+			obj->ForceUpdateCache();
 		}
 		return true;
 	}

@@ -27,10 +27,25 @@ struct Pair {
 
 class SceneObject {
 	glm::vec3 position;
-	glm::fquat rotation = glm::fquat(1,0,0,0);
+	glm::fquat rotation = unitQuat();
 	SceneObject* parent;
+
+
 protected:
 	bool shouldUpdateCache;
+
+	void CascadeTransform(std::vector<glm::vec3>& vertices) {
+		if (GetLocalRotation() == unitQuat())
+			for (size_t i = 0; i < vertices.size(); i++)
+				vertices[i] = vertices[i] + GetLocalPosition();
+		else
+			for (size_t i = 0; i < vertices.size(); i++)
+				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]) + GetLocalPosition();
+
+		if (parent)
+			parent->CascadeTransform(vertices);
+	}
+
 public:
 	std::vector<SceneObject*> children;
 
@@ -38,6 +53,10 @@ public:
 
 	//glm::vec3 forward = glm::vec3(0,0,1);
 	//glm::vec3 up = glm::vec3(0,1,0);
+
+	constexpr const glm::fquat unitQuat() {
+		return glm::fquat(1, 0, 0, 0);
+	}
 
 	glm::vec3 GetRight() {
 		return glm::rotate(GetLocalRotation(), glm::vec3(1, 0, 0));
@@ -209,17 +228,14 @@ class StereoPolyLine : public LeafObject {
 			return;
 		}
 
+		auto transformedVertices = vertices;
+		CascadeTransform(transformedVertices);
+
 		linesCache = std::vector<Pair>(vertices.size() - 1);
 
-		auto worldPos = GetWorldPosition();
-		auto worldRot = GetWorldRotation();
-
 		for (size_t i = 0; i < vertices.size() - 1; i++) {
-			linesCache[i].p1 = glm::rotate(worldRot, vertices[i]) + worldPos;
-			linesCache[i].p2 = glm::rotate(worldRot, vertices[i + 1]) + worldPos;
-
-			//linesCache[i].p1 = glm::rotate(worldRot, vertices[i] + worldPos);
-			//linesCache[i].p2 = glm::rotate(worldRot, vertices[i + 1] + worldPos);
+			linesCache[i].p1 = transformedVertices[i];
+			linesCache[i].p2 = transformedVertices[i + 1];
 		}
 
 		shouldUpdateCache = false;
@@ -299,14 +315,14 @@ private:
 			return;
 		}
 
+		auto transformedVertices = vertices;
+		CascadeTransform(transformedVertices);
+
 		linesCache = std::vector<Pair>(lines.size());
 
-		auto worldPos = GetWorldPosition();
-		auto worldRot = GetWorldRotation();
-
 		for (size_t i = 0; i < lines.size() - 1; i++) {
-			linesCache[i].p1 = glm::rotate(worldRot, vertices[lines[i][0]]) + worldPos;
-			linesCache[i].p2 = glm::rotate(worldRot, vertices[lines[i][1]]) + worldPos;
+			linesCache[i].p1 = transformedVertices[lines[i][0]];
+			linesCache[i].p2 = transformedVertices[lines[i][1]];
 		}
 
 		shouldUpdateCache = false;
@@ -432,7 +448,9 @@ class Cross : public LeafObject {
 	bool isCreated = false;
 	std::vector<Pair> linesCache;
 
-	bool CreateLines() {
+	//std::vector<glm::vec3> vertices;
+
+	/*bool CreateLines() {
 		linesCache = std::vector<Pair>(3, Pair{ GetLocalPosition() , GetLocalPosition() });
 		
 		linesCache[0].p1.x -= size;
@@ -445,24 +463,65 @@ class Cross : public LeafObject {
 		linesCache[2].p2.z += size;
 
 		return true;
+	}*/
+
+	//bool CreateLines() {
+	//	/*vertices = std::vector<glm::vec3>(6);
+
+	//	vertices[0].x -= size;
+	//	vertices[1].x += size;
+
+	//	vertices[2].y -= size;
+	//	vertices[3].y += size;
+
+	//	vertices[4].z -= size;
+	//	vertices[5].z += size;*/
+
+	//	return true;
+	//}
+
+	void UpdateCache() {
+		std::vector<glm::vec3> vertices(6);
+
+		vertices[0].x -= size;
+		vertices[1].x += size;
+
+		vertices[2].y -= size;
+		vertices[3].y += size;
+
+		vertices[4].z -= size;
+		vertices[5].z += size;
+
+		CascadeTransform(vertices);
+
+		linesCache = std::vector<Pair>(3);
+		for (size_t i = 0; i < 3; i++) {
+			linesCache[i].p1 = vertices[i * 2];
+			linesCache[i].p2 = vertices[i * 2 + 1];
+		}
 	}
 public:
 	const uint_fast8_t lineCount = 3;
 
 	float size = 0.1;
 
-	bool Refresh() {
-		if (!isCreated) {
-			isCreated = true;
-			return CreateLines();
-		}
-		
-		return CreateLines();
-	}
+	//bool Refresh() {
+	//	if (!isCreated) {
+	//		isCreated = true;
+	//		return CreateLines();
+	//	}
+	//	
+	//	return CreateLines();
+	//}
 	bool Init() {
-		return CreateLines();
+		UpdateCache();
+		return true;
+		//return CreateLines();
 	}
 	virtual const std::vector<Pair>& GetLines() {
+		if (shouldUpdateCache)
+			UpdateCache();
+
 		return linesCache;
 	}
 	virtual ObjectType GetType() const {
