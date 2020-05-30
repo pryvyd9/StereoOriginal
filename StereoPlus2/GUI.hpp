@@ -62,6 +62,8 @@ class GUI {
 			if (ImGui::MenuItem("Save", nullptr, false))
 				if (!OpenFileWindow(FileWindow::Save))
 					return false;
+			if (ImGui::MenuItem("Close", nullptr, false))
+				scene->DeleteAll();
 
 			ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
 			ImGui::MenuItem("Show FPS", nullptr, &shouldShowFPS);

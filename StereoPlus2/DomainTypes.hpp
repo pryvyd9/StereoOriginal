@@ -51,9 +51,6 @@ public:
 
 	std::string Name = "noname";
 
-	//glm::vec3 forward = glm::vec3(0,0,1);
-	//glm::vec3 up = glm::vec3(0,1,0);
-
 	constexpr const glm::fquat unitQuat() {
 		return glm::fquat(1, 0, 0, 0);
 	}
@@ -72,6 +69,7 @@ public:
 		return parent;
 	}
 	void SetParent(SceneObject* newParent, int newParentPos, InsertPosition pos) {
+		ForceUpdateCache();
 		auto oldPosition = GetWorldPosition();
 		auto oldRotation = GetWorldRotation();
 
@@ -105,6 +103,14 @@ public:
 		source->erase(source->begin() + sourcePositionInt);
 	}
 	void SetParent(SceneObject* newParent, bool shouldConvertValues = false) {
+		ForceUpdateCache();
+		
+		if (parent && parent->children.size() > 0) {
+			auto pos = std::find(parent->children.begin(), parent->children.end(), this);
+			if (pos != parent->children.end())
+				parent->children.erase(pos);
+		}
+
 		if (shouldConvertValues) {
 			auto oldPosition = GetWorldPosition();
 			auto oldRotation = GetWorldRotation();
@@ -118,11 +124,6 @@ public:
 			parent = newParent;
 		}
 
-		if (parent && parent->children.size() > 0) {
-			auto pos = std::find(parent->children.begin(), parent->children.end(), this);
-			if (pos != parent->children.end())
-				parent->children.erase(pos);
-		}
 
 		if (newParent)
 			newParent->children.push_back(this);
@@ -448,38 +449,6 @@ class Cross : public LeafObject {
 	bool isCreated = false;
 	std::vector<Pair> linesCache;
 
-	//std::vector<glm::vec3> vertices;
-
-	/*bool CreateLines() {
-		linesCache = std::vector<Pair>(3, Pair{ GetLocalPosition() , GetLocalPosition() });
-		
-		linesCache[0].p1.x -= size;
-		linesCache[0].p2.x += size;
-
-		linesCache[1].p1.y -= size;
-		linesCache[1].p2.y += size;
-
-		linesCache[2].p1.z -= size;
-		linesCache[2].p2.z += size;
-
-		return true;
-	}*/
-
-	//bool CreateLines() {
-	//	/*vertices = std::vector<glm::vec3>(6);
-
-	//	vertices[0].x -= size;
-	//	vertices[1].x += size;
-
-	//	vertices[2].y -= size;
-	//	vertices[3].y += size;
-
-	//	vertices[4].z -= size;
-	//	vertices[5].z += size;*/
-
-	//	return true;
-	//}
-
 	void UpdateCache() {
 		std::vector<glm::vec3> vertices(6);
 
@@ -501,22 +470,11 @@ class Cross : public LeafObject {
 		}
 	}
 public:
-	const uint_fast8_t lineCount = 3;
-
 	float size = 0.1;
 
-	//bool Refresh() {
-	//	if (!isCreated) {
-	//		isCreated = true;
-	//		return CreateLines();
-	//	}
-	//	
-	//	return CreateLines();
-	//}
 	bool Init() {
 		UpdateCache();
 		return true;
-		//return CreateLines();
 	}
 	virtual const std::vector<Pair>& GetLines() {
 		if (shouldUpdateCache)
@@ -645,14 +603,6 @@ public:
 	}
 };
 
-//enum InsertPosition
-//{
-//	Top = 0x01,
-//	Bottom = 0x10,
-//	Center = 0x100,
-//	Any = Top | Bottom | Center,
-//};
-
 class Scene {
 public:
 	
@@ -666,11 +616,7 @@ public:
 	}
 private:
 	GroupObject defaultObject;
-
-
 public:
-	
-
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
@@ -720,7 +666,6 @@ public:
 	
 
 	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-
 		// Move single object
 		if (items->size() > 1)
 		{
@@ -734,40 +679,16 @@ public:
 		item->SetParent(destination, destinationPos, pos);
 
 		return true;
-
-		//auto source = &item->parent->children;
-		//auto dest = &destination->children;
-
-		//auto sourcePosition = std::find(source->begin(), source->end(), item);
-
-		//item->parent = destination;
-
-		//if (dest->size() == 0)
-		//{
-		//	dest->push_back(item);
-		//	source->erase(std::find(source->begin(), source->end(), item));
-		//	return true;
-		//}
-
-		//if (has<InsertPosition::Bottom>(pos))
-		//{
-		//	destinationPos++;
-		//}
-
-		//auto sourcePositionInt = find(*source, item);
-		//if (source == dest && destinationPos < (int)sourcePositionInt)
-		//{
-		//	dest->erase(sourcePosition);
-		//	dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
-		//	return true;
-		//}
-
-		//dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
-		//source->erase(sourcePosition);
-
-		//return true;
 	}
 
+	void DeleteAll() {
+		for (auto o : objects)
+			delete o;
+
+		objects.clear();
+		root = &defaultObject;
+		root->children.clear();
+	}
 
 	~Scene() {
 		for (auto o : objects)

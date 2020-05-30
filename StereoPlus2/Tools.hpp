@@ -131,6 +131,16 @@ enum class ExtrusionEditingToolMode {
 	Step,
 };
 
+enum class CoordinateMode {
+	Object,
+	Vertex,
+};
+
+enum class SpaceMode {
+	World,
+	Local,
+};
+
 enum class TransformToolMode {
 	Translate,
 	Scale,
@@ -139,7 +149,41 @@ enum class TransformToolMode {
 
 enum class Axe { X, Y, Z };
 
+class GlobalToolConfiguration {
+	static CoordinateMode& coordinateMode() {
+		static CoordinateMode v;
+		return v;
+	}
+	static SpaceMode& spaceMode() {
+		static SpaceMode v;
+		return v;
+	}
+public:
+	static const CoordinateMode& GetCoordinateMode() {
+		return coordinateMode();
+	}
+	static const SpaceMode& GetSpaceMode() {
+		return spaceMode();
+	}
+	
+	static void SetCoordinateMode(const CoordinateMode& v) {
+		coordinateMode() = v;
+		const_cast<Event<CoordinateMode>*>(&GetCoordinateModeChanged())->Invoke(v);
+	}
+	static void SetSpaceMode(const SpaceMode& v) {
+		spaceMode() = v;
+		const_cast<Event<SpaceMode>*>(&GetSpaceModeChanged())->Invoke(v);
+	}
 
+	static const Event<CoordinateMode>& GetCoordinateModeChanged() {
+		static Event<CoordinateMode> v;
+		return v;
+	}
+	static const Event<SpaceMode>& GetSpaceModeChanged() {
+		static Event<SpaceMode> v;
+		return v;
+	}
+};
 #pragma endregion
 
 template<ObjectType type>
@@ -754,11 +798,8 @@ public:
 class TransformTool : public EditingTool<TransformToolMode> {
 	const Log Logger = Log::For<TransformTool>();
 
-	//float crossMinMovement = 1e-6;
-	//float scaleMinMagnitude = 1e-4;
-	//float rotateMinMagnitude = 1e-4;
-
-	size_t handlerId;
+	size_t inputHandlerId;
+	size_t spaceModeChangeHandlerId;
 	Mode mode;
 	ObjectType type;
 	Axe axe;
@@ -766,6 +807,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
 	glm::vec3 crossOriginalPos;
+
+	SceneObject* crossOriginalParent;
 
 #pragma region ToolState
 	// Updated passed crossMinMovement
@@ -802,10 +845,11 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		switch (mode) {
 		case Mode::Translate:
-			if (cross->GetLocalPosition() == crossOldPos)
+			if (cross->GetWorldPosition() == crossOldPos)
 				return;
 			
 			Translate(cross->GetLocalPosition() - crossOriginalPos, target);
+
 			crossOldPos = cross->GetLocalPosition();
 			return;
 		case Mode::Scale:
@@ -840,10 +884,37 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			v++;
 			});
 	}
+	//void Translate(glm::vec3 transformVector, SceneObject* target) {
+	//	isPositionModified = true;
+
+	//	if (spaceMode == SpaceMode::Local) {
+	//		target->SetLocalPosition(originalLocalPositionsFolded[0] + transformVector);
+	//		cross->SetLocalPosition(glm::rotate(target->GetWorldRotation(), crossOriginalPos + transformVector));
+	//		return;
+	//	}
+
+	//	auto inverseRotation = glm::inverse(target->GetWorldRotation());
+	//	target->SetWorldPosition(glm::rotate(inverseRotation, originalLocalPositionsFolded[0] + transformVector));
+	//}
 	void Translate(glm::vec3 transformVector, SceneObject* target) {
 		isPositionModified = true;
-		target->SetLocalPosition(originalLocalPositionsFolded[0] + transformVector);
+		
+		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+			auto r = glm::rotate(target->GetWorldRotation(), originalLocalPositionsFolded[0] + transformVector);
+
+			target->SetLocalPosition(r);
+			//cross->SetLocalPosition(crossOriginalPos);
+			//target->SetLocalPosition(originalLocalPositionsFolded[0] + transformVector);
+			//cross->SetLocalPosition(glm::rotate(target->GetWorldRotation(), crossOriginalPos + transformVector));
+			//cross->SetLocalPosition(crossOriginalPos + transformVector);
+			return;
+		}
+		auto inverseRotation = glm::inverse(target->GetWorldRotation());
+		//target->SetWorldPosition(glm::rotate(inverseRotation, originalLocalPositionsFolded[0] + transformVector));
+		target->SetWorldPosition(originalLocalPositionsFolded[0] + transformVector);
 	}
+
+
 	void Rotate(Axe axe, float angle, SceneObject* target) {
 		isPositionModified = true;
 		areVerticesModified = true;
@@ -861,7 +932,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		auto k = glm::cross(glm::angleAxis(trimmedDeltaAngle, rotationAxe), target->GetLocalRotation());
 		auto k1 = glm::normalize(k);
 		target->SetLocalRotation(k1);
-		cross->SetLocalRotation(target->GetWorldRotation());
+		
+		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World)
+			cross->SetLocalRotation(target->GetWorldRotation());
 
 		auto deltaRotation = glm::cross(target->GetWorldRotation(), glm::inverse(originalLocalRotation));
 		auto nr = glm::rotate(deltaRotation, originalWorldPositionsFolded[0] - cross->GetWorldPosition()) + cross->GetWorldPosition();
@@ -935,10 +1008,19 @@ public:
 		target = objs[0];
 		
 
-		handlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
+		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
+		spaceModeChangeHandlerId = GlobalToolConfiguration::GetSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
+			if (v == SpaceMode::Local)
+				cross->SetParent(target);
+			else if (v == SpaceMode::World)
+				cross->SetParent(crossOriginalParent);
+			});
 
 		crossOldPos = crossOriginalPos = cross->GetLocalPosition();
 		originalLocalRotation = target->GetLocalRotation();
+		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
+		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local)
+			cross->SetParent(target);
 
 		originalVerticesFolded.clear();
 		originalLinesFolded.clear();
@@ -952,8 +1034,6 @@ public:
 			if (o->GetType() == MeshT)
 				originalLinesFolded.push_back(static_cast<Mesh*>(o)->GetLinearConnections());
 			});
-
-		cross->SetLocalRotation(target->GetWorldRotation());
 
 		return true;
 	}
@@ -973,7 +1053,8 @@ public:
 		angle = 0;
 		oldAngle = 0;
 
-		keyBinding->RemoveHandler(handlerId);
+		keyBinding->RemoveHandler(inputHandlerId);
+		GlobalToolConfiguration::GetSpaceModeChanged().RemoveHandler(spaceModeChangeHandlerId);
 		DeleteConfig();
 
 		cross->SetLocalRotation(cross->unitQuat());
@@ -981,6 +1062,8 @@ public:
 		return true;
 	}
 	void Cancel() {
+		cross->SetParent(crossOriginalParent);
+
 		int sceneObjectI = 0, meshI = 0;
 		
 		if (isRotationModified)
@@ -1015,6 +1098,10 @@ public:
 		UnbindSceneObjects();
 		this->mode = mode;
 	}
+	const Mode& GetMode() {
+		return mode;
+	}
+
 	void SetAxe(Axe axe) {
 		UnbindSceneObjects();
 		this->axe = axe;

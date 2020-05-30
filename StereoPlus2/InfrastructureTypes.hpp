@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <map>
 
 template<typename T>
 int find(const std::vector<T>& source, const T& item) {
@@ -121,3 +122,49 @@ public:
 		return (float)*GetDeltaTimeMicroseconds() / 1e6;
 	}
 };
+
+template<typename...T>
+class Event {
+	std::map<size_t, std::function<void(T...)>> handlers;
+public:
+	size_t AddHandler(std::function<void(T...)> func) const {
+		static size_t id = 0;
+
+		(*const_cast<std::map<size_t, std::function<void(T...)>>*>(&handlers))[id] = func;
+
+		return id++;
+	}
+
+	void RemoveHandler(size_t v) const {
+		(*const_cast<std::map<size_t, std::function<void(T...)>>*>(&handlers)).erase(v);
+	}
+
+
+	void Invoke(T... vs) {
+		for (auto h : handlers)
+			h.second(vs...);
+	}
+};
+
+//template<typename T>
+//class Event {
+//	std::map<size_t, std::function<void(T)>> handlers;
+//public:
+//	size_t AddHandler(std::function<void(T)> func) const {
+//		static size_t id = 0;
+//
+//		handlers[id] = func;
+//
+//		return id++;
+//	}
+//
+//	void RemoveHandler(size_t v) const {
+//		handlers.erase(v);
+//	}
+//
+//
+//	void Invoke(T vs) {
+//		for (auto h : handlers)
+//			h(vs);
+//	}
+//};

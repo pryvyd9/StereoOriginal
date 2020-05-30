@@ -759,10 +759,16 @@ class TransformToolWindow : Window, Attributes
 
 
 	std::string GetName(SceneObject** obj) {
-		return
-			(*obj) != nullptr
-			? (*obj)->Name
-			: "Empty";
+		try {
+			return
+				(*obj) != nullptr
+				? (*obj)->Name
+				: "Empty";
+		}
+		catch (...){
+			*target = nullptr;
+			return "Empty";
+		}
 	}
 
 	int getPrecision(float v) {
@@ -808,20 +814,23 @@ class TransformToolWindow : Window, Attributes
 		}
 
 		{
-			static int mode = 0;
-			if (ImGui::RadioButton("Transition", &mode, 0))
-				tool->SetMode(TransformToolMode::Translate);
-			if (ImGui::RadioButton("Scale", &mode, 1))
-				tool->SetMode(TransformToolMode::Scale);
-			if (ImGui::RadioButton("Rotate", &mode, 2))
-				tool->SetMode(TransformToolMode::Rotate);
 
-			if (mode == (int)TransformToolMode::Scale)
+			static int transformToolMode = (int)tool->GetMode();
+			{
+				if (ImGui::RadioButton("Transition", &transformToolMode, 0))
+					tool->SetMode(TransformToolMode::Translate);
+				if (ImGui::RadioButton("Scale", &transformToolMode, 1))
+					tool->SetMode(TransformToolMode::Scale);
+				if (ImGui::RadioButton("Rotate", &transformToolMode, 2))
+					tool->SetMode(TransformToolMode::Rotate);
+			}
+			
+			if (transformToolMode == (int)TransformToolMode::Scale)
 			{
 				ImGui::Separator();
 				ImGui::DragFloat("scale", (float*)&tool->scale, 0.01, 0, 0, "%.2f");
 			}
-			if (mode == (int)TransformToolMode::Rotate)
+			if (transformToolMode == (int)TransformToolMode::Rotate)
 			{
 				ImGui::Separator();
 
@@ -833,7 +842,6 @@ class TransformToolWindow : Window, Attributes
 				if (ImGui::RadioButton("Z", &axe, 2))
 					tool->SetAxe(Axe::Z);
 
-				//ImGui::DragFloat("radian", &tool->angle, 1, 0, 0, "%.2f");
 				{
 					std::stringstream ss;
 					ss << "%." << getPrecision(tool->angle) << "f";
@@ -1035,6 +1043,23 @@ public:
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
 		if (ImGui::Button("transformTool"))
 			ApplyTool<TransformToolWindow, TransformTool>();
+
+		{
+			ImGui::Separator();
+			static int v = (int)GlobalToolConfiguration::GetCoordinateMode();
+			if (ImGui::RadioButton("Object", &v, (int)CoordinateMode::Object))
+				GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Object);
+			if (ImGui::RadioButton("Vertex", &v, (int)CoordinateMode::Vertex))
+				GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Vertex);
+		}
+		{
+			ImGui::Separator();
+			static int v = (int)GlobalToolConfiguration::GetSpaceMode();
+			if (ImGui::RadioButton("World", &v, (int)SpaceMode::World))
+				GlobalToolConfiguration::SetSpaceMode(SpaceMode::World);
+			if (ImGui::RadioButton("Local", &v, (int)SpaceMode::Local))
+				GlobalToolConfiguration::SetSpaceMode(SpaceMode::Local);
+		}
 
 
 		ImGui::End();

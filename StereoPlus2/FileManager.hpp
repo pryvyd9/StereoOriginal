@@ -549,6 +549,13 @@ class ijstream {
 		for (auto o : j->objects)
 			f(get<T>(o)...);
 	}
+	void getArray(JsonObject* jo, std::string name, std::function<void(size_t, size_t)> f) {
+		auto j = (JsonArray*)jo->objects[name];
+		for (auto o : j->objects) {
+			auto v = get<size_t, 2>(o);
+			f(v[0], v[1]);
+		}
+	}
 
 	void getChildren(JsonObject* j, std::string name, SceneObject* parent) {
 		getArray(j, name, std::function([&parent](SceneObject* v) {
@@ -560,23 +567,15 @@ public:
 
 	template<typename T>
 	T get(std::string str) {
-		throw std::exception("Unsupported Type found.");
+		std::stringstream ss;
+		ss << str;
+		T val;
+		ss >> val;
+		return val;
 	}
 	template<>
 	ObjectType get(std::string str) {
-		std::stringstream ss;
-		ss << str;
-		ObjectType val;
-		ss >> *(int*)&val;
-		return (ObjectType)val;
-	}
-	template<>
-	float get(std::string str) {
-		std::stringstream ss;
-		ss << str;
-		float val;
-		ss >> val;
-		return val;
+		return (ObjectType)get<int>(str);
 	}
 	template<>
 	std::string get(std::string str) {
