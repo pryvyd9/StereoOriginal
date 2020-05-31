@@ -310,9 +310,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		case StereoPolyLineT:
 		case MeshT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
+		case CrossT:
+			return true;
 		}
 
-		std::cout << "Invalid SceneObject type passed" << std::endl;
+		std::cout << "Invalid SceneObject type passed: " << t->GetType() << std::endl;
 		return false;
 	}
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
@@ -534,10 +536,16 @@ class PointPenToolWindow : Window, Attributes
 		}
 	}
 	std::string GetName(ObjectType type, SceneObject** obj) {
-		return 
-			(*obj) != nullptr && type == (*obj)->GetType()
-			? (*obj)->Name
-			: "Empty";
+		try {
+			return
+				(*obj) != nullptr && type == (*obj)->GetType()
+				? (*obj)->Name
+				: "Empty";
+		}
+		catch (...) {
+			*target = nullptr;
+			return "Empty";
+		}
 	}
 
 	bool DesignInternal() {
@@ -855,18 +863,6 @@ class TransformToolWindow : Window, Attributes
 			{
 				ImGui::Separator();
 				DragVector(tool->angle, "X", "Y", "Z", 1);
-				/*{
-					std::stringstream ss;
-					ss << "%." << getPrecision(tool->angle.x) << "f";
-					ImGui::DragFloat("X", &tool->angle.x, 1, 0, 0, ss.str().c_str());
-					ss.clear();
-					ss << "%." << getPrecision(tool->angle.y) << "f";
-					ImGui::DragFloat("Y", &tool->angle.y, 1, 0, 0, ss.str().c_str());
-					ss.clear();
-					ss << "%." << getPrecision(tool->angle.z) << "f";
-					ImGui::DragFloat("Z", &tool->angle.z, 1, 0, 0, ss.str().c_str());
-					ss.clear();
-				}*/
 			}
 		}
 

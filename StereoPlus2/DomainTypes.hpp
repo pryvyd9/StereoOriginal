@@ -45,6 +45,25 @@ protected:
 		if (parent)
 			parent->CascadeTransform(vertices);
 	}
+	void CascadeTransform(glm::vec3& v) {
+		if (GetLocalRotation() == unitQuat())
+			v += GetLocalPosition();
+		else
+			v = glm::rotate(GetLocalRotation(), v) + GetLocalPosition();
+
+		if (parent)
+			parent->CascadeTransform(v);
+	}
+	void CascadeTransformInverse(glm::vec3& v) {
+		if (GetLocalRotation() == unitQuat())
+			v -= GetLocalPosition();
+		else
+			//v = glm::rotate(glm::inverse(GetLocalRotation()), v) - GetLocalPosition();
+			v = glm::rotate(glm::inverse(GetLocalRotation()), v - GetLocalPosition());
+
+		if (parent)
+			parent->CascadeTransform(v);
+	}
 
 public:
 	std::vector<SceneObject*> children;
@@ -127,6 +146,18 @@ public:
 
 		if (newParent)
 			newParent->children.push_back(this);
+	}
+
+	glm::vec3 ToWorldPosition(const glm::vec3& v) {
+		glm::vec3 r = v;
+		CascadeTransform(r);
+		return r;
+	}
+
+	glm::vec3 ToLocalPosition(const glm::vec3& v) {
+		glm::vec3 r = v;
+		CascadeTransformInverse(r);
+		return r;
 	}
 
 	virtual ObjectType GetType() const = 0;
@@ -471,6 +502,8 @@ class Cross : public LeafObject {
 	}
 public:
 	float size = 0.1;
+	std::function<void()> keyboardBindingHandler;
+	size_t keyboardBindingHandlerId;
 
 	bool Init() {
 		UpdateCache();

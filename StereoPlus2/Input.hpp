@@ -220,16 +220,6 @@ public:
 
 class KeyBinding
 {
-	size_t AddHandler(std::function<void()> func) {
-		static size_t id = 0;
-
-		auto cmd = new FuncCommand();
-		cmd->func = [id = id, input = input, func = func] {
-			input->handlers[id] = func;
-		};
-
-		return id++;
-	}
 
 
 	bool isAxeModeEnabled;
@@ -243,6 +233,16 @@ public:
 	float crossMinSize = 0.001;
 	float crossMaxSize = 1;
 
+	size_t AddHandler(std::function<void()> func) {
+		static size_t id = 0;
+
+		auto cmd = new FuncCommand();
+		cmd->func = [id = id, input = input, func = func] {
+			input->handlers[id] = func;
+		};
+
+		return id++;
+	}
 	size_t AddHandler(std::function<void(Input*)> func) {
 		return AddHandler([i = input, func] { func(i); });
 	}

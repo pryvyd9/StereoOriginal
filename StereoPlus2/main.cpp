@@ -97,6 +97,9 @@ int main(int, char**)
 	if (!gui.Init())
 		return false;
 
+	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
+	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
+
 	* ToolPool::GetCross() = &cross;
 	* ToolPool::GetScene() = &scene;
 	* ToolPool::GetKeyBinding() = &gui.keyBinding;

@@ -195,7 +195,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	};
 	template<>
 	struct Config<StereoPolyLineT, Mode::Immediate> : EditingTool::Config {
-		int additionalPointCreatedCount = 0;
+		bool isPointCreated = false;
 
 		// If the cos between vectors is less than E
 		// then we merge those vectors.
@@ -213,11 +213,16 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 #pragma endregion
 
 	Log Logger = Log::For<PointPenEditingTool>();
-	size_t handlerId;
+	size_t inutHandlerId;
+	size_t spaceModeChangeHandlerId;
 	Mode mode;
 
 	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
+
+	glm::vec3 crossOriginalPosition;
+	SceneObject* crossOriginalParent;
+
 
 	template<Mode mode>
 	Config<type, mode>* GetConfig() {
@@ -227,10 +232,12 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		return (Config<type, mode>*) config;
 	}
 
-	//template<typename T>
-	//T* GetTarget() {
-	//	return (T*)this->target;
-	//}
+	const glm::vec3 GetPos() {
+		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local)
+			return cross->GetLocalPosition();
+
+		return target->ToLocalPosition(cross->GetLocalPosition());
+	}
 
 #pragma region ProcessInput
 
@@ -240,8 +247,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
-		if (input->IsDown(Key::Escape))
-		{
+		if (input->IsDown(Key::Escape)) {
 			UnbindSceneObjects();
 			return;
 		}
@@ -249,26 +255,24 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		auto& points = target->GetVertices();
 		auto pointsCount = points.size();
 
-		auto h = GetConfig<Mode::Immediate>()->additionalPointCreatedCount;
-		if (GetConfig<Mode::Immediate>()->additionalPointCreatedCount < 3)
-		{
+		if (pointsCount > 0 && GetPos() == points.back())
+			return;
+
+		if (pointsCount < 3 || !GetConfig<Mode::Immediate>()->isPointCreated) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
 			target->AddVertice(cross->GetLocalPosition());
-			GetConfig<Mode::Immediate>()->additionalPointCreatedCount++;
-
+			GetConfig<Mode::Immediate>()->isPointCreated = true;
 			return;
 		}
 
 
-
-		// Drawing optimizing
+		// Drawing optimization
 		
 		// If cross is located at distance less than Precision then don't create a new point
 		// but move the last one to cross position.
-		if (glm::length(cross->GetLocalPosition() - points[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision)
-		{
-			target->SetVertice(pointsCount - 1, cross->GetLocalPosition());
+		if (glm::length(GetPos() - points[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision) {
+			target->SetVertice(pointsCount - 1, GetPos());
 			return;
 		}
 
@@ -277,7 +281,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		// a new point - move the previous point to current cross position.
 		auto E = GetConfig<Mode::Immediate>()->E;
 
-		glm::vec3 r1 = cross->GetLocalPosition() - points[pointsCount - 1];
+		glm::vec3 r1 = GetPos() - points[pointsCount - 1];
 		glm::vec3 r2 = points[pointsCount - 3] - points[pointsCount - 2];
 
 		auto p = glm::dot(r1, r2);
@@ -287,14 +291,12 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 		auto cos = p / l1 / l2;
 				
-		if (abs(cos) > 1 - E || isnan(cos))
-		{
-			target->SetVertice(pointsCount - 2, cross->GetLocalPosition());
-			target->SetVertice(pointsCount - 1, cross->GetLocalPosition());
+		if (abs(cos) > 1 - E || isnan(cos)) {
+			target->SetVertice(pointsCount - 2,  GetPos());
+			target->SetVertice(pointsCount - 1,  GetPos());
 		}
-		else
-		{
-			target->AddVertice(cross->GetLocalPosition());
+		else {
+			target->AddVertice(GetPos());
 		}
 
 		//std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
@@ -309,24 +311,24 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		auto& points = target->GetVertices();
 		auto pointsCount = points.size();
 
-		if (!GetConfig<Mode::Step>()->isPointCreated)
-		{
+		if (pointsCount > 0 && GetPos() == points.back())
+			return;
+
+		if (!GetConfig<Mode::Step>()->isPointCreated) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			target->AddVertice(cross->GetLocalPosition());
+			target->AddVertice(GetPos());
 			GetConfig<Mode::Step>()->isPointCreated = true;
+			return;
 		}
 
-		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter))
-		{
-			target->AddVertice(cross->GetLocalPosition());
+		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter)) {
+			target->AddVertice(GetPos());
 
 			return;
 		}
 
-		target->SetVertice(points.size() - 1, cross->GetLocalPosition());
-
-		//points->back() = cross->GetLocalPosition();
+		target->SetVertice(points.size() - 1, GetPos());
 	}
 
 	void ProcessInput(Input* input) {
@@ -366,7 +368,28 @@ public:
 		}
 		target = objs[0];
 
-		handlerId = keyBinding->AddHandler([this](Input * input) { this->ProcessInput(input); });
+		crossOriginalPosition = cross->GetLocalPosition();
+		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
+
+		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+			cross->SetParent(target);
+			cross->SetLocalPosition(target->GetVertices().back());
+		}
+		else {
+			cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
+		}
+
+		inutHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
+		spaceModeChangeHandlerId = GlobalToolConfiguration::GetSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
+			if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+				cross->SetParent(target);
+				cross->SetLocalPosition(target->GetVertices().back());
+			}
+			else {
+				cross->SetParent(crossOriginalParent);
+				cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
+			}
+			});
 
 		return true;
 	}
@@ -376,7 +399,10 @@ public:
 		for (auto func : onTargetReleased)
 			func();
 
-		keyBinding->RemoveHandler(handlerId);
+		cross->SetParent(crossOriginalParent);
+		cross->SetLocalPosition(crossOriginalPosition);
+		keyBinding->RemoveHandler(inutHandlerId);
+		GlobalToolConfiguration::GetSpaceModeChanged().RemoveHandler(spaceModeChangeHandlerId);
 
 		DeleteConfig();
 
@@ -808,6 +834,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	SceneObject* target = nullptr;
 
 	SceneObject* crossOriginalParent;
+	//std::function<void()> crossOriginalKeyboardBindingHandler;
 
 #pragma region ToolState
 	float oldScale;
@@ -820,6 +847,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	bool isPositionModified = false;
 	bool isRotationModified = false;
 
+	glm::vec3 originalUp;
+	glm::vec3 originalForward;
+	glm::vec3 originalRight;
 
 	std::vector<std::vector<glm::vec3>> originalVerticesFolded;
 	std::vector<glm::vec3> originalLocalPositionsFolded;
@@ -858,10 +888,15 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			transformOldPos = transformPos;
 			return;
 		case Mode::Rotate:
+
 			if (angle == oldAngle && transformPos == transformOldPos)
 				return;
 
 			Rotate(target);
+
+			if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local)
+				nullifyUntouchedAngles();
+
 			oldAngle = angle;
 			transformOldPos = transformPos;
 			return;
@@ -873,8 +908,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		isPositionModified = true;
 		areVerticesModified = true;
 		int v = 0;
-		//target->SetWorldPosition(center + (originalLocalPositionsFolded[0] - center) * scale);
 		CallRecursive(target, [&](SceneObject* o) {
+			if (o != target)
+				o->SetLocalPosition(originalLocalPositionsFolded[v] * scale);
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
 				o->SetVertice(i, originalVerticesFolded[v][i] * scale);
 			v++;
@@ -895,31 +931,34 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		isPositionModified = true;
 		areVerticesModified = true;
 		isRotationModified = true;
-		
-		auto da = angle - oldAngle;
-		float k = 3.1415926 * 2 / 360;
-		auto trimmedDeltaAngle = glm::vec3(getTrimmedAngle(da.x), getTrimmedAngle(da.y), getTrimmedAngle(da.z)) * k;
-		
-		glm::vec3 x, y, z;
 
-		glm::vec3 rotationAxe;
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
-			x = target->GetRight();
-			y = target->GetUp();
-			z =	target->GetForward();
+		float k = 3.1415926 * 2 / 360;
+
+		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World) {
+			auto trimmedDeltaAngle = glm::vec3(getTrimmedAngle(angle.x), getTrimmedAngle(angle.y), getTrimmedAngle(angle.z)) * k;
+
+			auto x = glm::vec3(1, 0, 0);
+			auto y = glm::vec3(0, 1, 0);
+			auto z = glm::vec3(0, 0, 1);
+			
+			auto r = glm::angleAxis(trimmedDeltaAngle.x, x) * glm::angleAxis(trimmedDeltaAngle.y, y) * glm::angleAxis(trimmedDeltaAngle.z, z);
+			auto r1 = r * originalLocalRotation;
+			target->SetLocalRotation(r1);
+
+			return;
 		}
-		else {
-			x = glm::vec3(1, 0, 0);
-			y = glm::vec3(0, 1, 0);
-			z =	glm::vec3(0, 0, 1);
-		}
+
+		auto da = angle - oldAngle;
+		auto trimmedDeltaAngle = glm::vec3(getTrimmedAngle(da.x), getTrimmedAngle(da.y), getTrimmedAngle(da.z)) * k;
+
+		auto x = target->GetRight();
+		auto y = target->GetUp();
+		auto z = target->GetForward();
 
 		auto r = glm::angleAxis(trimmedDeltaAngle.x, x) * glm::angleAxis(trimmedDeltaAngle.y, y) * glm::angleAxis(trimmedDeltaAngle.z, z);
-		auto r1 = glm::cross(r, target->GetLocalRotation());
-		auto r2 = glm::normalize(r1);
-		target->SetLocalRotation(r2);
+		auto r1 = r * target->GetLocalRotation();
+		target->SetLocalRotation(r1);
 	}
-
 
 	float getTrimmedAngle(float a) {
 		while (a - 360 > 0)
@@ -927,6 +966,12 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		while (a + 360 < 0)
 			a += 360;
 		return a;
+	}
+	void nullifyUntouchedAngles() {
+		auto da = angle - oldAngle;
+		for (size_t i = 0; i < 3; i++)
+			if (da[i] == 0)
+				angle[i] = oldAngle [i] = 0;
 	}
 
 	template<typename K, typename V>
@@ -986,19 +1031,12 @@ public:
 		target = objs[0];
 		
 
-		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::GetSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
-			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
-			originalLocalRotation = target->GetLocalRotation();
-			originalLocalPositionsFolded[0] = target->GetLocalPosition();
-
-			if (v == SpaceMode::Local)
-				cross->SetLocalRotation(cross->unitQuat());
-			else if (v == SpaceMode::World)
-				cross->SetWorldRotation(cross->unitQuat());
-			});
+		
 
 		originalLocalRotation = target->GetLocalRotation();
+		originalUp = target->GetUp();
+		originalForward = target->GetForward();
+		originalRight = target->GetRight();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
 		cross->SetParent(target);
 		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World)
@@ -1015,6 +1053,19 @@ public:
 			originalWorldPositionsFolded.push_back(o->GetWorldPosition());
 			if (o->GetType() == MeshT)
 				originalLinesFolded.push_back(static_cast<Mesh*>(o)->GetLinearConnections());
+			});
+
+		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
+		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
+		spaceModeChangeHandlerId = GlobalToolConfiguration::GetSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
+			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
+			originalLocalRotation = target->GetLocalRotation();
+			originalLocalPositionsFolded[0] = target->GetLocalPosition();
+
+			if (v == SpaceMode::Local)
+				cross->SetLocalRotation(cross->unitQuat());
+			else if (v == SpaceMode::World)
+				cross->SetWorldRotation(cross->unitQuat());
 			});
 
 		return true;
@@ -1037,10 +1088,13 @@ public:
 		transformPos = glm::vec3();
 
 		keyBinding->RemoveHandler(inputHandlerId);
+		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
 		GlobalToolConfiguration::GetSpaceModeChanged().RemoveHandler(spaceModeChangeHandlerId);
 		DeleteConfig();
 
+		cross->SetParent(crossOriginalParent);
 		cross->SetLocalRotation(cross->unitQuat());
+		cross->SetLocalPosition(glm::vec3());
 
 		return true;
 	}
