@@ -665,40 +665,29 @@ class ExtrusionToolWindow : Window, Attributes
 	bool DesignInternal() {
 		ImGui::Text(GetName(type, target).c_str());
 
-		if (ImGui::BeginDragDropTarget())
-		{
+		if (ImGui::BeginDragDropTarget()) {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			std::vector<SceneObject*> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
-			{
-				if (objects.size() > 1) {
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
+				if (objects.size() > 1)
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
-				}
-				else {
-					if (!tool->BindSceneObjects(objects))
-						return false;
-				}
+				else if (!tool->BindSceneObjects(objects))
+					return false;
 			}
 			ImGui::EndDragDropTarget();
 		}
 
-		if (ImGui::Extensions::PushActive(*target != nullptr))
-		{
+		if (ImGui::Extensions::PushActive(*target != nullptr)) {
 			if (ImGui::Button("Release"))
-			{
 				tool->UnbindSceneObjects();
-			}
 			ImGui::Extensions::PopActive();
 		}
 
-		if (ImGui::Extensions::PushActive(*target != nullptr))
-		{
+		if (ImGui::Extensions::PushActive(*target != nullptr)) {
 			if (ImGui::Button("New"))
-			{
 				tool->Create();
-			}
 			ImGui::Extensions::PopActive();
 		}
 

@@ -182,7 +182,8 @@ public:
 		ForceUpdateCache();
 
 		if (parent) {
-			position += v - GetWorldPosition();
+			position = v - parent->GetWorldPosition();
+			//position += v - parent->GetWorldPosition();
 			return;
 		}
 
