@@ -781,6 +781,23 @@ class TransformToolWindow : Window, Attributes
 		return precision;
 	}
 
+	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, float speed) {
+		std::stringstream ss;
+		ss << "%." << getPrecision(v.x) << "f";
+		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, ss.str().c_str());
+		ss.str(std::string());
+		ss << "%." << getPrecision(v.y) << "f";
+		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, ss.str().c_str());
+		ss.str(std::string());
+		ss << "%." << getPrecision(v.z) << "f";
+		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
+	}
+	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, std::string f, float speed) {
+		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, f.c_str());
+		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, f.c_str());
+		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, f.c_str());
+	}
+
 	bool DesignInternal() {
 		ImGui::Text(GetName(target).c_str());
 
@@ -825,28 +842,31 @@ class TransformToolWindow : Window, Attributes
 					tool->SetMode(TransformToolMode::Rotate);
 			}
 			
-			if (transformToolMode == (int)TransformToolMode::Scale)
-			{
+			if (transformToolMode == (int)TransformToolMode::Translate) {
 				ImGui::Separator();
-				ImGui::DragFloat("scale", (float*)&tool->scale, 0.01, 0, 0, "%.2f");
+				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01);
 			}
-			if (transformToolMode == (int)TransformToolMode::Rotate)
+			else if (transformToolMode == (int)TransformToolMode::Scale)
 			{
 				ImGui::Separator();
-
-				static int axe = 0;
-				if (ImGui::RadioButton("X", &axe, 0))
-					tool->SetAxe(Axe::X);
-				if (ImGui::RadioButton("Y", &axe, 1))
-					tool->SetAxe(Axe::Y);
-				if (ImGui::RadioButton("Z", &axe, 2))
-					tool->SetAxe(Axe::Z);
-
-				{
+				ImGui::DragFloat("scale", &tool->scale, 0.01, 0, 0, "%.2f");
+			}
+			else if (transformToolMode == (int)TransformToolMode::Rotate)
+			{
+				ImGui::Separator();
+				DragVector(tool->angle, "X", "Y", "Z", 1);
+				/*{
 					std::stringstream ss;
-					ss << "%." << getPrecision(tool->angle) << "f";
-					ImGui::DragFloat("radian", &tool->angle, 1, 0, 0, ss.str().c_str());
-				}
+					ss << "%." << getPrecision(tool->angle.x) << "f";
+					ImGui::DragFloat("X", &tool->angle.x, 1, 0, 0, ss.str().c_str());
+					ss.clear();
+					ss << "%." << getPrecision(tool->angle.y) << "f";
+					ImGui::DragFloat("Y", &tool->angle.y, 1, 0, 0, ss.str().c_str());
+					ss.clear();
+					ss << "%." << getPrecision(tool->angle.z) << "f";
+					ImGui::DragFloat("Z", &tool->angle.z, 1, 0, 0, ss.str().c_str());
+					ss.clear();
+				}*/
 			}
 		}
 
