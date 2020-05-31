@@ -1049,14 +1049,14 @@ public:
 		if (ImGui::Button("transformTool"))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
-		{
-			ImGui::Separator();
-			static int v = (int)GlobalToolConfiguration::GetCoordinateMode();
-			if (ImGui::RadioButton("Object", &v, (int)CoordinateMode::Object))
-				GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Object);
-			if (ImGui::RadioButton("Vertex", &v, (int)CoordinateMode::Vertex))
-				GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Vertex);
-		}
+		//{
+		//	ImGui::Separator();
+		//	static int v = (int)GlobalToolConfiguration::GetCoordinateMode();
+		//	if (ImGui::RadioButton("Object", &v, (int)CoordinateMode::Object))
+		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Object);
+		//	if (ImGui::RadioButton("Vertex", &v, (int)CoordinateMode::Vertex))
+		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Vertex);
+		//}
 		{
 			ImGui::Separator();
 			static int v = (int)GlobalToolConfiguration::GetSpaceMode();

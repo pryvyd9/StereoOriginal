@@ -147,8 +147,6 @@ enum class TransformToolMode {
 	Rotate,
 };
 
-//enum class Axe { X, Y, Z };
-
 class GlobalToolConfiguration {
 	static CoordinateMode& coordinateMode() {
 		static CoordinateMode v;
@@ -871,7 +869,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	SceneObject* target = nullptr;
 
 	SceneObject* crossOriginalParent;
-	//std::function<void()> crossOriginalKeyboardBindingHandler;
 
 #pragma region ToolState
 	float oldScale;
@@ -931,8 +928,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 			Rotate(target);
 
-			if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local)
-				nullifyUntouchedAngles();
+			nullifyUntouchedAngles();
 
 			oldAngle = angle;
 			transformOldPos = transformPos;
@@ -964,39 +960,48 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		target->SetWorldPosition(originalLocalPositionsFolded[0] + transformVector);
 	}
-	void Rotate(SceneObject* target) {
+	/*void Rotate(SceneObject* target) {
 		isPositionModified = true;
 		areVerticesModified = true;
 		isRotationModified = true;
 
 		float k = 3.1415926 * 2 / 360;
 
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World) {
-			auto trimmedDeltaAngle = glm::vec3(getTrimmedAngle(angle.x), getTrimmedAngle(angle.y), getTrimmedAngle(angle.z)) * k;
-
-			auto x = glm::vec3(1, 0, 0);
-			auto y = glm::vec3(0, 1, 0);
-			auto z = glm::vec3(0, 0, 1);
-			
-			auto r = glm::angleAxis(trimmedDeltaAngle.x, x) * glm::angleAxis(trimmedDeltaAngle.y, y) * glm::angleAxis(trimmedDeltaAngle.z, z);
-			auto r1 = r * originalLocalRotation;
-			target->SetLocalRotation(r1);
-
-			return;
-		}
-
 		auto da = angle - oldAngle;
 		auto trimmedDeltaAngle = glm::vec3(getTrimmedAngle(da.x), getTrimmedAngle(da.y), getTrimmedAngle(da.z)) * k;
 
-		auto x = target->GetRight();
-		auto y = target->GetUp();
-		auto z = target->GetForward();
-
+		auto x = glm::vec3(1, 0, 0);
+		auto y = glm::vec3(0, 1, 0);
+		auto z = glm::vec3(0, 0, 1);
+			
 		auto r = glm::angleAxis(trimmedDeltaAngle.x, x) * glm::angleAxis(trimmedDeltaAngle.y, y) * glm::angleAxis(trimmedDeltaAngle.z, z);
-		auto r1 = r * target->GetLocalRotation();
+		
+		auto r1 = GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World
+			? r * target->GetLocalRotation()
+			: target->GetLocalRotation() * r;
+		
+		target->SetLocalRotation(r1);
+	}*/
+	void Rotate(SceneObject* target) {
+		isPositionModified = true;
+		areVerticesModified = true;
+		isRotationModified = true;
+
+		auto i = getChangedAxe();
+		auto trimmedDeltaAngle = getTrimmedAngle((angle - oldAngle)[i]) * 3.1415926f * 2 / 360;
+
+		auto axe = glm::vec3();
+		axe[i] = 1;
+		
+		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
+
+		auto r1 = GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World
+			? r * target->GetLocalRotation()
+			: target->GetLocalRotation() * r;
+
 		target->SetLocalRotation(r1);
 	}
-
+	
 	float getTrimmedAngle(float a) {
 		while (a - 360 > 0)
 			a -= 360;
@@ -1009,6 +1014,12 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		for (size_t i = 0; i < 3; i++)
 			if (da[i] == 0)
 				angle[i] = oldAngle [i] = 0;
+	}
+	int getChangedAxe() {
+		auto da = angle - oldAngle;
+		for (size_t i = 0; i < 3; i++)
+			if (da[i] != 0)
+				return i;
 	}
 
 	template<typename K, typename V>
