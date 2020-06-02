@@ -501,6 +501,8 @@ class PointPenToolWindow : Window, Attributes
 	// If this is null then the window probably wasn't initialized.
 	SceneObject** target = nullptr;
 
+	Scene* scene = nullptr;
+
 	std::stack<bool>& GetIsActive() {
 		static std::stack<bool> val;
 		return val;
@@ -604,9 +606,15 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
+		if (scene == nullptr) {
+			std::cout << "Scene wasn't assigned" << std::endl;
+			return false;
+		}
 		target = tool->GetTarget();
 		Window::name = Attributes::name = "PointPen " + GetName(type);
 		Attributes::isInitialized = true;
+
+		scene->deleteAll.AddHandler([&] { *target = nullptr; });
 
 		return true;
 	}
@@ -635,6 +643,11 @@ public:
 	}
 
 	virtual bool OnExit() {
+		return true;
+	}
+
+	bool BindScene(Scene* scene) {
+		this->scene = scene;
 		return true;
 	}
 };

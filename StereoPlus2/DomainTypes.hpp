@@ -34,7 +34,7 @@ class SceneObject {
 protected:
 	bool shouldUpdateCache;
 
-	void CascadeTransform(std::vector<glm::vec3>& vertices) {
+	void CascadeTransform(std::vector<glm::vec3>& vertices) const {
 		if (GetLocalRotation() == unitQuat())
 			for (size_t i = 0; i < vertices.size(); i++)
 				vertices[i] = vertices[i] + GetLocalPosition();
@@ -45,7 +45,7 @@ protected:
 		if (parent)
 			parent->CascadeTransform(vertices);
 	}
-	void CascadeTransform(glm::vec3& v) {
+	void CascadeTransform(glm::vec3& v) const {
 		if (GetLocalRotation() == unitQuat())
 			v += GetLocalPosition();
 		else
@@ -54,11 +54,10 @@ protected:
 		if (parent)
 			parent->CascadeTransform(v);
 	}
-	void CascadeTransformInverse(glm::vec3& v) {
+	void CascadeTransformInverse(glm::vec3& v) const {
 		if (GetLocalRotation() == unitQuat())
 			v -= GetLocalPosition();
 		else
-			//v = glm::rotate(glm::inverse(GetLocalRotation()), v) - GetLocalPosition();
 			v = glm::rotate(glm::inverse(GetLocalRotation()), v - GetLocalPosition());
 
 		if (parent)
@@ -70,19 +69,19 @@ public:
 
 	std::string Name = "noname";
 
-	constexpr const glm::fquat unitQuat() {
+	constexpr const glm::fquat unitQuat() const {
 		return glm::fquat(1, 0, 0, 0);
 	}
 
-	glm::vec3 GetRight() {
-		return glm::rotate(GetLocalRotation(), glm::vec3(1, 0, 0));
-	}
-	glm::vec3 GetUp() {
-		return glm::rotate(GetLocalRotation(), glm::vec3(0, 1, 0));
-	}
-	glm::vec3 GetForward() {
-		return glm::rotate(GetLocalRotation(), glm::vec3(0, 0, 1));
-	}
+	//glm::vec3 GetRight() {
+	//	return glm::rotate(GetLocalRotation(), glm::vec3(1, 0, 0));
+	//}
+	//glm::vec3 GetUp() {
+	//	return glm::rotate(GetLocalRotation(), glm::vec3(0, 1, 0));
+	//}
+	//glm::vec3 GetForward() {
+	//	return glm::rotate(GetLocalRotation(), glm::vec3(0, 0, 1));
+	//}
 
 	const SceneObject* GetParent() const {
 		return parent;
@@ -148,13 +147,12 @@ public:
 			newParent->children.push_back(this);
 	}
 
-	glm::vec3 ToWorldPosition(const glm::vec3& v) {
+	glm::vec3 ToWorldPosition(const glm::vec3& v) const {
 		glm::vec3 r = v;
 		CascadeTransform(r);
 		return r;
 	}
-
-	glm::vec3 ToLocalPosition(const glm::vec3& v) {
+	glm::vec3 ToLocalPosition(const glm::vec3& v) const {
 		glm::vec3 r = v;
 		CascadeTransformInverse(r);
 		return r;
@@ -170,7 +168,8 @@ public:
 	}
 	const glm::vec3 GetWorldPosition() const {
 		if (parent)
-			return GetLocalPosition() + parent->GetWorldPosition();
+			return ToWorldPosition(glm::vec3());
+			//return GetLocalPosition() + parent->GetWorldPosition();
 		
 		return GetLocalPosition();
 	}
@@ -182,8 +181,7 @@ public:
 		ForceUpdateCache();
 
 		if (parent) {
-			position = v - parent->GetWorldPosition();
-			//position += v - parent->GetWorldPosition();
+			position = parent->ToLocalPosition(v);
 			return;
 		}
 
@@ -196,7 +194,7 @@ public:
 	const glm::quat GetWorldRotation() const {
 		if (parent)
 			//return glm::cross(GetLocalRotation(), parent->GetWorldRotation());
-			return glm::cross(parent->GetWorldRotation(), GetLocalRotation());
+			return parent->GetWorldRotation() * GetLocalRotation();
 
 		return GetLocalRotation();
 	}
@@ -208,7 +206,7 @@ public:
 		ForceUpdateCache();
 
 		if (parent) {
-			rotation = glm::cross(v, glm::inverse(parent->GetWorldRotation()));
+			rotation = glm::inverse(parent->GetWorldRotation()) * v;
 			return;
 		}
 
@@ -664,6 +662,8 @@ public:
 	float whiteZPrecision = 0.1;
 	GLFWwindow* glWindow;
 
+	const Event<> deleteAll;
+
 	Scene() {
 		defaultObject.Name = "Root";
 	}
@@ -722,6 +722,8 @@ public:
 		objects.clear();
 		root = &defaultObject;
 		root->children.clear();
+
+		const_cast<Event<>*>(&deleteAll)->Invoke();
 	}
 
 	~Scene() {
