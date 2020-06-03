@@ -723,6 +723,8 @@ public:
 		root = &defaultObject;
 		root->children.clear();
 
+		cross->SetParent(nullptr);
+
 		const_cast<Event<>*>(&deleteAll)->Invoke();
 	}
 

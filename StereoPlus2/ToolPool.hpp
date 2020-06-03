@@ -19,7 +19,6 @@ class ToolPool {
 	}
 
 	static bool Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
-
 		if (!tool->BindInput(*GetKeyBinding()) ||
 			!tool->BindCross(*GetCross()) ||
 			!tool->BindScene(*GetScene()) ||

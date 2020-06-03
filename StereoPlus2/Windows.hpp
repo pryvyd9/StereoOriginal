@@ -500,8 +500,7 @@ class PointPenToolWindow : Window, Attributes
 {
 	// If this is null then the window probably wasn't initialized.
 	SceneObject** target = nullptr;
-
-	Scene* scene = nullptr;
+	size_t deleteAllHandlerId;
 
 	std::stack<bool>& GetIsActive() {
 		static std::stack<bool> val;
@@ -538,16 +537,10 @@ class PointPenToolWindow : Window, Attributes
 		}
 	}
 	std::string GetName(ObjectType type, SceneObject** obj) {
-		try {
-			return
-				(*obj) != nullptr && type == (*obj)->GetType()
-				? (*obj)->Name
-				: "Empty";
-		}
-		catch (...) {
-			*target = nullptr;
-			return "Empty";
-		}
+		return
+			(*obj) != nullptr && type == (*obj)->GetType()
+			? (*obj)->Name
+			: "Empty";
 	}
 
 	bool DesignInternal() {
@@ -606,7 +599,7 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-		if (scene == nullptr) {
+		if (Attributes::scene == nullptr) {
 			std::cout << "Scene wasn't assigned" << std::endl;
 			return false;
 		}
@@ -614,7 +607,7 @@ public:
 		Window::name = Attributes::name = "PointPen " + GetName(type);
 		Attributes::isInitialized = true;
 
-		scene->deleteAll.AddHandler([&] { *target = nullptr; });
+		deleteAllHandlerId = Attributes::scene->deleteAll.AddHandler([&] { *target = nullptr; });
 
 		return true;
 	}
@@ -643,13 +636,17 @@ public:
 	}
 
 	virtual bool OnExit() {
+		UnbindTargets();
 		return true;
 	}
 
-	bool BindScene(Scene* scene) {
-		this->scene = scene;
-		return true;
+	virtual void UnbindTargets() {
+		(new FuncCommand())->func = [s = Attributes::scene, d = deleteAllHandlerId]{
+			s->deleteAll.RemoveHandler(d);
+		};
+		*target = nullptr;
 	}
+
 };
 
 
@@ -657,6 +654,7 @@ template<ObjectType type>
 class ExtrusionToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
+	size_t deleteAllHandlerId;
 
 	
 	std::string GetName(ObjectType type) {
@@ -725,10 +723,15 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-
+		if (Attributes::scene == nullptr) {
+			std::cout << "Scene wasn't assigned" << std::endl;
+			return false;
+		}
 		target = tool->GetTarget();
 		Window::name = Attributes::name = "Extrusion " + GetName(type);
 		Attributes::isInitialized = true;
+		
+		deleteAllHandlerId = Attributes::scene->deleteAll.AddHandler([&] { *target = nullptr; });
 
 		return true;
 	}
@@ -757,28 +760,28 @@ public:
 	virtual bool OnExit() {
 		return true;
 	}
+	virtual void UnbindTargets() {
+		(new FuncCommand())->func = [s = Attributes::scene, d = deleteAllHandlerId]{
+			s->deleteAll.RemoveHandler(d);
+		};
+		*target = nullptr;
+	}
 };
 
 
 
-//template<ObjectType type>
 class TransformToolWindow : Window, Attributes
 {
 	SceneObject** target = nullptr;
 	int maxPrecision = 5;
+	size_t deleteAllHandlerId;
 
 
 	std::string GetName(SceneObject** obj) {
-		try {
-			return
-				(*obj) != nullptr
-				? (*obj)->Name
-				: "Empty";
-		}
-		catch (...){
-			*target = nullptr;
-			return "Empty";
-		}
+		return
+			(*obj) != nullptr
+			? (*obj)->Name
+			: "Empty";
 	}
 
 	int getPrecision(float v) {
@@ -880,10 +883,15 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-
+		if (Attributes::scene == nullptr) {
+			std::cout << "Scene wasn't assigned" << std::endl;
+			return false;
+		}
 		target = tool->GetTarget();
 		Window::name = Attributes::name = "Transformation";
 		Attributes::isInitialized = true;
+		
+		deleteAllHandlerId = Attributes::scene->deleteAll.AddHandler([&] { *target = nullptr; });
 
 		return true;
 	}
@@ -912,10 +920,16 @@ public:
 	virtual bool OnExit() {
 		return true;
 	}
+	virtual void UnbindTargets() {
+		(new FuncCommand())->func = [s = Attributes::scene, d = deleteAllHandlerId] {
+			s->deleteAll.RemoveHandler(d);
+		};
+		*target = nullptr;
+	}
 };
 
 
-class AttributesWindow : Window {
+class AttributesWindow : public Window {
 	Attributes* toolAttributes = nullptr;
 	Attributes* targetAttributes = nullptr;
 	
@@ -946,9 +960,14 @@ public:
 	}
 
 	bool BindTool(Attributes* toolAttributes) {
+		if (this->toolAttributes != nullptr)
+			this->toolAttributes->OnExit();
+
 		this->toolAttributes = toolAttributes;
 		if (!toolAttributes->IsInitialized())
-			return toolAttributes->Init();
+			return 
+				toolAttributes->BindScene(scene) && 
+				toolAttributes->Init();
 		return true;
 	}
 	bool UnbindTool() {
@@ -995,13 +1014,16 @@ class ToolWindow : Window {
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
-		
+
+
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
 
+		attributesWindow->BindScene(scene);
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->onUnbindTool = [t = tool] {
 			t->tool->UnbindSceneObjects();
+			t->UnbindTargets();
 			delete t;
 		};
 	}
