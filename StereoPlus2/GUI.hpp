@@ -34,12 +34,13 @@ class GUI {
 		windows.push_back((Window*)fileWindow);
 
 		this->fileWindow = fileWindow;
-
-		((Window*)fileWindow)->BindOnExit([f = &this->fileWindow] {
-			delete *f;
-			*f = nullptr;
-		});
-
+		fileWindow->OnExit().AddHandler([f = &this->fileWindow]{
+			(new FuncCommand())->func = [f = f] {
+				delete* f;
+				*f = nullptr;
+				};
+			});
+		
 		return true;
 	}
 
@@ -225,7 +226,7 @@ public:
 
 		for (Window* window : windows)
 			if (window->ShouldClose()) {
-				if (!window->OnExit())
+				if (!window->Exit())
 					return false;
 				else
 					windows.erase(std::find(windows.begin(), windows.end(), window));
@@ -294,7 +295,7 @@ public:
 	bool OnExit()
 	{
 		for (Window* window : windows)
-			if (!window->OnExit())
+			if (!window->Exit())
 				return false;
 		
 		// Cleanup

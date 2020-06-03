@@ -3,7 +3,7 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
 #include <map>
-
+#include <vector>
 
 namespace Key {
 	enum KeyType {
@@ -41,17 +41,17 @@ namespace Key {
 	const KeyPair Down	= KeyboardKey(GLFW_KEY_DOWN	);
 
 	// NumPad
-	const KeyPair N0 = KeyboardKey(GLFW_KEY_KP_0);
-	const KeyPair N1 = KeyboardKey(GLFW_KEY_KP_1);
-	const KeyPair N2 = KeyboardKey(GLFW_KEY_KP_2);
-	const KeyPair N3 = KeyboardKey(GLFW_KEY_KP_3);
-	const KeyPair N4 = KeyboardKey(GLFW_KEY_KP_4);
-	const KeyPair N5 = KeyboardKey(GLFW_KEY_KP_5);
-	const KeyPair N6 = KeyboardKey(GLFW_KEY_KP_6);
-	const KeyPair N7 = KeyboardKey(GLFW_KEY_KP_7);
-	const KeyPair N8 = KeyboardKey(GLFW_KEY_KP_8);
-	const KeyPair N9 = KeyboardKey(GLFW_KEY_KP_9);
-	const KeyPair NEnter = KeyboardKey(GLFW_KEY_KP_ENTER);
+	const KeyPair N0		= KeyboardKey(GLFW_KEY_KP_0		);
+	const KeyPair N1		= KeyboardKey(GLFW_KEY_KP_1		);
+	const KeyPair N2		= KeyboardKey(GLFW_KEY_KP_2		);
+	const KeyPair N3		= KeyboardKey(GLFW_KEY_KP_3		);
+	const KeyPair N4		= KeyboardKey(GLFW_KEY_KP_4		);
+	const KeyPair N5		= KeyboardKey(GLFW_KEY_KP_5		);
+	const KeyPair N6		= KeyboardKey(GLFW_KEY_KP_6		);
+	const KeyPair N7		= KeyboardKey(GLFW_KEY_KP_7		);
+	const KeyPair N8		= KeyboardKey(GLFW_KEY_KP_8		);
+	const KeyPair N9		= KeyboardKey(GLFW_KEY_KP_9		);
+	const KeyPair NEnter	= KeyboardKey(GLFW_KEY_KP_ENTER	);
 
 	// Special
 	const KeyPair ControlLeft	= KeyboardKey(GLFW_KEY_LEFT_CONTROL	);
@@ -218,10 +218,7 @@ public:
 	}
 };
 
-class KeyBinding
-{
-
-
+class KeyBinding {
 	bool isAxeModeEnabled;
 public:
 	Input* input;
@@ -236,8 +233,7 @@ public:
 	size_t AddHandler(std::function<void()> func) {
 		static size_t id = 0;
 
-		auto cmd = new FuncCommand();
-		cmd->func = [id = id, input = input, func = func] {
+		(new FuncCommand())->func = [id = id, input = input, func = func] {
 			input->handlers[id] = func;
 		};
 

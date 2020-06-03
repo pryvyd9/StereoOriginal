@@ -123,48 +123,79 @@ public:
 	}
 };
 
+class Command {
+	static std::list<Command*>& GetQueue() {
+		static auto queue = std::list<Command*>();
+		return queue;
+	}
+protected:
+	bool isReady = false;
+	virtual bool Execute() = 0;
+public:
+	Command() {
+		GetQueue().push_back(this);
+	}
+	static bool ExecuteAll() {
+		std::list<Command*> deleteQueue;
+		for (auto command : GetQueue())
+			if (command->isReady) {
+				if (!command->Execute())
+					return false;
+
+				deleteQueue.push_back(command);
+			}
+
+		for (auto command : deleteQueue) {
+			GetQueue().remove(command);
+			delete command;
+		}
+
+		return true;
+	}
+};
+
+class FuncCommand : Command {
+protected:
+	virtual bool Execute() {
+		func();
+
+		return true;
+	};
+public:
+	FuncCommand() {
+		isReady = true;
+	}
+
+	std::function<void()> func;
+};
+
 template<typename...T>
-class Event {
+class IEvent {
+protected:
 	std::map<size_t, std::function<void(T...)>> handlers;
 public:
-	size_t AddHandler(std::function<void(T...)> func) const {
+	size_t AddHandler(std::function<void(T...)> func) {
 		static size_t id = 0;
 
-		(*const_cast<std::map<size_t, std::function<void(T...)>>*>(&handlers))[id] = func;
+		(new FuncCommand())->func = [&, id = id, f = func] {
+			handlers[id] = f;
+		};
 
 		return id++;
 	}
-
-	void RemoveHandler(size_t v) const {
-		(*const_cast<std::map<size_t, std::function<void(T...)>>*>(&handlers)).erase(v);
+	void RemoveHandler(size_t v) {
+		(new FuncCommand())->func = [&, v = v] {
+			handlers.erase(v);
+		};
 	}
+};
 
-
+template<typename...T>
+class Event : public IEvent<T...> {
+public:
 	void Invoke(T... vs) {
-		for (auto h : handlers)
+		for (auto h : IEvent<T...>::handlers)
 			h.second(vs...);
 	}
 };
 
-//template<typename T>
-//class Event {
-//	std::map<size_t, std::function<void(T)>> handlers;
-//public:
-//	size_t AddHandler(std::function<void(T)> func) const {
-//		static size_t id = 0;
-//
-//		handlers[id] = func;
-//
-//		return id++;
-//	}
-//
-//	void RemoveHandler(size_t v) const {
-//		handlers.erase(v);
-//	}
-//
-//
-//	void Invoke(T vs) {
-//		for (auto h : handlers)
-//			h(vs);
-//	}
-//};

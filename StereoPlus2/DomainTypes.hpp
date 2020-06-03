@@ -648,6 +648,7 @@ public:
 	}
 private:
 	GroupObject defaultObject;
+	Event<> deleteAll;
 public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
@@ -662,7 +663,9 @@ public:
 	float whiteZPrecision = 0.1;
 	GLFWwindow* glWindow;
 
-	const Event<> deleteAll;
+	IEvent<>& OnDeleteAll() {
+		return deleteAll;
+	}
 
 	Scene() {
 		defaultObject.Name = "Root";
@@ -725,7 +728,7 @@ public:
 
 		cross->SetParent(nullptr);
 
-		const_cast<Event<>*>(&deleteAll)->Invoke();
+		deleteAll.Invoke();
 	}
 
 	~Scene() {

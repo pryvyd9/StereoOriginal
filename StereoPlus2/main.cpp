@@ -29,17 +29,6 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 
 int main(int, char**)
 {
-	float aa = 3.1415926 / 2;
-	auto q1 = glm::angleAxis(aa, glm::vec3(1, 0, 0));
-	auto q2 = glm::angleAxis(aa, glm::vec3(0, 1, 0));
-	auto q3 = glm::cross(q1, q2);
-	auto q4 = glm::cross(glm::angleAxis(aa, glm::rotate(q1, glm::vec3(0, 1, 0))), q1);
-
-	auto r1 = glm::rotate(q1, glm::vec3(0, 0, 1));
-	auto r2 = glm::rotate(q2, glm::vec3(0, 0, 1));
-	auto r3 = glm::rotate(q3, glm::vec3(0, 0, 1));
-	auto r4 = glm::rotate(q4, glm::vec3(0, 0, 1));
-
 	PositionDetector positionDetector;
 
 	CustomRenderWindow customRenderWindow;

@@ -1,36 +1,26 @@
 #pragma once
 
-#include "Commands.hpp"
-//
-//class ISceneHolder {
-//protected:
-//	Scene* scene;
-//public:
-//	virtual bool BindScene(Scene* scene) {
-//		this->scene = scene;
-//	}
-//};
+#include "InfrastructureTypes.hpp"
+
 class INameHolder {
 protected:
 	std::string name;
 };
 
-class Window : public ISceneHolder, public INameHolder
+class Window : public INameHolder
 {
 protected:
 	bool shouldClose = false;
-	std::vector<std::function<void()>> onExit;
+	Event<> onExit;
 public:
+	IEvent<>& OnExit() {
+		return onExit;
+	}
+
 	virtual bool Init() = 0;
 	virtual bool Design() = 0;
-	virtual bool OnExit() {
-		for (auto f : onExit)
-			f();
-		
-		return true;
-	}
-	virtual bool BindOnExit(std::function<void()> f) {
-		onExit.push_back(f);
+	virtual bool Exit() {
+		onExit.Invoke();
 		return true;
 	}
 	// Indicates if the window should be closed.
@@ -39,7 +29,7 @@ public:
 	}
 };
 
-class Attributes : public ISceneHolder, public INameHolder
+class Attributes : public INameHolder
 {
 protected:
 	bool isInitialized;
