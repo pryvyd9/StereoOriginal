@@ -2,40 +2,12 @@
 
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
+#include "InfrastructureTypes.hpp"
 #include <list>
 #include <set>
 
 
-class Command {
-	static std::list<Command*>& GetQueue() {
-		static auto queue = std::list<Command*>();
-		return queue;
-	}
-protected:
-	bool isReady = false;
-	virtual bool Execute() = 0;
-public:
-	Command() {
-		GetQueue().push_back(this);
-	}
-	static bool ExecuteAll() {
-		std::list<Command*> deleteQueue;
-		for (auto command : GetQueue())
-			if (command->isReady) {
-				if (!command->Execute())
-					return false;
 
-				deleteQueue.push_back(command);
-			}
-
-		for (auto command : deleteQueue) {
-			GetQueue().remove(command);
-			delete command;
-		}
-
-		return true;
-	}
-};
 
 class ISceneHolder {
 protected:
@@ -94,20 +66,7 @@ public:
 	}
 };
 
-class FuncCommand : Command {
-protected:
-	virtual bool Execute() {
-		func();
 
-		return true;
-	};
-public:
-	FuncCommand() {
-		isReady = true;
-	}
-
-	std::function<void()> func;
-};
 
 class MoveCommand : Command {
 protected:

@@ -238,12 +238,12 @@ public:
         //-- 1. Load the cascades
         if (!face_cascade.load(face_cascade_name))
         {
-            log.Error("Error loading face cascade\n");
+            log.Error("Error loading face cascade");
             return false;
         };
         if (!eyes_cascade.load(eyes_cascade_name))
         {
-            log.Error("Error loading eyes cascade\n");
+            log.Error("Error loading eyes cascade");
             return false;
         };
 

@@ -169,6 +169,7 @@
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
+    <ClInclude Include="ToolConfiguration.hpp" />
     <ClInclude Include="ToolPool.hpp" />
     <ClInclude Include="Tools.hpp" />
     <ClInclude Include="Window.hpp" />

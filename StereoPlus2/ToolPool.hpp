@@ -5,13 +5,6 @@
 #include <sstream>
 
 class ToolPool {
-
-	template<typename T>
-	static int GetId() {
-		static int i = 0;
-		return i++;
-	}
-	
 	static bool Init(PointPenEditingTool<StereoPolyLineT>* tool) {
 		return 
 			tool->BindInput(*GetKeyBinding()) &&
@@ -19,14 +12,11 @@ class ToolPool {
 	}
 
 	static bool Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
-
-		if (!tool->BindInput(*GetKeyBinding()) ||
-			!tool->BindCross(*GetCross()) ||
-			!tool->BindScene(*GetScene()) ||
-			!tool->BindDestination(&(*GetScene())->root))
-			return false;
-
-		return true;
+		return 
+			tool->BindInput(*GetKeyBinding()) &&
+			tool->BindCross(*GetCross()) &&
+			tool->BindScene(*GetScene()) &&
+			tool->BindDestination(&(*GetScene())->root);
 	}
 
 	static bool Init(TransformTool* tool) {

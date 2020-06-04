@@ -1,10 +1,9 @@
 #pragma once
 #include "GLLoader.hpp"
+#include "ToolConfiguration.hpp"
 #include <stdlib.h>
 #include <set>
 #include <array>
-
-
 
 #pragma region Scene Objects
 
@@ -16,19 +15,154 @@ enum ObjectType {
 	CrossT,
 };
 
+enum InsertPosition {
+	Top = 0x01,
+	Bottom = 0x10,
+	Center = 0x100,
+	Any = Top | Bottom | Center,
+};
+
 struct Pair {
 	glm::vec3 p1, p2;
 };
 
 class SceneObject {
 	glm::vec3 position;
+	glm::fquat rotation = unitQuat();
+	SceneObject* parent;
+
+
 protected:
 	bool shouldUpdateCache;
+
+	void CascadeTransform(std::vector<glm::vec3>& vertices) const {
+		if (GetLocalRotation() == unitQuat())
+			for (size_t i = 0; i < vertices.size(); i++)
+				vertices[i] = vertices[i] + GetLocalPosition();
+		else
+			for (size_t i = 0; i < vertices.size(); i++)
+				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]) + GetLocalPosition();
+
+		if (parent)
+			parent->CascadeTransform(vertices);
+	}
+	void CascadeTransform(glm::vec3& v) const {
+		if (GetLocalRotation() == unitQuat())
+			v += GetLocalPosition();
+		else
+			v = glm::rotate(GetLocalRotation(), v) + GetLocalPosition();
+
+		if (parent)
+			parent->CascadeTransform(v);
+	}
+	void CascadeTransformInverse(glm::vec3& v) const {
+		if (GetLocalRotation() == unitQuat())
+			v -= GetLocalPosition();
+		else
+			v = glm::rotate(glm::inverse(GetLocalRotation()), v - GetLocalPosition());
+
+		if (parent)
+			parent->CascadeTransform(v);
+	}
+
 public:
-	SceneObject* parent;
 	std::vector<SceneObject*> children;
 
 	std::string Name = "noname";
+
+	constexpr const glm::fquat unitQuat() const {
+		return glm::fquat(1, 0, 0, 0);
+	}
+
+	//glm::vec3 GetRight() {
+	//	return glm::rotate(GetLocalRotation(), glm::vec3(1, 0, 0));
+	//}
+	//glm::vec3 GetUp() {
+	//	return glm::rotate(GetLocalRotation(), glm::vec3(0, 1, 0));
+	//}
+	//glm::vec3 GetForward() {
+	//	return glm::rotate(GetLocalRotation(), glm::vec3(0, 0, 1));
+	//}
+
+	const SceneObject* GetParent() const {
+		return parent;
+	}
+	void SetParent(SceneObject* newParent, int newParentPos, InsertPosition pos) {
+		ForceUpdateCache();
+		auto source = &parent->children;
+		auto dest = &newParent->children;
+
+		if (GlobalToolConfiguration::MoveCoordinateAction().Get() == MoveCoordinateAction::None)
+			parent = newParent;
+		else {
+			auto oldPosition = GetWorldPosition();
+			auto oldRotation = GetWorldRotation();
+
+			parent = newParent;
+
+			SetWorldPosition(oldPosition);
+			SetWorldRotation(oldRotation);
+		}
+		
+
+		auto sourcePositionInt = find(*source, this);
+
+		if (dest->size() == 0) {
+			dest->push_back(this);
+			source->erase(source->begin() + sourcePositionInt);
+			return;
+		}
+
+		if ((InsertPosition::Bottom & pos) != 0) {
+			newParentPos++;
+		}
+
+		if (source == dest && newParentPos < (int)sourcePositionInt) {
+			dest->erase(source->begin() + sourcePositionInt);
+			dest->insert(dest->begin() + newParentPos, 1, this);
+			return;
+		}
+
+		dest->insert(dest->begin() + newParentPos, 1, this);
+		source->erase(source->begin() + sourcePositionInt);
+	}
+	void SetParent(SceneObject* newParent, bool shouldConvertValues = false) {
+		ForceUpdateCache();
+		
+		if (parent && parent->children.size() > 0) {
+			auto pos = std::find(parent->children.begin(), parent->children.end(), this);
+			if (pos != parent->children.end())
+				parent->children.erase(pos);
+		}
+
+		if (shouldConvertValues) {
+			auto oldPosition = GetWorldPosition();
+			auto oldRotation = GetWorldRotation();
+
+			parent = newParent;
+
+			SetWorldPosition(oldPosition);
+			SetWorldRotation(oldRotation);
+		}
+		else {
+			parent = newParent;
+		}
+
+
+		if (newParent)
+			newParent->children.push_back(this);
+	}
+
+	glm::vec3 ToWorldPosition(const glm::vec3& v) const {
+		glm::vec3 r = v;
+		CascadeTransform(r);
+		return r;
+	}
+	glm::vec3 ToLocalPosition(const glm::vec3& v) const {
+		glm::vec3 r = v;
+		CascadeTransformInverse(r);
+		return r;
+	}
 
 	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
@@ -40,24 +174,49 @@ public:
 	}
 	const glm::vec3 GetWorldPosition() const {
 		if (parent)
-			return GetLocalPosition() + parent->GetWorldPosition();
+			return ToWorldPosition(glm::vec3());
+			//return GetLocalPosition() + parent->GetWorldPosition();
 		
 		return GetLocalPosition();
 	}
-
-	void SetLocalPosition(glm::vec3 v) {
+	void SetLocalPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 		position = v;
 	}
-	void SetWorldPosition(glm::vec3 v) {
+	void SetWorldPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 
 		if (parent) {
-			position += v - GetWorldPosition();
+			position = parent->ToLocalPosition(v);
 			return;
 		}
 
 		position = v;
+	}
+
+	const glm::quat& GetLocalRotation() const {
+		return rotation;
+	}
+	const glm::quat GetWorldRotation() const {
+		if (parent)
+			//return glm::cross(GetLocalRotation(), parent->GetWorldRotation());
+			return parent->GetWorldRotation() * GetLocalRotation();
+
+		return GetLocalRotation();
+	}
+	void SetLocalRotation(const glm::quat& v) {
+		ForceUpdateCache();
+		rotation = v;
+	}
+	void SetWorldRotation(const glm::quat& v) {
+		ForceUpdateCache();
+
+		if (parent) {
+			rotation = glm::inverse(parent->GetWorldRotation()) * v;
+			return;
+		}
+
+		rotation = v;
 	}
 
 	void ForceUpdateCache() {
@@ -106,13 +265,14 @@ class StereoPolyLine : public LeafObject {
 			return;
 		}
 
+		auto transformedVertices = vertices;
+		CascadeTransform(transformedVertices);
+
 		linesCache = std::vector<Pair>(vertices.size() - 1);
 
-		auto worldPos = GetWorldPosition();
-
 		for (size_t i = 0; i < vertices.size() - 1; i++) {
-			linesCache[i].p1 = vertices[i] + worldPos;
-			linesCache[i].p2 = vertices[i + 1] + worldPos;
+			linesCache[i].p1 = transformedVertices[i];
+			linesCache[i].p2 = transformedVertices[i + 1];
 		}
 
 		shouldUpdateCache = false;
@@ -192,13 +352,14 @@ private:
 			return;
 		}
 
+		auto transformedVertices = vertices;
+		CascadeTransform(transformedVertices);
+
 		linesCache = std::vector<Pair>(lines.size());
 
-		auto worldPos = GetWorldPosition();
-
-		for (size_t i = 0; i < lines.size(); i++) {
-			linesCache[i].p1 = vertices[lines[i][0]] + worldPos;
-			linesCache[i].p2 = vertices[lines[i][1]] + worldPos;
+		for (size_t i = 0; i < lines.size() - 1; i++) {
+			linesCache[i].p1 = transformedVertices[lines[i][0]];
+			linesCache[i].p2 = transformedVertices[lines[i][1]];
 		}
 
 		shouldUpdateCache = false;
@@ -324,37 +485,39 @@ class Cross : public LeafObject {
 	bool isCreated = false;
 	std::vector<Pair> linesCache;
 
-	bool CreateLines() {
-		linesCache = std::vector<Pair>(3, Pair{ GetLocalPosition() , GetLocalPosition() });
-		
-		linesCache[0].p1.x -= size;
-		linesCache[0].p2.x += size;
+	void UpdateCache() {
+		std::vector<glm::vec3> vertices(6);
 
-		linesCache[1].p1.y -= size;
-		linesCache[1].p2.y += size;
+		vertices[0].x -= size;
+		vertices[1].x += size;
 
-		linesCache[2].p1.z -= size;
-		linesCache[2].p2.z += size;
+		vertices[2].y -= size;
+		vertices[3].y += size;
 
-		return true;
+		vertices[4].z -= size;
+		vertices[5].z += size;
+
+		CascadeTransform(vertices);
+
+		linesCache = std::vector<Pair>(3);
+		for (size_t i = 0; i < 3; i++) {
+			linesCache[i].p1 = vertices[i * 2];
+			linesCache[i].p2 = vertices[i * 2 + 1];
+		}
 	}
 public:
-	const uint_fast8_t lineCount = 3;
-
 	float size = 0.1;
+	std::function<void()> keyboardBindingHandler;
+	size_t keyboardBindingHandlerId;
 
-	bool Refresh() {
-		if (!isCreated) {
-			isCreated = true;
-			return CreateLines();
-		}
-		
-		return CreateLines();
-	}
 	bool Init() {
-		return CreateLines();
+		UpdateCache();
+		return true;
 	}
 	virtual const std::vector<Pair>& GetLines() {
+		if (shouldUpdateCache)
+			UpdateCache();
+
 		return linesCache;
 	}
 	virtual ObjectType GetType() const {
@@ -478,14 +641,6 @@ public:
 	}
 };
 
-enum InsertPosition
-{
-	Top = 0x01,
-	Bottom = 0x10,
-	Center = 0x100,
-	Any = Top | Bottom | Center,
-};
-
 class Scene {
 public:
 	
@@ -499,11 +654,8 @@ public:
 	}
 private:
 	GroupObject defaultObject;
-
-
+	Event<> deleteAll;
 public:
-	
-
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
@@ -517,20 +669,22 @@ public:
 	float whiteZPrecision = 0.1;
 	GLFWwindow* glWindow;
 
+	IEvent<>& OnDeleteAll() {
+		return deleteAll;
+	}
+
 	Scene() {
 		defaultObject.Name = "Root";
 	}
 
 	bool Insert(SceneObject* destination, SceneObject* obj) {
-		destination->children.push_back(obj);
-		obj->parent = destination;
+		obj->SetParent(destination);
 		objects.push_back(obj);
 		return true;
 	}
 
 	bool Insert(SceneObject* obj) {
-		root->children.push_back(obj);
-		obj->parent = root;
+		obj->SetParent(root);
 		objects.push_back(obj);
 		return true;
 	}
@@ -555,7 +709,6 @@ public:
 	
 
 	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-
 		// Move single object
 		if (items->size() > 1)
 		{
@@ -566,40 +719,23 @@ public:
 		// Find if item is present in target;
 
 		auto item = items->begin()._Ptr->_Myval;
-
-		auto source = &item->parent->children;
-		auto dest = &destination->children;
-
-		auto sourcePosition = std::find(source->begin(), source->end(), item);
-
-		item->parent = destination;
-
-		if (dest->size() == 0)
-		{
-			dest->push_back(item);
-			source->erase(std::find(source->begin(), source->end(), item));
-			return true;
-		}
-
-		if (has<InsertPosition::Bottom>(pos))
-		{
-			destinationPos++;
-		}
-
-		auto sourcePositionInt = find(*source, item);
-		if (source == dest && destinationPos < (int)sourcePositionInt)
-		{
-			dest->erase(sourcePosition);
-			dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
-			return true;
-		}
-
-		dest->insert(dest->begin() + destinationPos, (const size_t)1, item);
-		source->erase(sourcePosition);
+		item->SetParent(destination, destinationPos, pos);
 
 		return true;
 	}
 
+	void DeleteAll() {
+		for (auto o : objects)
+			delete o;
+
+		objects.clear();
+		root = &defaultObject;
+		root->children.clear();
+
+		cross->SetParent(nullptr);
+
+		deleteAll.Invoke();
+	}
 
 	~Scene() {
 		for (auto o : objects)

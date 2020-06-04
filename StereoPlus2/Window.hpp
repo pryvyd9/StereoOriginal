@@ -1,22 +1,26 @@
 #pragma once
 
-class Window
-{
+#include "InfrastructureTypes.hpp"
+
+class INameHolder {
 protected:
 	std::string name;
+};
+
+class Window : public INameHolder
+{
+protected:
 	bool shouldClose = false;
-	std::vector<std::function<void()>> onExit;
+	Event<> onExit;
 public:
+	IEvent<>& OnExit() {
+		return onExit;
+	}
+
 	virtual bool Init() = 0;
 	virtual bool Design() = 0;
-	virtual bool OnExit() {
-		for (auto f : onExit)
-			f();
-
-		return true;
-	}
-	virtual bool BindOnExit(std::function<void()> f) {
-		onExit.push_back(f);
+	virtual bool Exit() {
+		onExit.Invoke();
 		return true;
 	}
 	// Indicates if the window should be closed.
@@ -25,11 +29,10 @@ public:
 	}
 };
 
-class Attributes
+class Attributes : public INameHolder
 {
 protected:
 	bool isInitialized;
-	std::string name;
 public:
 	bool IsInitialized() const {
 		return isInitialized;
@@ -37,4 +40,5 @@ public:
 	virtual bool Init() = 0;
 	virtual bool Design() = 0;
 	virtual bool OnExit() = 0;
+	virtual void UnbindTargets() = 0;
 };

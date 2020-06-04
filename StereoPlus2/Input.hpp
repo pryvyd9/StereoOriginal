@@ -3,7 +3,7 @@
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
 #include <map>
-
+#include <vector>
 
 namespace Key {
 	enum KeyType {
@@ -41,17 +41,17 @@ namespace Key {
 	const KeyPair Down	= KeyboardKey(GLFW_KEY_DOWN	);
 
 	// NumPad
-	const KeyPair N0 = KeyboardKey(GLFW_KEY_KP_0);
-	const KeyPair N1 = KeyboardKey(GLFW_KEY_KP_1);
-	const KeyPair N2 = KeyboardKey(GLFW_KEY_KP_2);
-	const KeyPair N3 = KeyboardKey(GLFW_KEY_KP_3);
-	const KeyPair N4 = KeyboardKey(GLFW_KEY_KP_4);
-	const KeyPair N5 = KeyboardKey(GLFW_KEY_KP_5);
-	const KeyPair N6 = KeyboardKey(GLFW_KEY_KP_6);
-	const KeyPair N7 = KeyboardKey(GLFW_KEY_KP_7);
-	const KeyPair N8 = KeyboardKey(GLFW_KEY_KP_8);
-	const KeyPair N9 = KeyboardKey(GLFW_KEY_KP_9);
-	const KeyPair NEnter = KeyboardKey(GLFW_KEY_KP_ENTER);
+	const KeyPair N0		= KeyboardKey(GLFW_KEY_KP_0		);
+	const KeyPair N1		= KeyboardKey(GLFW_KEY_KP_1		);
+	const KeyPair N2		= KeyboardKey(GLFW_KEY_KP_2		);
+	const KeyPair N3		= KeyboardKey(GLFW_KEY_KP_3		);
+	const KeyPair N4		= KeyboardKey(GLFW_KEY_KP_4		);
+	const KeyPair N5		= KeyboardKey(GLFW_KEY_KP_5		);
+	const KeyPair N6		= KeyboardKey(GLFW_KEY_KP_6		);
+	const KeyPair N7		= KeyboardKey(GLFW_KEY_KP_7		);
+	const KeyPair N8		= KeyboardKey(GLFW_KEY_KP_8		);
+	const KeyPair N9		= KeyboardKey(GLFW_KEY_KP_9		);
+	const KeyPair NEnter	= KeyboardKey(GLFW_KEY_KP_ENTER	);
 
 	// Special
 	const KeyPair ControlLeft	= KeyboardKey(GLFW_KEY_LEFT_CONTROL	);
@@ -128,7 +128,12 @@ class Input
 public:
 	GLFWwindow* glWindow;
 
+	glm::vec3 movement;
 	std::map<size_t, std::function<void()>> handlers;
+
+	bool IsMoved() {
+		return movement != glm::vec3();
+	}
 
 	// Is pressed
 	bool IsPressed(Key::KeyPair key) {
@@ -188,6 +193,7 @@ public:
 		// Update mouse position
 		mouseOldPos = mouseNewPos;
 		mouseNewPos = ImGui::GetMousePos();
+		movement = glm::vec3();
 
 		// Update key statuses
 		for (auto node : keyStatuses)
@@ -212,20 +218,7 @@ public:
 	}
 };
 
-class KeyBinding
-{
-	size_t AddHandler(std::function<void()> func) {
-		static size_t id = 0;
-
-		auto cmd = new FuncCommand();
-		cmd->func = [id = id, input = input, func = func] {
-			input->handlers[id] = func;
-		};
-
-		return id++;
-	}
-
-
+class KeyBinding {
 	bool isAxeModeEnabled;
 public:
 	Input* input;
@@ -237,10 +230,18 @@ public:
 	float crossMinSize = 0.001;
 	float crossMaxSize = 1;
 
+	size_t AddHandler(std::function<void()> func) {
+		static size_t id = 0;
+
+		(new FuncCommand())->func = [id = id, input = input, func = func] {
+			input->handlers[id] = func;
+		};
+
+		return id++;
+	}
 	size_t AddHandler(std::function<void(Input*)> func) {
 		return AddHandler([i = input, func] { func(i); });
 	}
-
 	void RemoveHandler(size_t id) {
 		auto cmd = new FuncCommand();
 		cmd->func = [id = id, input = input] {
@@ -248,40 +249,16 @@ public:
 		};
 	}
 
-
 	void MoveCross() {
-		// Simple mouse control
-		//AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
-		//	bool isAltPressed = i->IsPressed(GLFW_KEY_LEFT_ALT) || i->IsPressed(GLFW_KEY_RIGHT_ALT);
-
-		//	// Enable or disable Mouose boundless mode 
-		//	// regardless of whether we move the cross or not.
-		//	i->SetMouseBoundlessMode(isAltPressed);
-
-		//	if (isAltPressed) {
-		//		bool isHighPrecisionMode = i->IsPressed(GLFW_KEY_LEFT_CONTROL);
-
-		//		auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
-		//		c->Position.x += m.x;
-		//		c->Position.y -= m.y;
-		//		c->Refresh();
-		//	}
-		//});
-
-#pragma region Advanced mouse+keyboard control
-
 		// Axe mode switch A
 		AddHandler([i = input, c = cross, sp = crossMovementSpeed, &axeMode = isAxeModeEnabled] {
 			if (i->IsDown(Key::A))
-			{
 				axeMode = !axeMode;
-			}
 			});
 		
 		// Advanced mouse+keyboard control
 		AddHandler([i = input, c = cross, sp = crossMovementSpeed, &axeMode = isAxeModeEnabled] {
-			if (axeMode)
-			{
+			if (axeMode) {
 				// alt x y
 				// ctrl x z
 				// shift y z
@@ -303,13 +280,10 @@ public:
 				i->SetMouseBoundlessMode(!mustReturn);
 
 				if (mustReturn)
-				{
 					return;
-				}
 
 				bool isAxeLocked = axes.x == 2 || axes.y == 2 || axes.z == 2;
-				if (isAxeLocked)
-				{
+				if (isAxeLocked) {
 					int lockedAxeIndex = axes.x == 2 ? 0 : axes.y == 2 ? 1 : 2;
 					axes -= 1;
 
@@ -320,9 +294,10 @@ public:
 					auto m = i->MouseMoveDirection() * sp;
 
 					// Cross position.
-					*const_cast<float*>(&c->GetLocalPosition()[lockedAxeIndex]) += m.x;
+					//*const_cast<float*>(&c->GetLocalPosition()[lockedAxeIndex]) += m.x;
+					i->movement[lockedAxeIndex] += m.x;
 
-					c->Refresh();
+					c->ForceUpdateCache();
 
 					return;
 				}
@@ -341,11 +316,14 @@ public:
 
 				auto m = i->MouseMoveDirection() * sp;
 
-				auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
-				(*position)[lockedPlane[0]] += m.x;
-				(*position)[lockedPlane[1]] -= m.y;
+				//auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
+				//(*position)[lockedPlane[0]] += m.x;
+				//(*position)[lockedPlane[1]] -= m.y;
+				i->movement[lockedPlane[0]] += m.x;
+				i->movement[lockedPlane[1]] -= m.y;
 
-				c->Refresh();
+
+				c->ForceUpdateCache();
 
 				return;
 			}
@@ -361,33 +339,34 @@ public:
 
 				auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
-				position->x += m.x;
-				position->y -= m.y;
+				//auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
+				//position->x += m.x;
+				//position->y -= m.y;
+				i->movement.x += m.x;
+				i->movement.y -= m.y;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 			}
 			});
 
-#pragma endregion
-
 		// Move cross with arrows/arrows+Ctrl
 		AddHandler([i = input, c = cross, sp = crossMovementSpeed] {
-			glm::vec2 movement = glm::vec2(
+			glm::vec2 m = glm::vec2(
 				-i->IsPressed(Key::Left) + i->IsPressed(Key::Right),
 				-i->IsPressed(Key::Up) + i->IsPressed(Key::Down));
 
-			if (movement.x != 0 || movement.y != 0)
-			{
+			if (m.x != 0 || m.y != 0) {
 				bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
-				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
+				m *= sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
-				position->x += movement.x;
-				position->y -= movement.y;
+				//auto position = const_cast<glm::vec3*>(&c->GetLocalPosition());
+				//position->x += movement.x;
+				//position->y -= movement.y;
+				i->movement.x += m.x;
+				i->movement.y -= m.y;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 			}
 			});
 
@@ -398,19 +377,18 @@ public:
 				-i->IsPressed(Key::N2) + i->IsPressed(Key::N8),
 				-i->IsPressed(Key::N1) + i->IsPressed(Key::N9));
 
-			if (movement.x != 0 || movement.y != 0 || movement.z != 0)
-			{
+			if (movement.x != 0 || movement.y != 0 || movement.z != 0) {
 				bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
 				movement *= sp * (isHighPrecisionMode ? 0.1f : 1);
 
-				*const_cast<glm::vec3*>(&c->GetLocalPosition()) += movement;
+				//*const_cast<glm::vec3*>(&c->GetLocalPosition()) += movement;
+				i->movement += movement;
 
-				c->Refresh();
+				c->ForceUpdateCache();
 			}
 			});
 	}
-
 	void Cross() {
 		MoveCross();
 
@@ -422,16 +400,14 @@ public:
 			if (isScaleUp == isScaleDown)
 				return;
 
-			if (isScaleUp)
-			{
+			if (isScaleUp) {
 				float newSize = c->size *= 1 + sp;
 				if (max < newSize)
 					c->size = max;
 				else
 					c->size = newSize;
 			}
-			else
-			{
+			else {
 				float newSize = c->size *= 1 - sp;
 				if (newSize < min)
 					c->size = min;
@@ -439,7 +415,7 @@ public:
 					c->size = newSize;
 			}
 
-			c->Refresh();
+			c->ForceUpdateCache();
 			});
 	}
 

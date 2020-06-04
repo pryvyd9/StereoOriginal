@@ -27,8 +27,7 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
-int main(int, char**)
-{
+int main(int, char**) {
 	PositionDetector positionDetector;
 
 	CustomRenderWindow customRenderWindow;
@@ -85,6 +84,9 @@ int main(int, char**)
 	gui.keyBinding.cross = &cross;
 	if (!gui.Init())
 		return false;
+
+	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
+	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 
 	* ToolPool::GetCross() = &cross;
 	* ToolPool::GetScene() = &scene;
