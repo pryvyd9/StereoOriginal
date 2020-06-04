@@ -314,7 +314,9 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			return true;
 		}
 
-		std::cout << "Invalid SceneObject type passed: " << t->GetType() << std::endl;
+		log.Error("Invalid SceneObject type passed: ", t->GetType());
+		//std::cout << "[" << "Error" << "]" << "(" << class SceneObjectInspectorWindow 
+		// << ")" << "Invalid SceneObject type passed: " << t->GetType() << std::endl;
 		return false;
 	}
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
@@ -470,11 +472,9 @@ public:
 	// For some reason height/2 isn't center.
 	const float magicNumber = 1.25;
 
-	virtual bool Init()
-	{
+	virtual bool Init() {
 		return true;
 	}
-
 	virtual bool Design()
 	{
 		ImGui::Begin("Object inspector");                         
@@ -487,7 +487,6 @@ public:
 		ImGui::End();
 		return true;
 	}
-
 	virtual bool OnExit()
 	{
 		return true;
@@ -497,6 +496,8 @@ public:
 
 template<ObjectType type>
 class PointPenToolWindow : Window, Attributes {
+	const Log log = Log::For<SceneObjectInspectorWindow>();
+
 	// If this is null then the window probably wasn't initialized.
 	SceneObject** target = nullptr;
 
@@ -553,7 +554,7 @@ class PointPenToolWindow : Window, Attributes {
 			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
-					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+					log.Warning("Drawing instrument can't accept multiple scene objects");
 				}
 				else {
 					if (!tool->BindSceneObjects(objects))
@@ -592,9 +593,8 @@ public:
 	PointPenEditingTool<type>* tool = nullptr;
 
 	virtual bool Init() {
-		if (tool == nullptr)
-		{
-			std::cout << "Tool wasn't assigned" << std::endl;
+		if (tool == nullptr) {
+			log.Error("Tool wasn't assigned");
 			return false;
 		}
 		
@@ -747,6 +747,7 @@ public:
 class TransformToolWindow : Window, Attributes {
 	SceneObject** target = nullptr;
 	int maxPrecision = 5;
+	int transformToolMode;
 
 	std::string GetName(SceneObject** obj) {
 		return
@@ -814,32 +815,27 @@ class TransformToolWindow : Window, Attributes {
 			ImGui::Extensions::PopActive();
 		}
 
+		transformToolMode = (int)tool->GetMode();
 		{
+			if (ImGui::RadioButton("Move", &transformToolMode, (int)TransformToolMode::Translate))
+				tool->SetMode(TransformToolMode::Translate);
+			if (ImGui::RadioButton("Scale", &transformToolMode, (int)TransformToolMode::Scale))
+				tool->SetMode(TransformToolMode::Scale);
+			if (ImGui::RadioButton("Rotate", &transformToolMode, (int)TransformToolMode::Rotate))
+				tool->SetMode(TransformToolMode::Rotate);
+		}
 
-			static int transformToolMode = (int)tool->GetMode();
-			{
-				if (ImGui::RadioButton("Transition", &transformToolMode, 0))
-					tool->SetMode(TransformToolMode::Translate);
-				if (ImGui::RadioButton("Scale", &transformToolMode, 1))
-					tool->SetMode(TransformToolMode::Scale);
-				if (ImGui::RadioButton("Rotate", &transformToolMode, 2))
-					tool->SetMode(TransformToolMode::Rotate);
-			}
-			
-			if (transformToolMode == (int)TransformToolMode::Translate) {
-				ImGui::Separator();
-				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01);
-			}
-			else if (transformToolMode == (int)TransformToolMode::Scale)
-			{
-				ImGui::Separator();
-				ImGui::DragFloat("scale", &tool->scale, 0.01, 0, 0, "%.2f");
-			}
-			else if (transformToolMode == (int)TransformToolMode::Rotate)
-			{
-				ImGui::Separator();
-				DragVector(tool->angle, "X", "Y", "Z", 1);
-			}
+		if (transformToolMode == (int)TransformToolMode::Translate) {
+			ImGui::Separator();
+			DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01);
+		}
+		else if (transformToolMode == (int)TransformToolMode::Scale) {
+			ImGui::Separator();
+			ImGui::DragFloat("scale", &tool->scale, 0.01, 0, 0, "%.2f");
+		}
+		else if (transformToolMode == (int)TransformToolMode::Rotate) {
+			ImGui::Separator();
+			DragVector(tool->angle, "X", "Y", "Z", 1);
 		}
 
 		return true;
@@ -1039,9 +1035,9 @@ public:
 
 		if (ImGui::Button("extrusion")) 
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("penTool")) 
+		if (ImGui::Button("pen")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("transformTool"))
+		if (ImGui::Button("transform"))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
 		//{
@@ -1054,11 +1050,20 @@ public:
 		//}
 		{
 			ImGui::Separator();
-			static int v = (int)GlobalToolConfiguration::GetSpaceMode();
+			static int v = (int)GlobalToolConfiguration::SpaceMode().Get();
 			if (ImGui::RadioButton("World", &v, (int)SpaceMode::World))
-				GlobalToolConfiguration::SetSpaceMode(SpaceMode::World);
+				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::World);
 			if (ImGui::RadioButton("Local", &v, (int)SpaceMode::Local))
-				GlobalToolConfiguration::SetSpaceMode(SpaceMode::Local);
+				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::Local);
+		}
+		{
+			ImGui::Separator();
+			ImGui::Text("Action on parent change:");
+			static int v = (int)GlobalToolConfiguration::MoveCoordinateAction().Get();
+			if (ImGui::RadioButton("Adapt Coordinates", &v, (int)MoveCoordinateAction::Adapt))
+				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
+			if (ImGui::RadioButton("None", &v, (int)MoveCoordinateAction::None))
+				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::None);
 		}
 
 

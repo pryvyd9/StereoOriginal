@@ -45,10 +45,8 @@ class GUI {
 	}
 
 	bool OpenFileWindow(FileWindow::Mode mode) {
-		if (fileWindow != nullptr) {
-			if (fileWindow->mode != mode)
-				fileWindow->mode = mode;
-		}
+		if (fileWindow != nullptr)
+			fileWindow->mode = mode;
 		else if (!CreateFileWindow(mode))
 			return false;
 
@@ -71,8 +69,6 @@ class GUI {
 
 			if (ImGui::MenuItem("Exit", nullptr, false))
 				shouldClose = true;
-
-
 
 			ImGui::EndMenu();
 		}
@@ -237,11 +233,9 @@ public:
 		return true;
 	}
 
-	bool MainLoop()
-	{
+	bool MainLoop() {
 		// Main loop
-		while (!glfwWindowShouldClose(glWindow))
-		{
+		while (!glfwWindowShouldClose(glWindow)) {
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
 			// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -272,8 +266,7 @@ public:
 			// Update and Render additional Platform Windows
 			// (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
 			//  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
-			if (io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-			{
+			if (io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 				GLFWwindow* backup_current_context = glfwGetCurrentContext();
 				ImGui::UpdatePlatformWindows();
 				ImGui::RenderPlatformWindowsDefault();

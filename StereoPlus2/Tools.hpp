@@ -9,7 +9,7 @@
 #include <vector>
 #include <queue>
 #include "TemplateExtensions.hpp"
-
+#include "ToolConfiguration.hpp"
 
 class Tool {
 protected:
@@ -115,81 +115,6 @@ public:
 	}
 };
 
-#pragma region configs
-enum class PointPenEditingToolMode {
-	Immediate,
-	Step,
-};
-
-enum class ExtrusionEditingToolMode {
-	Immediate,
-	Step,
-};
-
-enum class ObjectMode {
-	Object,
-	Vertex,
-};
-
-enum class SpaceMode {
-	World,
-	Local,
-};
-
-enum class TransformToolMode {
-	Translate,
-	Scale,
-	Rotate,
-};
-
-class GlobalToolConfiguration {
-	static ObjectMode& objectMode() {
-		static ObjectMode v;
-		return v;
-	}
-	static SpaceMode& spaceMode() {
-		static SpaceMode v;
-		return v;
-	}
-
-	static Event<ObjectMode>& objectModeChanged() {
-		static Event<ObjectMode> v;
-		return v;
-	}
-	static Event<SpaceMode>& spaceModeChanged() {
-		static Event<SpaceMode> v;
-		return v;
-	}
-public:
-	static const ObjectMode& GetCoordinateMode() {
-		return objectMode();
-	}
-	static const SpaceMode& GetSpaceMode() {
-		return spaceMode();
-	}
-	
-	static void SetObjectMode(const ObjectMode& v) {
-		auto a = objectMode();
-		objectMode() = v;
-		if (a != v)
-			objectModeChanged().Invoke(v);
-	}
-	static void SetSpaceMode(const SpaceMode& v) {
-		auto a = spaceMode();
-		spaceMode() = v;
-		if (a != v)
-			spaceModeChanged().Invoke(v);
-	}
-
-	static IEvent<ObjectMode>& OnObjectModeChanged() {
-		return objectModeChanged();
-	}
-	static IEvent<SpaceMode>& OnSpaceModeChanged() {
-		return spaceModeChanged();
-	}
-};
-#pragma endregion
-
 template<ObjectType type>
 class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 #pragma region Types
@@ -237,7 +162,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	}
 
 	const glm::vec3 GetPos() {
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local)
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local)
 			return cross->GetLocalPosition();
 
 		return target->ToLocalPosition(cross->GetLocalPosition());
@@ -380,7 +305,7 @@ public:
 		crossOriginalPosition = cross->GetLocalPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
 
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
 			cross->SetParent(target);
 			cross->SetLocalPosition(target->GetVertices().back());
 		}
@@ -392,7 +317,7 @@ public:
 		}
 
 		inutHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::OnSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
 			if (v == SpaceMode::Local) {
 				cross->SetParent(target);
 				if (target->GetVertices().size() > 0)
@@ -420,7 +345,7 @@ public:
 		cross->SetParent(crossOriginalParent);
 		cross->SetLocalPosition(crossOriginalPosition);
 		keyBinding->RemoveHandler(inutHandlerId);
-		GlobalToolConfiguration::OnSpaceModeChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 
 		DeleteConfig();
 
@@ -544,7 +469,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 	}
 
 	const glm::vec3 GetPos() {
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local)
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local)
 			return cross->GetLocalPosition();
 
 		return mesh->ToLocalPosition(cross->GetLocalPosition());
@@ -752,7 +677,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		cross->SetParent(crossOriginalParent);
 		cross->SetLocalPosition(crossOriginalPosition);
 
-		GlobalToolConfiguration::OnSpaceModeChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 		keyBinding->RemoveHandler(inputHandlerId);
 
 		DeleteConfig();
@@ -777,7 +702,7 @@ public:
 			o->SetWorldPosition(cross->GetWorldPosition());
 			o->SetWorldRotation(pen->GetWorldRotation());
 
-			if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+			if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
 				cross->SetParent(o);
 				cross->SetLocalPosition(glm::vec3());
 			}
@@ -807,20 +732,16 @@ public:
 		
 
 		inputHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::OnSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
 			if (!mesh)
 				return;
 
 			auto pos = cross->GetWorldPosition();
 			
-			if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+			if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local)
 				cross->SetParent(mesh);
-				//cross->SetLocalPosition(mesh->ToLocalPosition(cross->GetLocalPosition()));
-			}
-			else {
+			else
 				cross->SetParent(crossOriginalParent);
-				//cross->SetLocalPosition(mesh->ToWorldPosition(cross->GetLocalPosition()));
-			}
 
 			cross->SetWorldPosition(pos);
 			});
@@ -964,7 +885,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	void Translate(glm::vec3 transformVector, SceneObject* target) {
 		isPositionModified = true;
 		
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::Local) {
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
 			auto r = originalLocalPositionsFolded[0] + glm::rotate(target->GetWorldRotation(), transformVector);
 			target->SetLocalPosition(r);
 			return;
@@ -985,7 +906,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		
 		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
 
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World)
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
 			target->SetWorldRotation(r * target->GetWorldRotation());
 		else
 			target->SetLocalRotation(target->GetLocalRotation() * r);
@@ -1075,7 +996,7 @@ public:
 		originalLocalRotation = target->GetLocalRotation();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
 		cross->SetParent(target);
-		if (GlobalToolConfiguration::GetSpaceMode() == SpaceMode::World)
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
 			cross->SetWorldRotation(cross->unitQuat());
 
 		originalVerticesFolded.clear();
@@ -1093,7 +1014,7 @@ public:
 
 		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
 		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::OnSpaceModeChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			originalLocalRotation = target->GetLocalRotation();
 			originalLocalPositionsFolded[0] = target->GetLocalPosition();
@@ -1125,7 +1046,7 @@ public:
 
 		keyBinding->RemoveHandler(inputHandlerId);
 		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
-		GlobalToolConfiguration::OnSpaceModeChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 		DeleteConfig();
 
 		cross->SetParent(crossOriginalParent);

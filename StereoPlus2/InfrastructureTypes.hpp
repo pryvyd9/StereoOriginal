@@ -73,18 +73,19 @@ public:
 		return log;
 	}
 
-	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
-	void Error(const T& message) const {
-		Error(Log::ToString(message));
+	template<typename... T>
+	void Error(const T&... message) const {
+		Error((Log::ToString(message) + ...));
 	}
-	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
-	void Warning(const T& message) const {
-		Warning(Log::ToString(message));
+	template<typename... T>
+	void Warning(const T&... message) const {
+		Warning((Log::ToString(message) + ...));
 	}
-	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
-	void Information(const T& message) const {
-		Information(Log::ToString(message));
+	template<typename... T>
+	void Information(const T&... message) const {
+		Information((Log::ToString(message) + ...));
 	}
+
 
 	void Error(const std::string& message) const {
 		Line("[Error](" + contextName + ") " + message);
@@ -102,7 +103,6 @@ class Time {
 		static std::chrono::steady_clock::time_point instance;
 		return &instance;
 	}
-
 	static size_t* GetDeltaTimeMicroseconds() {
 		static size_t instance;
 		return &instance;
@@ -113,11 +113,9 @@ public:
 		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
 		*GetBegin() = end;
 	};
-
 	static float GetFrameRate() {
 		return 1 / GetDeltaTime();
 	}
-
 	static float GetDeltaTime() {
 		return (float)*GetDeltaTimeMicroseconds() / 1e6;
 	}
@@ -198,4 +196,24 @@ public:
 			h.second(vs...);
 	}
 };
+
+template<typename T>
+class Property {
+	T value;
+	Event<T> changed;
+public:
+	const T& Get() const {
+		return value;
+	}
+	void Set(const T& v) {
+		auto old = v;
+		value = v;
+		if (old != v)
+			changed.Invoke(v);
+	}
+	IEvent<T>& OnChanged() {
+		return changed;
+	}
+};
+
 

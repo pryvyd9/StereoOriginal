@@ -1,5 +1,6 @@
 #pragma once
 #include "GLLoader.hpp"
+#include "ToolConfiguration.hpp"
 #include <stdlib.h>
 #include <set>
 #include <array>
@@ -88,16 +89,21 @@ public:
 	}
 	void SetParent(SceneObject* newParent, int newParentPos, InsertPosition pos) {
 		ForceUpdateCache();
-		auto oldPosition = GetWorldPosition();
-		auto oldRotation = GetWorldRotation();
-
 		auto source = &parent->children;
 		auto dest = &newParent->children;
 
-		parent = newParent;
+		if (GlobalToolConfiguration::MoveCoordinateAction().Get() == MoveCoordinateAction::None)
+			parent = newParent;
+		else {
+			auto oldPosition = GetWorldPosition();
+			auto oldRotation = GetWorldRotation();
 
-		SetWorldPosition(oldPosition);
-		SetWorldRotation(oldRotation);
+			parent = newParent;
+
+			SetWorldPosition(oldPosition);
+			SetWorldRotation(oldRotation);
+		}
+		
 
 		auto sourcePositionInt = find(*source, this);
 

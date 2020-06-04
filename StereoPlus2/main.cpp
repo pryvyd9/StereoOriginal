@@ -27,8 +27,7 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
-int main(int, char**)
-{
+int main(int, char**) {
 	PositionDetector positionDetector;
 
 	CustomRenderWindow customRenderWindow;
