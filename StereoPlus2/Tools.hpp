@@ -813,6 +813,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	glm::vec3 transformOldPos;
 	glm::fquat originalLocalRotation;
 
+	int oldAxeId;
+
 	bool areVerticesModified = false;
 	bool areLinesModified = false;
 	bool isPositionModified = false;
@@ -898,6 +900,11 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		auto i = getChangedAxe();
 		if (i < 0) return;
+
+		if (oldAxeId != i && GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
+			cross->SetWorldRotation(cross->unitQuat());
+
+		oldAxeId = i;
 		
 		auto trimmedDeltaAngle = getTrimmedAngle((angle - oldAngle)[i]) * 3.1415926f * 2 / 360;
 
@@ -1018,6 +1025,8 @@ public:
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			originalLocalRotation = target->GetLocalRotation();
 			originalLocalPositionsFolded[0] = target->GetLocalPosition();
+
+			oldAngle = angle = glm::vec3();
 
 			if (v == SpaceMode::Local)
 				cross->SetLocalRotation(cross->unitQuat());

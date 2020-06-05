@@ -971,7 +971,11 @@ class ToolWindow : Window {
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
-		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] { t->UnbindTargets(); });
+
+		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
+			t->UnbindTargets(); 
+			t->tool->UnbindSceneObjects();
+			});
 
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();

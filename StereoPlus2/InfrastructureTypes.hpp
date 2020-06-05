@@ -206,7 +206,7 @@ public:
 		return value;
 	}
 	void Set(const T& v) {
-		auto old = v;
+		auto old = value;
 		value = v;
 		if (old != v)
 			changed.Invoke(v);
