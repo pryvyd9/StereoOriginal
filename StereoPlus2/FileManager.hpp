@@ -28,53 +28,34 @@ public:
 	}
 	template<>
 	void put<std::string>(const std::string& val) {
+		put(val.size());
 		for (size_t i = 0; i < val.size(); i++)
 			buffer.push_back(val[i]);
 	}
 	template<>
 	void put<SceneObject>(const SceneObject& so) {
+		put(so.GetType());
+		put(so.Name);
+		put(so.GetLocalPosition());
+		put(so.GetLocalRotation());
 
 		switch (so.GetType())
 		{
 		case Group:
-		{
-			auto o = (GroupObject*)&so;
-
-			put(so.GetType());
-			put(o->Name.size());
-			put(o->Name);
-			
-			put(o->children.size());
-			for (auto c : o->children)
-				put(*c);
-
 			break;
-		}
 		case StereoPolyLineT:
 		{
 			auto o = (StereoPolyLine*)&so;
 
-			put(so.GetType());
-			put(o->Name.size());
-			put(o->Name);
-
 			put(o->GetVertices().size());
 			for (auto p : o->GetVertices())
 				put(p);
-
-			put(o->children.size());
-			for (auto c : o->children)
-				put(*c);
 
 			break;
 		}
 		case MeshT:
 		{
 			auto o = (Mesh*)&so;
-
-			put(so.GetType());
-			put(o->Name.size());
-			put(o->Name);
 
 			put(o->GetVertices().size());
 			for (auto p : o->GetVertices())
@@ -85,15 +66,15 @@ public:
 				for (auto p : c)
 					put(p);
 
-			put(o->children.size());
-			for (auto c : o->children)
-				put(*c);
-
 			break;
 		}
 		default:
 			throw std::exception("Unsupported Scene Object Type found while writing file.");
 		}
+
+		put(so.children.size());
+		for (auto c : so.children)
+			put(*c);
 	}
 
 	const char* getBuffer() {
@@ -112,8 +93,16 @@ class ibstream {
 
 	template<typename T>
 	void read(T* dest) {
+		*dest = get<T>();
+	}
+	template<typename T>
+	void read(std::function<void(T)> f) {
+		f(get<T>());
+	}
+	template<>
+	void read(std::string* dest) {
 		auto size = get<size_t>();
-		*dest = get<T>(size);
+		*dest = get<std::string>(size);
 	}
 	void readChildren(SceneObject* parent) {
 		readArray(std::function([&parent](SceneObject* v) {
@@ -164,6 +153,8 @@ public:
 		{
 			auto o = start<GroupObject>();
 			read(&o->Name);
+			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			readChildren(o);
 			return o;
 		}
@@ -171,6 +162,8 @@ public:
 		{
 			auto o = start<StereoPolyLine>();
 			read(&o->Name);
+			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			readChildren(o);
 			return o;
@@ -179,6 +172,8 @@ public:
 		{
 			auto o = start<Mesh>();
 			read(&o->Name);
+			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			readArray(std::function([&o](size_t a, size_t b) { o->Connect(a, b); }));
 			readChildren(o);
