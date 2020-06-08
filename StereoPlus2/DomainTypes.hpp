@@ -26,14 +26,19 @@ struct Pair {
 	glm::vec3 p1, p2;
 };
 
+// Abstract scene object.
+// Parent to all scene objects.
 class SceneObject {
+	// Local position;
 	glm::vec3 position;
+	// Local rotation;
 	glm::fquat rotation = unitQuat();
 	SceneObject* parent;
-
-
 protected:
+	// When true cache will be updated on reading.
 	bool shouldUpdateCache;
+
+	// Adds or substracts transformations.
 
 	void CascadeTransform(std::vector<glm::vec3>& vertices) const {
 		if (GetLocalRotation() == unitQuat())
@@ -74,16 +79,6 @@ public:
 		return glm::fquat(1, 0, 0, 0);
 	}
 
-	//glm::vec3 GetRight() {
-	//	return glm::rotate(GetLocalRotation(), glm::vec3(1, 0, 0));
-	//}
-	//glm::vec3 GetUp() {
-	//	return glm::rotate(GetLocalRotation(), glm::vec3(0, 1, 0));
-	//}
-	//glm::vec3 GetForward() {
-	//	return glm::rotate(GetLocalRotation(), glm::vec3(0, 0, 1));
-	//}
-
 	const SceneObject* GetParent() const {
 		return parent;
 	}
@@ -92,9 +87,7 @@ public:
 		auto source = &parent->children;
 		auto dest = &newParent->children;
 
-		if (GlobalToolConfiguration::MoveCoordinateAction().Get() == MoveCoordinateAction::None)
-			parent = newParent;
-		else {
+		if (GlobalToolConfiguration::MoveCoordinateAction().Get() == MoveCoordinateAction::Adapt) {
 			auto oldPosition = GetWorldPosition();
 			auto oldRotation = GetWorldRotation();
 
@@ -103,6 +96,8 @@ public:
 			SetWorldPosition(oldPosition);
 			SetWorldRotation(oldRotation);
 		}
+		else 
+			parent = newParent;
 		
 
 		auto sourcePositionInt = find(*source, this);
@@ -153,6 +148,8 @@ public:
 			newParent->children.push_back(this);
 	}
 
+	// Transforms position relative to the object.
+
 	glm::vec3 ToWorldPosition(const glm::vec3& v) const {
 		glm::vec3 r = v;
 		CascadeTransform(r);
@@ -187,6 +184,8 @@ public:
 		ForceUpdateCache();
 
 		if (parent) {
+			// Set world position means to set local position
+			// relative to parent.
 			position = parent->ToLocalPosition(v);
 			return;
 		}
@@ -212,6 +211,8 @@ public:
 		ForceUpdateCache();
 
 		if (parent) {
+			// Set world rotation means to set local rotation
+			// relative to parent.
 			rotation = glm::inverse(parent->GetWorldRotation()) * v;
 			return;
 		}
@@ -219,11 +220,16 @@ public:
 		rotation = v;
 	}
 
+	// Forces the object and all children to update cache.
 	void ForceUpdateCache() {
 		shouldUpdateCache = true;
 		for (auto c : children)
 			c->ForceUpdateCache();
 	}
+
+	// Virtual methods to be overridden.
+	// Do nothing here since we don't want cascade operations to fail 
+	// just because the object doesn't implement some of it.
 
 	virtual const std::vector<Pair>& GetLines() {
 		static const std::vector<Pair> empty;
@@ -333,8 +339,10 @@ public:
 	}
 
 	virtual void RemoveVertice() {
-		linesCache.pop_back();
-		vertices.pop_back();
+		if (linesCache.size() > 0)
+			linesCache.pop_back();
+		if (vertices.size() > 0)
+			vertices.pop_back();
 		shouldUpdateCache = true;
 	}
 };
@@ -665,8 +673,6 @@ public:
 	StereoCamera* camera;
 	Cross* cross;
 
-	float whiteZ = 0;
-	float whiteZPrecision = 0.1;
 	GLFWwindow* glWindow;
 
 	IEvent<>& OnDeleteAll() {

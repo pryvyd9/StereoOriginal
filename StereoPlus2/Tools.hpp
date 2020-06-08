@@ -283,8 +283,6 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 public:
 	std::vector<std::function<void()>> onTargetReleased;
 
-
-
 	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
 		if (target != nullptr && !UnbindSceneObjects())
 			return false;
@@ -337,8 +335,14 @@ public:
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		UnbindSceneObjects<type>();
+		if (this->target == nullptr)
+			return true;
+
+		auto target = (StereoPolyLine*)this->target;
+		target->RemoveVertice();
+		this->target = nullptr;
 		
+
 		for (auto func : onTargetReleased)
 			func();
 
@@ -354,63 +358,14 @@ public:
 	virtual Type GetType() {
 		return Type::PointPen;
 	}
-
 	SceneObject** GetTarget() {
 		return &target;
-	}
-
-	template<ObjectType type>
-	void UnbindSceneObjects() {
-		switch (mode)
-		{
-		case Mode::Immediate:
-			return UnbindSceneObjects<type, Mode::Immediate>();
-		case Mode::Step:
-			return UnbindSceneObjects<type, Mode::Step>();
-		default:
-			Logger.Warning("Not suported mode was given");
-			return;
-		}
-	}
-
-	template<ObjectType type, Mode mode>
-	void UnbindSceneObjects() {
-		
-	}
-	template<>
-	void UnbindSceneObjects<StereoPolyLineT, Mode::Immediate>() {
-		if (this->target == nullptr)
-			return;
-
-		auto target = (StereoPolyLine*)this->target;
-
-		if (target->GetVertices().size() > 0)
-			target->RemoveVertice();
-
-		this->target = nullptr;
-
-		//existingPointsSelected.clear();
-	}
-	template<>
-	void UnbindSceneObjects<StereoPolyLineT, Mode::Step>() {
-		if (this->target == nullptr)
-			return;
-
-		auto target = (StereoPolyLine*)this->target;
-
-		if (target->GetVertices().size() > 0)
-			target->RemoveVertice();
-
-		this->target = nullptr;
-
-		//existingPointsSelected.clear();
 	}
 
 	bool BindCross(Cross* cross) {
 		this->cross = cross;
 		return true;
 	}
-
 	void SetMode(Mode mode) {
 		DeleteConfig();
 		this->mode = mode;

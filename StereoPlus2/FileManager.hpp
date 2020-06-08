@@ -3,7 +3,6 @@
 #include "DomainTypes.hpp"
 #include <string>
 #include <iostream>
-#include "TemplateExtensions.hpp"
 
 class FileException : public std::exception {
 public:
@@ -34,6 +33,9 @@ public:
 	}
 	template<>
 	void put<SceneObject>(const SceneObject& so) {
+		if (so.GetType() == CrossT)
+			return;
+
 		put(so.GetType());
 		put(so.Name);
 		put(so.GetLocalPosition());
@@ -286,7 +288,8 @@ public:
 	JsonObjectAbstract* serialize(const std::vector<T*>& v) {
 		auto j = new JsonArray();
 		for (auto a : v)
-			j->objects.push_back(serialize(*a));
+			if (auto r = serialize(*a); r != nullptr)
+				j->objects.push_back(r);
 		return j;
 	}
 	template<typename T>
@@ -305,6 +308,9 @@ public:
 	}
 	template<>
 	JsonObjectAbstract* serialize(const SceneObject& so) {
+		if (so.GetType() == CrossT)
+			return nullptr;
+
 		auto jo = new JsonObject();
 		insert(jo, "type", so.GetType());
 		insert(jo, "name", so.Name);

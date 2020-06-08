@@ -12,22 +12,22 @@
 using namespace std;
 
 bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
-	// Position detection
+	// Modify camera posiiton when Posiiton detection is enabled.
 	if (positionDetector.isPositionProcessingWorking)
 		scene.camera->SetLocalPosition(
 			glm::vec3(
-				positionDetector.positionHorizontal / 500.0,
-				positionDetector.positionVertical / 500.0,
-				-positionDetector.distance / 10.0));
+				positionDetector.positionHorizontal / 100.0,
+				positionDetector.positionVertical / 100.0,
+				-positionDetector.distance / 50.0));
 
+	// Run scene drawing.
 	renderPipeline.Pipeline(scene);
 	
-	//Log::For<void>().Information(Time::GetDeltaTime());
-
 	return true;
 }
 
 int main(int, char**) {
+	// Declare main components.
 	PositionDetector positionDetector;
 
 	CustomRenderWindow customRenderWindow;
@@ -44,6 +44,7 @@ int main(int, char**) {
 	GUI gui;
 	Cross cross;
 
+	// Initialize main components.
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
@@ -68,8 +69,6 @@ int main(int, char**) {
 	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
 
-	scene.whiteZ = 0;
-	scene.whiteZPrecision = 0.1;
 	scene.glWindow = gui.glWindow;
 	scene.camera->viewSize = &customRenderWindow.renderSize;
 	scene.cross = &cross;
@@ -95,10 +94,16 @@ int main(int, char**) {
 	if (!ToolPool::Init())
 		return false;
 
+	// Position detector doesn't initialize itself
+	// so we need to help it.
 	positionDetector.onStartProcess = [&positionDetector] {
 		positionDetector.Init();
 	};
 
+	// Track the state of Position detector to switch it
+	// when necessary. 
+	// Reads user position and modifies camera position when enabled.
+	// Calls drawing methods of Renderer.
 	customRenderWindow.customRenderFunc = [&scene, &renderPipeline, shouldUsePositionDetection = &gui.shouldUsePositionDetection, &positionDetector]{
 		if (*shouldUsePositionDetection && !positionDetector.isPositionProcessingWorking)
 			positionDetector.StartPositionDetection();
@@ -108,12 +113,14 @@ int main(int, char**) {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
+	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |
 		!gui.OnExit()) {
 		positionDetector.StopPositionDetection();
 		return false;
 	}
 
+	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
     return true;
 }
