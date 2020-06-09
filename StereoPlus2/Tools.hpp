@@ -358,8 +358,8 @@ public:
 	virtual Type GetType() {
 		return Type::PointPen;
 	}
-	SceneObject** GetTarget() {
-		return &target;
+	SceneObject* GetTarget() {
+		return target;
 	}
 
 	bool BindCross(Cross* cross) {
@@ -721,8 +721,8 @@ public:
 		return true;
 	}
 
-	SceneObject** GetTarget() {
-		return &pen;
+	SceneObject* GetTarget() {
+		return pen;
 	}
 	virtual Type GetType() {
 		return Type::Extrusion;
@@ -1043,8 +1043,8 @@ public:
 	
 		UnbindSceneObjects();
 	}
-	SceneObject** GetTarget() {
-		return &target;
+	SceneObject* GetTarget() {
+		return target;
 	}
 	virtual Type GetType() {
 		return Type::Transform;

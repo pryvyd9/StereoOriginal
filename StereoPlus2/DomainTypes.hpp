@@ -249,6 +249,17 @@ public:
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) {}
 
 	virtual void RemoveVertice() {}
+
+	virtual void DesignProperties() {
+		if (ImGui::DragFloat3("local position", (float*)&GetLocalPosition(), 0.01, 0, 0, "%.5f") ||
+			ImGui::DragFloat4("local rotation", (float*)&GetLocalRotation(), 0.01, 0, 1, "%.3f"))
+			ForceUpdateCache();
+		if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 0.01, 0, 0, "%.3f"))
+			SetWorldPosition(v);
+		if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&GetWorldRotation(), 0.01, 0, 1, "%.3f"))
+			SetWorldRotation(v);
+
+	}
 };
 
 class GroupObject : public SceneObject {
@@ -531,7 +542,10 @@ public:
 	virtual ObjectType GetType() const {
 		return CrossT;
 	}
-
+	virtual void DesignProperties() {
+		SceneObject::DesignProperties();
+		ImGui::DragFloat("size", &size, 0.01, 0, 0, "%.5f");
+	}
 };
 
 
@@ -603,7 +617,13 @@ public:
 	virtual ObjectType GetType() const {
 		return CameraT;
 	}
-
+	virtual void DesignProperties() {
+		SceneObject::DesignProperties();
+		if (viewSize != nullptr)
+			ImGui::DragFloat2("size", (float*)viewSize, 0.01, 0, 0, "%.5f");
+		ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f");
+		ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f");
+	}
 };
 
 #pragma endregion
@@ -731,16 +751,15 @@ public:
 	}
 
 	void DeleteAll() {
+		deleteAll.Invoke();
+		cross->SetParent(nullptr);
+
 		for (auto o : objects)
 			delete o;
 
 		objects.clear();
 		root = &defaultObject;
 		root->children.clear();
-
-		cross->SetParent(nullptr);
-
-		deleteAll.Invoke();
 	}
 
 	~Scene() {
