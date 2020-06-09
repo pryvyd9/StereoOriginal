@@ -251,7 +251,7 @@ public:
 	virtual void RemoveVertice() {}
 
 	virtual void DesignProperties() {
-		if (ImGui::DragFloat3("local position", (float*)&GetLocalPosition(), 0.01, 0, 0, "%.5f") ||
+		if (ImGui::DragFloat3("local position", (float*)&GetLocalPosition(), 0.01, 0, 0, "%.5f") |
 			ImGui::DragFloat4("local rotation", (float*)&GetLocalRotation(), 0.01, 0, 1, "%.3f"))
 			ForceUpdateCache();
 		if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 0.01, 0, 0, "%.3f"))
@@ -620,7 +620,7 @@ public:
 	virtual void DesignProperties() {
 		SceneObject::DesignProperties();
 		if (viewSize != nullptr)
-			ImGui::DragFloat2("size", (float*)viewSize, 0.01, 0, 0, "%.5f");
+			ImGui::DragFloat2("view size", (float*)viewSize, 0.01, 0, 0, "%.5f");
 		ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f");
 		ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f");
 	}

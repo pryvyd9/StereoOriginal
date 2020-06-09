@@ -183,84 +183,8 @@ public:
 	}
 };
 
-
-//template<typename T>
-//class SceneObjectPropertiesWindow : Window
-//{
-//public:
-//	T** Object;
-//
-//	virtual bool Init()
-//	{
-//		if (!std::is_base_of<SceneObject, T>::value)
-//		{
-//			std::cout << "Unsupported type" << std::endl;
-//
-//			return false;
-//		}
-//
-//		return true;
-//	}
-//
-//	virtual bool Design()
-//	{
-//		if (Object == nullptr || *Object == nullptr) {
-//			ImGui::Begin("Properties empty");
-//			ImGui::End();
-//			return true;
-//		}
-//
-//		ImGui::Begin(("Properties " + GetName(*Object)).c_str());
-//
-//		if (!DesignProperties(*Object))
-//			return false;
-//
-//		ImGui::End();
-//
-//		return true;
-//	}
-//
-//	virtual bool OnExit()
-//	{
-//		return true;
-//	}
-//
-//	std::string GetName(SceneObject* obj) {
-//		return obj->Name;
-//	}
-//
-//	template<typename T>
-//	bool DesignProperties(T * obj) {
-//		((SceneObject*)obj)->DesignProperties();
-//		return true;
-//	}
-//
-//	template<>
-//	bool DesignProperties(Cross * obj) {
-//		if (ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0)
-//			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
-//		{
-//			obj->ForceUpdateCache();
-//		}
-//		return true;
-//	}
-//
-//	template<>
-//	bool DesignProperties(StereoCamera* obj) {
-//		ImGui::InputFloat3("positionModifier", (float*)& obj->positionModifier, "%f", 0);
-//		ImGui::InputFloat3("local position", (float*)& obj->GetLocalPosition(), "%f", 0);
-//		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
-//		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
-//		return true;
-//	}
-//};
-
-
 class SceneObjectPropertiesWindow : Window, Attributes {
 	bool DesignInternal() {
-		
-
-		//if (!DesignProperties(*Object))
 		Object->DesignProperties();
 
 		return true;
@@ -274,12 +198,6 @@ public:
 	}
 
 	virtual bool Init() {
-		/*if (!std::is_base_of<SceneObject, T>::value) {
-			std::cout << "Unsupported type" << std::endl;
-
-			return false;
-		}*/
-
 		return true;
 	}
 
@@ -291,7 +209,6 @@ public:
 		}
 
 		ImGui::Begin(("Properties " + GetName(Object)).c_str());
-		//ImGui::Begin(Window::name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -305,7 +222,6 @@ public:
 			return true;
 		}
 
-		//ImGui::Begin(("Properties " + GetName(Object)).c_str());
 		if (ImGui::BeginTabItem(("Properties " + GetName(Object)).c_str())) {
 			if (!DesignInternal())
 				return false;
@@ -324,30 +240,6 @@ public:
 
 	std::string GetName(SceneObject* obj) {
 		return obj->Name;
-	}
-
-	template<typename T>
-	bool DesignProperties(T* obj) {
-		((SceneObject*)obj)->DesignProperties();
-		return true;
-	}
-
-	template<>
-	bool DesignProperties(Cross* obj) {
-		if (ImGui::InputFloat3("local position", (float*)&obj->GetLocalPosition(), "%f", 0)
-			|| ImGui::SliderFloat("size", (float*)&obj->size, 1e-3, 10, "%.3f", 2)) {
-			obj->ForceUpdateCache();
-		}
-		return true;
-	}
-
-	template<>
-	bool DesignProperties(StereoCamera* obj) {
-		ImGui::InputFloat3("positionModifier", (float*)&obj->positionModifier, "%f", 0);
-		ImGui::InputFloat3("local position", (float*)&obj->GetLocalPosition(), "%f", 0);
-		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
-		ImGui::InputFloat("eyeToCenterDistance", (float*)&obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
-		return true;
 	}
 
 	virtual void BindTarget(SceneObject* o) {
@@ -1109,35 +1001,12 @@ class ToolWindow : Window {
 	template<typename T>
 	static constexpr bool hasUnbindSceneobjects = is_detected_v<unbindSceneObjects, T>;
 
-	//template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindSceneobjects<TTool>> * = nullptr>
-	//void ApplyTool() {
-	//	auto tool = new TWindow();
-	//	tool->tool = ToolPool::GetTool<TTool>();
-
-	//	auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
-	//		t->UnbindTargets(); 
-	//		t->tool->UnbindSceneObjects();
-	//		});
-
-	//	attributesWindow->UnbindTarget();
-	//	attributesWindow->UnbindTool();
-	//	attributesWindow->BindTool((Attributes*)tool);
-	//	attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
-	//		t->tool->UnbindSceneObjects();
-	//		s->OnDeleteAll().RemoveHandler(d);
-	//		t->OnExit();
-	//		delete t;
-	//	};
-	//}
-
 	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindSceneobjects<TTool>> * = nullptr>
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
 
-
 		auto targetWindow = new SceneObjectPropertiesWindow();
-		//targetWindow->Object = &tool->GetTarget();
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
 		attributesWindow->BindTool((Attributes*)tool);
@@ -1145,9 +1014,8 @@ class ToolWindow : Window {
 
 		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
 			t->UnbindTargets();
-			//t->tool = nullptr;
 			t->tool->UnbindSceneObjects();
-			});
+		});
 		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
 			t->tool->UnbindSceneObjects();
 			s->OnDeleteAll().RemoveHandler(d);
