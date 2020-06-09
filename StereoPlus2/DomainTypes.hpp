@@ -37,6 +37,7 @@ class SceneObject {
 protected:
 	// When true cache will be updated on reading.
 	bool shouldUpdateCache;
+	const float propertyIndent = -20;
 
 	// Adds or substracts transformations.
 
@@ -251,14 +252,29 @@ public:
 	virtual void RemoveVertice() {}
 
 	virtual void DesignProperties() {
-		if (ImGui::DragFloat3("local position", (float*)&GetLocalPosition(), 0.01, 0, 0, "%.5f") |
-			ImGui::DragFloat4("local rotation", (float*)&GetLocalRotation(), 0.01, 0, 1, "%.3f"))
-			ForceUpdateCache();
-		if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 0.01, 0, 0, "%.3f"))
-			SetWorldPosition(v);
-		if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&GetWorldRotation(), 0.01, 0, 1, "%.3f"))
-			SetWorldRotation(v);
 
+		if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+			
+			if (ImGui::DragFloat3("local position", (float*)&GetLocalPosition(), 0.01, 0, 0, "%.5f") |
+				ImGui::DragFloat4("local rotation", (float*)&GetLocalRotation(), 0.01, 0, 1, "%.3f"))
+				ForceUpdateCache();
+			
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNodeEx("world")) {
+			ImGui::Indent(propertyIndent);
+
+			if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 0.01, 0, 0, "%.3f"))
+				SetWorldPosition(v);
+			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&GetWorldRotation(), 0.01, 0, 1, "%.3f"))
+				SetWorldRotation(v);
+			
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
 	}
 };
 
@@ -356,6 +372,22 @@ public:
 			vertices.pop_back();
 		shouldUpdateCache = true;
 	}
+
+	virtual void DesignProperties() {
+		if (ImGui::TreeNodeEx("polyline", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+
+			std::stringstream ss;
+			ss << linesCache.size();
+
+			ImGui::LabelText("line count", ss.str().c_str());
+
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
+		SceneObject::DesignProperties();
+	}
+
 };
 
 struct Mesh : LeafObject {
@@ -457,6 +489,21 @@ public:
 		vertices.pop_back();
 		shouldUpdateCache = true;
 	}
+
+	virtual void DesignProperties() {
+		if (ImGui::TreeNodeEx("mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+
+			std::stringstream ss;
+			ss << linesCache.size();
+
+			ImGui::LabelText("line count", ss.str().c_str());
+
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
+		SceneObject::DesignProperties();
+	}
 };
 
 class WhiteSquare
@@ -543,8 +590,15 @@ public:
 		return CrossT;
 	}
 	virtual void DesignProperties() {
+		if (ImGui::TreeNodeEx("cross", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+
+			ImGui::DragFloat("size", &size, 0.01, 0, 0, "%.5f");
+
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
 		SceneObject::DesignProperties();
-		ImGui::DragFloat("size", &size, 0.01, 0, 0, "%.5f");
 	}
 };
 
@@ -618,11 +672,18 @@ public:
 		return CameraT;
 	}
 	virtual void DesignProperties() {
+		if (ImGui::TreeNodeEx("camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+
+			if (viewSize != nullptr)
+				ImGui::DragFloat2("view size", (float*)viewSize, 0.01, 0, 0, "%.5f");
+			ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f");
+			ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f");
+
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
 		SceneObject::DesignProperties();
-		if (viewSize != nullptr)
-			ImGui::DragFloat2("view size", (float*)viewSize, 0.01, 0, 0, "%.5f");
-		ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f");
-		ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f");
 	}
 };
 
