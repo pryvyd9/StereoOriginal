@@ -408,7 +408,7 @@ private:
 
 		linesCache = std::vector<Pair>(lines.size());
 
-		for (size_t i = 0; i < lines.size() - 1; i++) {
+		for (size_t i = 0; i < lines.size(); i++) {
 			linesCache[i].p1 = transformedVertices[lines[i][0]];
 			linesCache[i].p2 = transformedVertices[lines[i][1]];
 		}
