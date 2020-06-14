@@ -305,7 +305,10 @@ public:
 
 		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
 			cross->SetParent(target);
-			cross->SetLocalPosition(target->GetVertices().back());
+			if (target->GetVertices().size() > 0)
+				cross->SetLocalPosition(target->GetVertices().back());
+			else
+				cross->SetLocalPosition(glm::vec3());
 		}
 		else {
 			if (target->GetVertices().size() > 0)
@@ -358,8 +361,8 @@ public:
 	virtual Type GetType() {
 		return Type::PointPen;
 	}
-	SceneObject** GetTarget() {
-		return &target;
+	SceneObject* GetTarget() {
+		return target;
 	}
 
 	bool BindCross(Cross* cross) {
@@ -721,8 +724,8 @@ public:
 		return true;
 	}
 
-	SceneObject** GetTarget() {
-		return &pen;
+	SceneObject* GetTarget() {
+		return pen;
 	}
 	virtual Type GetType() {
 		return Type::Extrusion;
@@ -1043,8 +1046,8 @@ public:
 	
 		UnbindSceneObjects();
 	}
-	SceneObject** GetTarget() {
-		return &target;
+	SceneObject* GetTarget() {
+		return target;
 	}
 	virtual Type GetType() {
 		return Type::Transform;
@@ -1053,7 +1056,6 @@ public:
 		return this->cross = cross;
 	}
 	void SetMode(Mode mode) {
-		UnbindSceneObjects();
 		this->mode = mode;
 	}
 	const Mode& GetMode() {

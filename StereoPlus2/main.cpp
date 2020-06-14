@@ -31,8 +31,8 @@ int main(int, char**) {
 	PositionDetector positionDetector;
 
 	CustomRenderWindow customRenderWindow;
-	SceneObjectPropertiesWindow<StereoCamera> cameraPropertiesWindow;
-	SceneObjectPropertiesWindow<Cross> crossPropertiesWindow;
+	SceneObjectPropertiesWindow cameraPropertiesWindow;
+	SceneObjectPropertiesWindow crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
 
 	AttributesWindow attributesWindow;
@@ -51,8 +51,8 @@ int main(int, char**) {
 	inspectorWindow.rootObject = (GroupObject**)&scene.root;
 	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
-	cameraPropertiesWindow.Object = &camera;
 	scene.camera = &camera;
+	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
 
 	if (!renderPipeline.Init())
 		return false;
@@ -79,7 +79,7 @@ int main(int, char**) {
 	if (!cross.Init())
 		return false;
 
-	crossPropertiesWindow.Object = &cross;
+	crossPropertiesWindow.Object = (SceneObject*)scene.cross;
 	gui.keyBinding.cross = &cross;
 	if (!gui.Init())
 		return false;

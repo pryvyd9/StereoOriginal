@@ -1,6 +1,7 @@
 #pragma once
 
 #include "InfrastructureTypes.hpp"
+#include "DomainTypes.hpp"
 
 class INameHolder {
 protected:
@@ -41,4 +42,6 @@ public:
 	virtual bool Design() = 0;
 	virtual bool OnExit() = 0;
 	virtual void UnbindTargets() = 0;
+	virtual SceneObject* GetTarget() = 0;
+	virtual void BindTarget(SceneObject* o) {}
 };
