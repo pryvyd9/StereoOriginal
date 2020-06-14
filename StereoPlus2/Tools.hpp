@@ -305,7 +305,10 @@ public:
 
 		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
 			cross->SetParent(target);
-			cross->SetLocalPosition(target->GetVertices().back());
+			if (target->GetVertices().size() > 0)
+				cross->SetLocalPosition(target->GetVertices().back());
+			else
+				cross->SetLocalPosition(glm::vec3());
 		}
 		else {
 			if (target->GetVertices().size() > 0)
@@ -1053,7 +1056,6 @@ public:
 		return this->cross = cross;
 	}
 	void SetMode(Mode mode) {
-		UnbindSceneObjects();
 		this->mode = mode;
 	}
 	const Mode& GetMode() {
