@@ -24,9 +24,6 @@ class Renderer {
 		float min, max;
 	};
 
-	ZeroLine zeroLine;
-	ZeroTriangle zeroTriangle;
-
 	GLuint VAOLeft, VAORight, VBOLeft, VBORight, ShaderLeft, ShaderRight;
 
 
@@ -106,10 +103,10 @@ class Renderer {
 		glGenBuffers(1, &VBORight);
 	}
 
-	void DrawLineLeft(Line line)
+	void DrawLineLeft(const Pair& line)
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Pair::p1) * 2, &line, GL_STREAM_DRAW);
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(GL_POINTS);
@@ -122,10 +119,10 @@ class Renderer {
 		glBindVertexArray(VAOLeft);
 		glDrawArrays(GL_LINES, 0, 2);
 	}
-	void DrawLineRight(Line line)
+	void DrawLineRight(const Pair& line)
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Pair::p1) * 2, &line, GL_STREAM_DRAW);
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(GL_POINTS);
@@ -140,61 +137,6 @@ class Renderer {
 	}
 
 
-	void DrawLine(Line line)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-		// Apply shader
-		glUseProgram(line.ShaderProgram);
-
-		glBindVertexArray(line.VAO);
-		glDrawArrays(GL_LINES, 0, 2);
-
-		//glBindVertexArray(0);
-
-	}
-	void DrawLine(Line line, function<void()> updateWhitePartOfShader)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, line.VBO);
-
-		glBufferData(GL_ARRAY_BUFFER, Line::VerticesSize, &line, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		updateWhitePartOfShader();
-
-		// Apply shader
-		glUseProgram(line.ShaderProgram);
-
-		glBindVertexArray(line.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		glDrawArrays(GL_LINES, 0, 2);
-	}
-
-	void DrawTriangle(Triangle& triangle)
-	{
-		// left top
-		glBindBuffer(GL_ARRAY_BUFFER, triangle.VBO);
-		glBufferData(GL_ARRAY_BUFFER, Triangle::VerticesSize, &triangle, GL_STREAM_DRAW);
-
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(triangle.ShaderProgram);
-		glBindVertexArray(triangle.VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-	}
 	void DrawSquare(WhiteSquare& square)
 	{
 		// left top
@@ -225,6 +167,22 @@ class Renderer {
 		glBindVertexArray(square.VAORightBottom);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
+	}
+
+	void DrawObject(StereoCamera* camera, SceneObject* o) {
+		for (auto l : o->GetLines()) {
+			// Lines have to be rendered left - right - left - right...
+			// This is due to the bug of messing shaders.
+			glStencilMask(0x1);
+			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineLeft(camera->GetLeft(l));
+
+			glStencilMask(0x2);
+			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+			DrawLineRight(camera->GetRight(l));
+		}
 	}
 
 	// Determines which parts of line is white.
@@ -289,7 +247,7 @@ public:
 
 	WhiteSquare whiteSquare;
 
-	void Pipeline(StereoLine ** lines, size_t lineCount, Scene & config)
+	void Pipeline(const Scene& scene)
 	{
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
@@ -318,39 +276,20 @@ public:
 			glStencilMask(0x2);
 			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineRight(config.camera->GetRight(&(*lines)[0]));
+			DrawLineRight(Pair());
 		}
 
-		for (size_t i = 0; i < lineCount; i++)
-		{
-			// Lines have to be rendered left - right - left - right...
-			// This is due to the bug of messing shaders.
-			glStencilMask(0x1);
-			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
-			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineLeft(config.camera->GetLeft(&(*lines)[i]));
+		for (auto o : scene.objects)
+			DrawObject(scene.camera, o);
 
-			glStencilMask(0x2);
-			glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
-			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineRight(config.camera->GetRight(&(*lines)[i]));
-		}
-		
+		DrawObject(scene.camera, scene.cross);
+
 		// Crutch
 		{
 			glStencilMask(0x1);
 			glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-			DrawLineLeft(config.camera->GetLeft(&(*lines)[lineCount - 1]));
-		}
-
-		// Crutch to overcome bug with messing fragment shaders and vertices up.
-		// Presumably fragment and vertex are messed up.
-		{
-			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-			glStencilMask(0x00);
-			DrawLine(zeroLine.line);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			DrawLineLeft(Pair());
 		}
 
 		glStencilMask(0x00);
@@ -372,12 +311,11 @@ public:
 		glEnable(GL_DEPTH_TEST);
 	}
 
+
 	bool Init()
 	{
 		if (!InitGL()
-			|| !whiteSquare.Init()
-			|| !zeroLine.Init()
-			|| !zeroTriangle.Init())
+			|| !whiteSquare.Init())
 			return false;
 
 		CreateShaders();

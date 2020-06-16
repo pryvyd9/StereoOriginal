@@ -2,41 +2,12 @@
 
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
+#include "InfrastructureTypes.hpp"
 #include <list>
 #include <set>
 
 
-class Command {
-	static std::list<Command*>& GetQueue() {
-		static auto queue = std::list<Command*>();
-		return queue;
-	}
-protected:
-	bool isReady = false;
-	virtual bool Execute() = 0;
-public:
-	Command() {
-		GetQueue().push_back(this);
-	}
-	static bool ExecuteAll() {
-		std::list<Command*> deleteQueue;
-		for (auto command : GetQueue())
-			if (command->isReady)
-			{
-				if (!command->Execute())
-					return false;
 
-				deleteQueue.push_back(command);
-			}
-
-		for (auto command : deleteQueue) {
-			GetQueue().remove(command);
-			delete command;
-		}
-
-		return true;
-	}
-};
 
 class ISceneHolder {
 protected:
@@ -61,15 +32,15 @@ protected:
 		if (!CheckScene())
 			return false;
 
-		if (source == nullptr)
+		if (destination == nullptr)
 			scene->Insert(func());
 		else
-			scene->Insert(source, func());
+			scene->Insert(destination, func());
 
 		return true;
 	};
 public:
-	std::vector<SceneObject*>* source;
+	SceneObject* destination;
 	std::function<SceneObject* ()> func;
 
 	CreateCommand() {
@@ -87,7 +58,7 @@ protected:
 		return true;
 	};
 public:
-	std::vector<SceneObject*>* source;
+	SceneObject* source;
 	SceneObject* target;
 
 	DeleteCommand() {
@@ -95,39 +66,12 @@ public:
 	}
 };
 
-class FuncCommand : Command {
-protected:
-	virtual bool Execute() {
-		func();
 
-		return true;
-	};
-public:
-	FuncCommand() {
-		isReady = true;
-	}
-
-	std::function<void()> func;
-};
-
-//class CloseWindowCommand : Command {
-//public:
-//	GUI
-//};
-
-
-enum MoveCommandPosition
-{
-	Top = 0x01,
-	Bottom = 0x10,
-	Center = 0x100,
-	Any = Top | Bottom | Center,
-};
 
 class MoveCommand : Command {
 protected:
 	virtual bool Execute() {
-		bool res = MoveTo(*target, targetPos, items, pos);
+		bool res = Scene::MoveTo(static_cast<GroupObject*>(target), targetPos, items, pos);
 
 		items->clear();
 		caller->isCommandEmpty = true;
@@ -147,49 +91,10 @@ public:
 	bool GetReady() {
 		return isReady;
 	}
-	static bool MoveTo(std::vector<SceneObject*>& target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator>* items, MoveCommandPosition pos) {
 
-		// Move single object
-		if (items->size() > 1)
-		{
-			std::cout << "Moving of multiple objects is not implemented" << std::endl;
-			return false;
-		}
-
-		// Find if item is present in target;
-
-		auto pointer = items->begin()._Ptr->_Myval;
-		auto item = (*pointer.source)[pointer.pos];
-
-		if (target.size() == 0)
-		{
-			target.push_back(item);
-			pointer.source->erase(pointer.source->begin() + pointer.pos);
-			return true;
-		}
-
-		if ((pos & Bottom) == Bottom)
-		{
-			targetPos++;
-		}
-
-		if (pointer.source == &target && targetPos < pointer.pos)
-		{
-			target.erase(target.begin() + pointer.pos);
-			target.insert(target.begin() + targetPos, (const size_t)1, item);
-
-			return true;
-		}
-
-		target.insert(target.begin() + targetPos, (const size_t)1, item);
-		pointer.source->erase(pointer.source->begin() + pointer.pos);
-
-		return true;
-	}
-
-	std::vector<SceneObject*>* target;
+	SceneObject* target;
 	int targetPos;
-	std::set<ObjectPointer, ObjectPointerComparator>* items;
-	MoveCommandPosition pos;
+	std::set<SceneObject*>* items;
+	InsertPosition pos;
 	IHolder* caller;
 };

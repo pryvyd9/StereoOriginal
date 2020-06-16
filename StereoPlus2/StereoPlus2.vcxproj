@@ -151,7 +151,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Commands.hpp" />
-    <ClInclude Include="Converters.hpp" />
     <ClInclude Include="DomainTypes.hpp" />
     <ClInclude Include="FileManager.hpp" />
     <ClInclude Include="GLLoader.hpp" />
@@ -170,6 +169,7 @@
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
+    <ClInclude Include="ToolConfiguration.hpp" />
     <ClInclude Include="ToolPool.hpp" />
     <ClInclude Include="Tools.hpp" />
     <ClInclude Include="Window.hpp" />

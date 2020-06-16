@@ -183,39 +183,58 @@ public:
 	}
 };
 
-
-template<typename T>
-class SceneObjectPropertiesWindow : Window
-{
-public:
-	T* Object;
-
-	virtual bool Init()
-	{
-		if (!std::is_base_of<SceneObject, T>::value)
-		{
-			std::cout << "Unsupported type" << std::endl;
-
-			return false;
-		}
+class SceneObjectPropertiesWindow : Window, Attributes {
+	bool DesignInternal() {
+		Object->DesignProperties();
 
 		return true;
 	}
 
-	virtual bool Design()
-	{
+public:
+	SceneObject* Object;
+
+	virtual SceneObject* GetTarget() {
+		return Object;
+	}
+
+	virtual bool Init() {
+		return true;
+	}
+
+	virtual bool Window::Design() {
+		if (Object == nullptr) {
+			ImGui::Begin("Properties empty");
+			ImGui::End();
+			return true;
+		}
+
 		ImGui::Begin(("Properties " + GetName(Object)).c_str());
 
-		if (!DesignProperties(Object))
+		if (!DesignInternal())
 			return false;
 
 		ImGui::End();
 
 		return true;
 	}
+	virtual bool Attributes::Design() {
+		if (Object == nullptr) {
+			return true;
+		}
 
-	virtual bool OnExit()
-	{
+		if (ImGui::BeginTabItem(("Properties " + GetName(Object)).c_str())) {
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+
+
+
+	virtual bool OnExit() {
 		return true;
 	}
 
@@ -223,33 +242,11 @@ public:
 		return obj->Name;
 	}
 
-	template<typename T>
-	bool DesignProperties(T * obj) {
-		return false;
+	virtual void BindTarget(SceneObject* o) {
+		Object = o;
 	}
-
-	template<>
-	bool DesignProperties(StereoLine * obj) {
-		return false;
-	}
-
-	template<>
-	bool DesignProperties(Cross * obj) {
-		if (ImGui::InputFloat3("position", (float*)& obj->Position, "%f", 0)
-			|| ImGui::SliderFloat("size", (float*)& obj->size, 1e-3, 10, "%.3f", 2))
-		{
-			obj->Refresh();
-		}
-		return true;
-	}
-
-	template<>
-	bool DesignProperties(StereoCamera* obj) {
-		ImGui::InputFloat3("positionModifier", (float*)& obj->positionModifier, "%f", 0);
-		ImGui::InputFloat3("position", (float*)& obj->position, "%f", 0);
-		ImGui::InputFloat2("viewsize", (float*)obj->viewSize, "%f", 0);
-		ImGui::InputFloat("eyeToCenterDistance", (float*)& obj->eyeToCenterDistance, 0.01, 0.1, "%.2f", 0);
-		return true;
+	virtual void UnbindTargets() {
+		//target = nullptr;
 	}
 };
 
@@ -267,7 +264,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
 		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
 	}
-	void EmplaceDragDropObject(ObjectPointer objectPointer) {
+	void EmplaceDragDropObject(SceneObject* objectPointer) {
 		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", objectPointer, &selectedObjectsBuffer);
 	}
 
@@ -289,13 +286,13 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&t->Children, 0, buffer, GetPosition(Center));
+				ScheduleMove(t, 0, buffer, GetPosition(Center));
 			}
 			ImGui::EndDragDropTarget();
 		}
 
-		for (size_t i = 0; i < t->Children.size(); i++)
-			if (!DesignTreeNode(t->Children[i], t->Children, i))
+		for (size_t i = 0; i < t->children.size(); i++)
+			if (!DesignTreeNode(t->children[i], t->children, i))
 			{
 				ImGui::TreePop();
 				ImGui::PopID();
@@ -312,15 +309,16 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		switch (t->GetType()) {
 		case Group:
 			return DesignTreeNode((GroupObject*)t, source, pos);
-		case Leaf:
-		case StereoLineT:
 		case StereoPolyLineT:
 		case MeshT:
-		case LineMeshT:
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
+		case CrossT:
+			return true;
 		}
 
-		std::cout << "Invalid SceneObject type passed" << std::endl;
+		log.Error("Invalid SceneObject type passed: ", t->GetType());
+		//std::cout << "[" << "Error" << "]" << "(" << class SceneObjectInspectorWindow 
+		// << ")" << "Invalid SceneObject type passed: " << t->GetType() << std::endl;
 		return false;
 	}
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
@@ -338,7 +336,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 
-			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			EmplaceDragDropObject(t);
 
 			ImGui::EndDragDropSource();
 		}
@@ -350,19 +348,19 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				MoveCommandPosition relativePosition = GetPosition(Any);
+				InsertPosition relativePosition = GetPosition(Any);
 				if (relativePosition == Center)
-					ScheduleMove(&t->Children, 0, buffer, relativePosition);
+					ScheduleMove(t, 0, buffer, relativePosition);
 				else
-					ScheduleMove(&source, pos, buffer, relativePosition);
+					ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, relativePosition);
 			}
 			ImGui::EndDragDropTarget();
 		}
 
 		if (open)
 		{
-			for (size_t i = 0; i < t->Children.size(); i++)
-				if (!DesignTreeNode(t->Children[i], t->Children, i))
+			for (size_t i = 0; i < t->children.size(); i++)
+				if (!DesignTreeNode(t->children[i], t->children, i))
 				{
 					ImGui::TreePop();
 					ImGui::PopID();
@@ -395,7 +393,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 			
-			EmplaceDragDropObject(ObjectPointer{ &source , pos });
+			EmplaceDragDropObject(t);
 			
 			ImGui::EndDragDropSource();
 		}
@@ -407,7 +405,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			if (auto buffer = GetDragDropBuffer(target_flags))
 			{
-				ScheduleMove(&source, pos, buffer, GetPosition(Top | Bottom));
+				ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, GetPosition(Top | Bottom));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -419,7 +417,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return true;
 	}
 
-	MoveCommandPosition GetPosition(int positionMask) {
+	InsertPosition GetPosition(int positionMask) {
 		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
 		glm::vec2 size = ImGui::GetItemRectSize();
 		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
@@ -434,8 +432,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		if (positionMask == Bottom)
 			return Bottom;
 
-		if ((positionMask & Center) == 0)
-		{
+		if ((positionMask & Center) == 0) {
 			if (vertPos > 0)
 				return Bottom;
 
@@ -451,7 +448,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return Center;
 	}
 
-	void ScheduleMove(std::vector<SceneObject*> * target, int targetPos, std::set<ObjectPointer, ObjectPointerComparator> * items, MoveCommandPosition pos) {
+	void ScheduleMove(SceneObject* target, int targetPos, std::set<SceneObject*> * items, InsertPosition pos) {
 		if (isCommandEmpty)
 		{
 			moveCommand = new MoveCommand();
@@ -467,7 +464,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	}
 
 public:
-	std::set<ObjectPointer, ObjectPointerComparator>* selectedObjectsBuffer;
+	std::set<SceneObject*>* selectedObjectsBuffer;
 
 	GroupObject** rootObject;
 	float indent = 1;
@@ -477,11 +474,9 @@ public:
 	// For some reason height/2 isn't center.
 	const float magicNumber = 1.25;
 
-	virtual bool Init()
-	{
+	virtual bool Init() {
 		return true;
 	}
-
 	virtual bool Design()
 	{
 		ImGui::Begin("Object inspector");                         
@@ -494,7 +489,6 @@ public:
 		ImGui::End();
 		return true;
 	}
-
 	virtual bool OnExit()
 	{
 		return true;
@@ -502,11 +496,12 @@ public:
 };
 
 
+
+
 template<ObjectType type>
-class PointPenToolWindow : Window, Attributes
-{
-	// If this is null then the window probably wasn't initialized.
-	SceneObject** target = nullptr;
+class PointPenToolWindow : Window, Attributes {
+	const Log log = Log::For<SceneObjectInspectorWindow>();
+
 
 	std::stack<bool>& GetIsActive() {
 		static std::stack<bool> val;
@@ -536,25 +531,21 @@ class PointPenToolWindow : Window, Attributes
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
 		case StereoPolyLineT:
 			return "PolyLine";
 		default:
 			return "noname";
 		}
 	}
-	std::string GetName(ObjectType type, SceneObject** obj) {
-		return 
-			(*obj) != nullptr && type == (*obj)->GetType()
-			? (*obj)->Name
+	std::string GetName(ObjectType type, SceneObject* obj) {
+		return
+			(obj) != nullptr && type == (obj)->GetType()
+			? (obj)->Name
 			: "Empty";
 	}
 
 	bool DesignInternal() {
-		ImGui::Text(GetName(type, target).c_str());
+		ImGui::Text(GetName(type, GetTarget()).c_str());
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -565,7 +556,7 @@ class PointPenToolWindow : Window, Attributes
 			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
-					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
+					log.Warning("Drawing instrument can't accept multiple scene objects");
 				}
 				else {
 					if (!tool->BindSceneObjects(objects))
@@ -577,7 +568,7 @@ class PointPenToolWindow : Window, Attributes
 		}
 
 		{
-			bool isActive = (*target) != nullptr;
+			bool isActive = (GetTarget()) != nullptr;
 			if (IsActive(isActive))
 			{
 				if (ImGui::Button("Release"))
@@ -601,21 +592,29 @@ class PointPenToolWindow : Window, Attributes
 	}
 
 public:
+	// If this is null then the window probably wasn't initialized.
+	//SceneObject* target = nullptr;
+
 	PointPenEditingTool<type>* tool = nullptr;
 
-	virtual bool Init() {
+	virtual SceneObject* GetTarget() {
 		if (tool == nullptr)
-		{
-			std::cout << "Tool wasn't assigned" << std::endl;
+			return nullptr;
+
+		return tool->GetTarget();
+	}
+	virtual bool Init() {
+		if (tool == nullptr) {
+			log.Error("Tool wasn't assigned");
 			return false;
 		}
-		target = tool->GetTarget();
+		
+		//target = tool->GetTarget();
 		Window::name = Attributes::name = "PointPen " + GetName(type);
 		Attributes::isInitialized = true;
 
 		return true;
 	}
-
 	virtual bool Window::Design() {
 		ImGui::Begin(Window::name.c_str());
 
@@ -626,7 +625,6 @@ public:
 
 		return true;
 	}
-
 	virtual bool Attributes::Design() {
 		if (ImGui::BeginTabItem(Attributes::name.c_str()))
 		{
@@ -638,76 +636,61 @@ public:
 
 		return true;
 	}
-
 	virtual bool OnExit() {
+		UnbindTargets();
 		return true;
+	}
+	virtual void UnbindTargets() {
+		//target = nullptr;
 	}
 };
 
 
 template<ObjectType type>
-class ExtrusionToolWindow : Window, Attributes
-{
-	SceneObject** target = nullptr;
-
+class ExtrusionToolWindow : Window, Attributes {
 	
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case Group:
-		case Leaf:
-		case StereoLineT:
-			return "noname";
 		case StereoPolyLineT:
 			return "PolyLine";
 		default:
 			return "noname";
 		}
 	}
-	std::string GetName(ObjectType type, SceneObject** obj) {
+	std::string GetName(ObjectType type, SceneObject* obj) {
 		return 
-			(*obj) != nullptr && type == (*obj)->GetType()
-			? (*obj)->Name
+			(obj) != nullptr && type == (obj)->GetType()
+			? (obj)->Name
 			: "Empty";
 	}
 
 	bool DesignInternal() {
-		ImGui::Text(GetName(type, target).c_str());
+		ImGui::Text(GetName(type, GetTarget()).c_str());
 
-		if (ImGui::BeginDragDropTarget())
-		{
+		if (ImGui::BeginDragDropTarget()) {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			std::vector<SceneObject*> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
-			{
-				if (objects.size() > 1) {
+			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
+				if (objects.size() > 1)
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
-				}
-				else {
-					if (!tool->BindSceneObjects(objects))
-						return false;
-				}
+				else if (!tool->BindSceneObjects(objects))
+					return false;
 			}
 			ImGui::EndDragDropTarget();
 		}
 
-		if (ImGui::Extensions::PushActive(*target != nullptr))
-		{
+		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
 			if (ImGui::Button("Release"))
-			{
 				tool->UnbindSceneObjects();
-			}
 			ImGui::Extensions::PopActive();
 		}
 
-		if (ImGui::Extensions::PushActive(*target != nullptr))
-		{
+		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
 			if (ImGui::Button("New"))
-			{
 				tool->Create();
-			}
 			ImGui::Extensions::PopActive();
 		}
 
@@ -724,19 +707,27 @@ class ExtrusionToolWindow : Window, Attributes
 	}
 
 public:
+	//SceneObject* target = nullptr;
+
 	ExtrusionEditingTool<type>* tool = nullptr;
 
+	virtual SceneObject* GetTarget() {
+		if (tool == nullptr)
+			return nullptr;
+
+		return tool->GetTarget();
+	}
 	virtual bool Init() {
 		if (tool == nullptr)
 		{
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-
-		target = tool->GetTarget();
+		
+		//target = tool->GetTarget();
 		Window::name = Attributes::name = "Extrusion " + GetName(type);
 		Attributes::isInitialized = true;
-
+		
 		return true;
 	}
 	virtual bool Window::Design() {
@@ -749,7 +740,6 @@ public:
 
 		return true;
 	}
-
 	virtual bool Attributes::Design() {
 		if (ImGui::BeginTabItem(Attributes::name.c_str()))
 		{
@@ -762,26 +752,56 @@ public:
 		return true;
 	}
 	virtual bool OnExit() {
+		UnbindTargets();
 		return true;
+	}
+	virtual void UnbindTargets() {
+		//target = nullptr;
 	}
 };
 
 
 
-//template<ObjectType type>
-class TransformToolWindow : Window, Attributes
-{
-	SceneObject** target = nullptr;
+class TransformToolWindow : Window, Attributes {
+	int maxPrecision = 5;
+	int transformToolMode;
 
-	std::string GetName(SceneObject** obj) {
+	std::string GetName(SceneObject* obj) {
 		return
-			(*obj) != nullptr
-			? (*obj)->Name
+			(obj) != nullptr
+			? (obj)->Name
 			: "Empty";
 	}
 
+	int getPrecision(float v) {
+		int precision = 0;
+		for (size_t i = 0; i < maxPrecision; i++) {
+			v *= 10;
+			if ((int)v % 10 != 0)
+				precision = i + 1;
+		}
+		return precision;
+	}
+
+	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, float speed) {
+		std::stringstream ss;
+		ss << "%." << getPrecision(v.x) << "f";
+		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, ss.str().c_str());
+		ss.str(std::string());
+		ss << "%." << getPrecision(v.y) << "f";
+		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, ss.str().c_str());
+		ss.str(std::string());
+		ss << "%." << getPrecision(v.z) << "f";
+		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
+	}
+	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, std::string f, float speed) {
+		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, f.c_str());
+		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, f.c_str());
+		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, f.c_str());
+	}
+
 	bool DesignInternal() {
-		ImGui::Text(GetName(target).c_str());
+		ImGui::Text(GetName(GetTarget()).c_str());
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -802,7 +822,7 @@ class TransformToolWindow : Window, Attributes
 			ImGui::EndDragDropTarget();
 		}
 
-		if (ImGui::Extensions::PushActive(*target != nullptr))
+		if (ImGui::Extensions::PushActive(GetTarget() != nullptr))
 		{
 			if (ImGui::Button("Release"))
 				tool->UnbindSceneObjects();
@@ -812,42 +832,42 @@ class TransformToolWindow : Window, Attributes
 			ImGui::Extensions::PopActive();
 		}
 
+		transformToolMode = (int)tool->GetMode();
 		{
-			static int mode = 0;
-			if (ImGui::RadioButton("Transition", &mode, 0))
+			if (ImGui::RadioButton("Move", &transformToolMode, (int)TransformToolMode::Translate))
 				tool->SetMode(TransformToolMode::Translate);
-			if (ImGui::RadioButton("Scale", &mode, 1))
+			if (ImGui::RadioButton("Scale", &transformToolMode, (int)TransformToolMode::Scale))
 				tool->SetMode(TransformToolMode::Scale);
-			if (ImGui::RadioButton("Rotate", &mode, 2))
+			if (ImGui::RadioButton("Rotate", &transformToolMode, (int)TransformToolMode::Rotate))
 				tool->SetMode(TransformToolMode::Rotate);
+		}
 
-			if (mode == (int)TransformToolMode::Scale)
-			{
-				ImGui::Separator();
-				ImGui::DragFloat("scale", (float*)&tool->scale, 0.01, 0, 0, "%.2f");
-			}
-			if (mode == (int)TransformToolMode::Rotate)
-			{
-				ImGui::Separator();
-
-				static int axe = 0;
-				if (ImGui::RadioButton("X", &axe, 0))
-					tool->SetAxe(Axe::X);
-				if (ImGui::RadioButton("Y", &axe, 1))
-					tool->SetAxe(Axe::Y);
-				if (ImGui::RadioButton("Z", &axe, 2))
-					tool->SetAxe(Axe::Z);
-
-				ImGui::DragFloat("radian", &tool->angle, 0.01, 0, 0, "%.2f");
-
-			}
+		if (transformToolMode == (int)TransformToolMode::Translate) {
+			ImGui::Separator();
+			DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01);
+		}
+		else if (transformToolMode == (int)TransformToolMode::Scale) {
+			ImGui::Separator();
+			ImGui::DragFloat("scale", &tool->scale, 0.01, 0, 0, "%.2f");
+		}
+		else if (transformToolMode == (int)TransformToolMode::Rotate) {
+			ImGui::Separator();
+			DragVector(tool->angle, "X", "Y", "Z", 1);
 		}
 
 		return true;
 	}
 
 public:
+	//SceneObject* target = nullptr;
 	TransformTool* tool = nullptr;
+
+	virtual SceneObject* GetTarget() {
+		if (tool == nullptr)
+			return nullptr;
+
+		return tool->GetTarget();
+	}
 
 	virtual bool Init() {
 		if (tool == nullptr)
@@ -855,11 +875,11 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-
-		target = tool->GetTarget();
+		
+		//target = tool->GetTarget();
 		Window::name = Attributes::name = "Transformation";
 		Attributes::isInitialized = true;
-
+		
 		return true;
 	}
 	virtual bool Window::Design() {
@@ -872,7 +892,6 @@ public:
 
 		return true;
 	}
-
 	virtual bool Attributes::Design() {
 		if (ImGui::BeginTabItem(Attributes::name.c_str()))
 		{
@@ -885,12 +904,18 @@ public:
 		return true;
 	}
 	virtual bool OnExit() {
+		UnbindTargets();
 		return true;
 	}
+	virtual void UnbindTargets() {
+		//target = nullptr;
+	}
+	
+
 };
 
 
-class AttributesWindow : Window {
+class AttributesWindow : public Window {
 	Attributes* toolAttributes = nullptr;
 	Attributes* targetAttributes = nullptr;
 	
@@ -908,8 +933,12 @@ public:
 		if (toolAttributes != nullptr && !toolAttributes->Design())
 			return false;
 
-		if (targetAttributes != nullptr && !targetAttributes->Design())
-			return false;
+		if (targetAttributes != nullptr && toolAttributes != nullptr && toolAttributes->GetTarget() != nullptr) {
+			targetAttributes->BindTarget(toolAttributes->GetTarget());
+			if (!targetAttributes->Design())
+				return false;
+		}
+		
 
 		ImGui::EndTabBar();
 		ImGui::End();
@@ -921,6 +950,9 @@ public:
 	}
 
 	bool BindTool(Attributes* toolAttributes) {
+		if (this->toolAttributes != nullptr)
+			this->toolAttributes->OnExit();
+
 		this->toolAttributes = toolAttributes;
 		if (!toolAttributes->IsInitialized())
 			return toolAttributes->Init();
@@ -940,9 +972,12 @@ public:
 	}
 
 	bool BindTarget(Attributes* targetAttributes) {
+		if (this->targetAttributes != nullptr)
+			this->targetAttributes->OnExit();
+
 		this->targetAttributes = targetAttributes;
-		if (!toolAttributes->IsInitialized())
-			return toolAttributes->Init();
+		if (!targetAttributes->IsInitialized())
+			return targetAttributes->Init();
 		return true;
 	}
 	bool UnbindTarget() {
@@ -956,7 +991,6 @@ public:
 class ToolWindow : Window {
 	const Log log = Log::For<ToolWindow>();
 
-	CreatingTool<StereoLine> lineTool;
 	CreatingTool<StereoPolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
 
@@ -971,21 +1005,30 @@ class ToolWindow : Window {
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
-		
+
+		auto targetWindow = new SceneObjectPropertiesWindow();
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
-
 		attributesWindow->BindTool((Attributes*)tool);
-		attributesWindow->onUnbindTool = [t = tool] {
+		attributesWindow->BindTarget((Attributes*)targetWindow);
+
+		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
+			t->UnbindTargets();
 			t->tool->UnbindSceneObjects();
+		});
+		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
+			t->tool->UnbindSceneObjects();
+			s->OnDeleteAll().RemoveHandler(d);
+			t->OnExit();
 			delete t;
 		};
 	}
 
+
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
 		creatingTool.BindScene(scene);
-		creatingTool.BindSource(&((GroupObject*)scene->root)->Children);
+		creatingTool.BindDestination(&scene->root);
 		creatingTool.func = initFunc;
 	}
 
@@ -1006,12 +1049,6 @@ public:
 			return false;
 		}
 
-		ConfigureCreationTool(lineTool, [](SceneObject* o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "Line" << id++;
-			o->Name = ss.str();
-		});
 		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
 			static int id = 0;
 			std::stringstream ss;
@@ -1030,8 +1067,6 @@ public:
 	virtual bool Design() {
 		ImGui::Begin("Toolbar");
 
-		if (ImGui::Button("Line"))
-			lineTool.Create();
 		if (ImGui::Button("PolyLine"))
 			polyLineTool.Create();
 		if (ImGui::Button("Group"))
@@ -1041,10 +1076,36 @@ public:
 
 		if (ImGui::Button("extrusion")) 
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("penTool")) 
+		if (ImGui::Button("pen")) 
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("transformTool"))
+		if (ImGui::Button("transform"))
 			ApplyTool<TransformToolWindow, TransformTool>();
+
+		//{
+		//	ImGui::Separator();
+		//	static int v = (int)GlobalToolConfiguration::GetCoordinateMode();
+		//	if (ImGui::RadioButton("Object", &v, (int)CoordinateMode::Object))
+		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Object);
+		//	if (ImGui::RadioButton("Vertex", &v, (int)CoordinateMode::Vertex))
+		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Vertex);
+		//}
+		{
+			ImGui::Separator();
+			static int v = (int)GlobalToolConfiguration::SpaceMode().Get();
+			if (ImGui::RadioButton("World", &v, (int)SpaceMode::World))
+				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::World);
+			if (ImGui::RadioButton("Local", &v, (int)SpaceMode::Local))
+				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::Local);
+		}
+		{
+			ImGui::Separator();
+			ImGui::Text("Action on parent change:");
+			static int v = (int)GlobalToolConfiguration::MoveCoordinateAction().Get();
+			if (ImGui::RadioButton("Adapt Coordinates", &v, (int)MoveCoordinateAction::Adapt))
+				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
+			if (ImGui::RadioButton("None", &v, (int)MoveCoordinateAction::None))
+				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::None);
+		}
 
 
 		ImGui::End();
@@ -1057,7 +1118,7 @@ public:
 
 };
 
-class FileWindow : Window {
+class FileWindow : public Window {
 public:
 	enum Mode {
 		Load,
@@ -1281,9 +1342,6 @@ public:
 			log.Error("Unsupported mode given");
 			return false;
 		}
-	}
-	virtual bool OnExit() {
-		return Window::OnExit();
 	}
 
 	bool BindScene(Scene* scene) {

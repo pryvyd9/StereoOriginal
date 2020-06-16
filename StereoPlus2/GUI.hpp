@@ -34,20 +34,19 @@ class GUI {
 		windows.push_back((Window*)fileWindow);
 
 		this->fileWindow = fileWindow;
-
-		((Window*)fileWindow)->BindOnExit([f = &this->fileWindow] {
-			delete *f;
-			*f = nullptr;
-		});
-
+		fileWindow->OnExit().AddHandler([f = &this->fileWindow]{
+			(new FuncCommand())->func = [f = f] {
+				delete* f;
+				*f = nullptr;
+				};
+			});
+		
 		return true;
 	}
 
 	bool OpenFileWindow(FileWindow::Mode mode) {
-		if (fileWindow != nullptr) {
-			if (fileWindow->mode != mode)
-				fileWindow->mode = mode;
-		}
+		if (fileWindow != nullptr)
+			fileWindow->mode = mode;
 		else if (!CreateFileWindow(mode))
 			return false;
 
@@ -62,13 +61,20 @@ class GUI {
 			if (ImGui::MenuItem("Save", nullptr, false))
 				if (!OpenFileWindow(FileWindow::Save))
 					return false;
+			if (ImGui::MenuItem("Close", nullptr, false))
+				scene->DeleteAll();
 
 			ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
+			ImGui::MenuItem("Show FPS", nullptr, &shouldShowFPS);
 
 			if (ImGui::MenuItem("Exit", nullptr, false))
 				shouldClose = true;
 
 			ImGui::EndMenu();
+		}
+
+		if (shouldShowFPS) {
+			ImGui::LabelText("", "FPS: %-12f DeltaTime: %-12f", Time::GetFrameRate(), Time::GetDeltaTime());
 		}
 
 		return true;
@@ -135,7 +141,8 @@ public:
 	KeyBinding keyBinding;
 	Scene* scene;
 
-	bool shouldUsePositionDetection = true;
+	bool shouldUsePositionDetection = false;
+	bool shouldShowFPS = true;
 
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;
@@ -215,7 +222,7 @@ public:
 
 		for (Window* window : windows)
 			if (window->ShouldClose()) {
-				if (!window->OnExit())
+				if (!window->Exit())
 					return false;
 				else
 					windows.erase(std::find(windows.begin(), windows.end(), window));
@@ -226,11 +233,9 @@ public:
 		return true;
 	}
 
-	bool MainLoop()
-	{
+	bool MainLoop() {
 		// Main loop
-		while (!glfwWindowShouldClose(glWindow))
-		{
+		while (!glfwWindowShouldClose(glWindow)) {
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
 			// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -261,8 +266,7 @@ public:
 			// Update and Render additional Platform Windows
 			// (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
 			//  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
-			if (io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-			{
+			if (io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 				GLFWwindow* backup_current_context = glfwGetCurrentContext();
 				ImGui::UpdatePlatformWindows();
 				ImGui::RenderPlatformWindowsDefault();
@@ -284,7 +288,7 @@ public:
 	bool OnExit()
 	{
 		for (Window* window : windows)
-			if (!window->OnExit())
+			if (!window->Exit())
 				return false;
 		
 		// Cleanup
