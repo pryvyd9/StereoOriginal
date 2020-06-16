@@ -2,7 +2,7 @@
 
 A 3d modelling and visualisation solution with stereo output (anaglyph) and multi pov view (camera user position tracking).
 
-![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/mainWindow.PNG?raw=true)
+![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/mainWindow.PNG?raw=true)
 
 ## Implemented instruments
 - Polyline drawing
