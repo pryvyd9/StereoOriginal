@@ -38,10 +38,14 @@ int main(int, char**) {
 	AttributesWindow attributesWindow;
 	ToolWindow toolWindow;
 
-	Scene scene;
-	StereoCamera camera;
 	Renderer renderPipeline;
 	GUI gui;
+
+	if (!renderPipeline.Init())
+		return false;
+
+	Scene scene;
+	StereoCamera camera;
 	Cross cross;
 
 	// Initialize main components.
@@ -54,8 +58,7 @@ int main(int, char**) {
 	scene.camera = &camera;
 	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
 
-	if (!renderPipeline.Init())
-		return false;
+	
 
 	gui.windows = {
 		(Window*)&customRenderWindow,

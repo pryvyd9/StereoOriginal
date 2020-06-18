@@ -37,6 +37,7 @@ class SceneObject {
 protected:
 	// When true cache will be updated on reading.
 	bool shouldUpdateCache;
+	bool wasCacheUpdated;
 	const float propertyIndent = -20;
 
 	// Adds or substracts transformations.
@@ -75,6 +76,28 @@ public:
 	std::vector<SceneObject*> children;
 
 	std::string Name = "noname";
+
+	std::vector<Pair> leftCache;
+	std::vector<Pair> rightCache;
+
+	GLuint
+		VBOLeft, VBORight, 
+		VAOLeft, VAORight;
+
+	SceneObject() {
+		glGenBuffers(2, &VBOLeft);
+		glGenVertexArrays(2, &VAOLeft);
+	}
+	~SceneObject() {
+		glDeleteBuffers(4, &VBOLeft);
+	}
+	bool WasCacheUpdated() {
+		return wasCacheUpdated;
+	}
+	void ResetWasCacheUpdated() {
+		wasCacheUpdated = false;
+	}
+
 
 	constexpr const glm::fquat unitQuat() const {
 		return glm::fquat(1, 0, 0, 0);
@@ -509,20 +532,14 @@ public:
 class WhiteSquare
 {
 public:
-
-	float leftTop[9] = {
+	float vertices[18] = {
 		-1, -1, 0,
 		 1, -1, 0,
 		-1,  1, 0,
-	};
-
-	float rightBottom[9] = {
-		 1, -1, 0,
 		 1,  1, 0,
-		-1,  1, 0,
 	};
 
-	static const uint_fast8_t VerticesSize = sizeof(leftTop);
+	static const uint_fast8_t VerticesSize = sizeof(vertices);
 
 	GLuint VBOLeftTop, VAOLeftTop;
 	GLuint VBORightBottom, VAORightBottom;
