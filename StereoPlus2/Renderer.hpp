@@ -102,36 +102,36 @@ class Renderer {
 
 	
 
-	void DrawLineLeft(SceneObject* obj) {
-		glBindVertexArray(obj->VAOLeft);
-		glBindBuffer(GL_ARRAY_BUFFER, obj->VBOLeft);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * obj->leftCache.size(), obj->leftCache.data(), GL_STREAM_DRAW);
+	//void DrawLineLeft(SceneObject* obj) {
+	//	glBindVertexArray(obj->VAO);
+	//	glBindBuffer(GL_ARRAY_BUFFER, obj->VBOLeft);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * obj->leftCache.size(), obj->leftCache.data(), GL_STREAM_DRAW);
 
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
+	//	glEnableVertexAttribArray(GL_POINTS);
+	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-		// Apply shader
-		glUseProgram(ShaderLeft);
+	//	// Apply shader
+	//	glUseProgram(ShaderLeft);
 
-		glDrawArrays(GL_LINES, 0, obj->leftCache.size() * 2);
-	}
-	void DrawLineRight(SceneObject* obj) {
-		glBindVertexArray(obj->VAORight);
-		glBindBuffer(GL_ARRAY_BUFFER, obj->VBORight);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * obj->rightCache.size(), obj->rightCache.data(), GL_STREAM_DRAW);
+	//	glDrawArrays(GL_LINES, 0, obj->leftCache.size() * 2);
+	//}
+	//void DrawLineRight(SceneObject* obj) {
+	//	glBindVertexArray(obj->VAORight);
+	//	glBindBuffer(GL_ARRAY_BUFFER, obj->VBORight);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * obj->rightCache.size(), obj->rightCache.data(), GL_STREAM_DRAW);
 
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		 
+	//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
+	//	glEnableVertexAttribArray(GL_POINTS);
+	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//	 
 
-		// Apply shader
-		glUseProgram(ShaderRight);
+	//	// Apply shader
+	//	glUseProgram(ShaderRight);
 
-		glDrawArrays(GL_LINES, 0, obj->rightCache.size() * 2);
-	}
+	//	glDrawArrays(GL_LINES, 0, obj->rightCache.size() * 2);
+	//}
 
 
 	void DrawSquare(WhiteSquare& square) {
@@ -149,24 +149,18 @@ class Renderer {
 	}
 
 	void DrawObject(StereoCamera* camera, SceneObject* o) {
-		if (o->GetLines().size() == 0)
-			return;
-
-		o->leftCache = o->rightCache = std::vector<Pair>(o->GetLines().size());
-		for (size_t i = 0; i < o->GetLines().size(); i++) {
-			o->leftCache[i] = camera->GetLeft(o->GetLines()[i]);
-			o->rightCache[i] = camera->GetRight(o->GetLines()[i]);
-		}
+		/*if (o->GetLines().size() == 0)
+			return;*/
 
 		glStencilMask(0x1);
 		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawLineLeft(o);
+		o->DrawLeft([&camera](const glm::vec3& p) { return camera->GetLeft(p); }, ShaderLeft);
 
 		glStencilMask(0x2);
 		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawLineRight(o);
+		o->DrawRight([&camera](const glm::vec3& p) { return camera->GetRight(p); }, ShaderRight);
 	}
 
 public:
