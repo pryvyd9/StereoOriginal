@@ -64,7 +64,10 @@ class GUI {
 			if (ImGui::MenuItem("Close", nullptr, false))
 				scene->DeleteAll();
 
-			ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
+			//ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
+			if (auto h = GlobalToolConfiguration::ShouldDetectPosition().Get(); 
+				ImGui::MenuItem("Use position detection", nullptr, &h))
+				GlobalToolConfiguration::ShouldDetectPosition().Set(h);
 			ImGui::MenuItem("Show FPS", nullptr, &shouldShowFPS);
 
 			if (ImGui::MenuItem("Exit", nullptr, false))
@@ -141,7 +144,7 @@ public:
 	KeyBinding keyBinding;
 	Scene* scene;
 
-	bool shouldUsePositionDetection = false;
+	//bool shouldUsePositionDetection = false;
 	bool shouldShowFPS = true;
 
 	std::vector<Window*> windows;

@@ -47,8 +47,8 @@ protected:
 
 	// When true cache will be updated on reading.
 	bool shouldUpdateCache = true;
-	bool wasCacheUpdatedLeft;
-	bool wasCacheUpdatedRight;
+	bool shouldUpdateVBOLeft;
+	bool shouldUpdateVBORight;
 	const float propertyIndent = -20;
 
 	// Adds or substracts transformations.
@@ -249,8 +249,8 @@ public:
 	// Forces the object and all children to update cache.
 	void ForceUpdateCache() {
 		shouldUpdateCache = true;
-		wasCacheUpdatedLeft = false;
-		wasCacheUpdatedRight = false;
+		shouldUpdateVBOLeft = false;
+		shouldUpdateVBORight = false;
 		for (auto c : children)
 			c->ForceUpdateCache();
 	}
@@ -259,10 +259,10 @@ public:
 	// Do nothing here since we don't want cascade operations to fail 
 	// just because the object doesn't implement some of it.
 
-	virtual const std::vector<Pair>& GetLines() {
-		static const std::vector<Pair> empty;
-		return empty;
-	}
+	//virtual const std::vector<Pair>& GetLines() {
+	//	static const std::vector<Pair> empty;
+	//	return empty;
+	//}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
 		static const std::vector<glm::vec3> empty;
 		return empty;
@@ -329,8 +329,8 @@ class StereoPolyLine : public LeafObject {
 		verticesCache = vertices;
 		CascadeTransform(verticesCache);
 		shouldUpdateCache = false;
-		wasCacheUpdatedLeft = false;
-		wasCacheUpdatedRight = false;
+		shouldUpdateVBOLeft = false;
+		shouldUpdateVBORight = false;
 	}
 
 public:
@@ -345,12 +345,12 @@ public:
 		return StereoPolyLineT;
 	}
 
-	virtual const std::vector<Pair>& GetLines() {
-		if (shouldUpdateCache)
-			UpdateCache();
+	//virtual const std::vector<Pair>& GetLines() {
+	//	if (shouldUpdateCache)
+	//		UpdateCache();
 
-		return linesCache;
-	}
+	//	return linesCache;
+	//}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
 		return vertices;
 	}
@@ -420,13 +420,13 @@ public:
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 
-		if (!wasCacheUpdatedLeft) {
+		if (!shouldUpdateVBOLeft) {
 			leftBuffer = std::vector<glm::vec3>(verticesCache.size());
 			for (size_t i = 0; i < verticesCache.size(); i++)
 				leftBuffer[i] = toScreen(verticesCache[i]);
 
 			glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
-			wasCacheUpdatedLeft = true;
+			shouldUpdateVBOLeft = true;
 		}
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -449,13 +449,13 @@ public:
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 
-		if (!wasCacheUpdatedRight) {
+		if (!shouldUpdateVBORight) {
 			rightBuffer = std::vector <glm::vec3> (verticesCache.size());
 			for (size_t i = 0; i < verticesCache.size(); i++)
 				rightBuffer[i] = toScreen(verticesCache[i]);
 
 			glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
-			wasCacheUpdatedRight = true;
+			shouldUpdateVBORight = true;
 		}
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -474,24 +474,24 @@ public:
 struct Mesh : LeafObject {
 private:
 	std::vector<glm::vec3> vertices;
-	std::vector<Pair> linesCache;
-	std::vector<std::array<size_t, 2>> lines;
+	//std::vector<Pair> linesCache;
+	std::vector<std::array<GLuint, 2>> lines;
 
 	std::vector<glm::vec3> vertexCache;
 
-	std::vector<GLuint> indexBuffer;
-	//std::vector<GLuint> lengthBuffer;
 	std::vector<glm::vec3> leftBuffer;
 	std::vector<glm::vec3> rightBuffer;
 
 	GLuint IBO;
 
+	bool shouldUpdateIBO;
+
 	void UpdateCache() {
 		vertexCache = vertices;
 		CascadeTransform(vertexCache);
 		shouldUpdateCache = false;
-		wasCacheUpdatedLeft = false;
-		wasCacheUpdatedRight = false;
+		shouldUpdateVBOLeft = true;
+		shouldUpdateVBORight = true;
 	}
 
 
@@ -510,32 +510,33 @@ public:
 		return sizeof(glm::vec3) * vertices.size();
 	}
 
-	virtual void Connect(size_t p1, size_t p2) {
+	virtual void Connect(GLuint p1, GLuint p2) {
 		lines.push_back({ p1, p2 });
-		linesCache.push_back(Pair{ vertices[p1], vertices[p2] });
+		//linesCache.push_back(Pair{ vertices[p1], vertices[p2] });
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
-	virtual void Disconnect(size_t p1, size_t p2) {
-		auto pos = find(lines, std::array<size_t, 2>{ p1, p2 });
+	virtual void Disconnect(GLuint p1, GLuint p2) {
+		auto pos = find(lines, std::array<GLuint, 2>{ p1, p2 });
 
 		if (pos == -1)
 			return;
 
 		lines.erase(lines.begin() + pos);
-		linesCache.erase(linesCache.begin() + pos);
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
 
-	const std::vector<std::array<size_t, 2>>& GetLinearConnections() {
+	const std::vector<std::array<GLuint, 2>>& GetLinearConnections() {
 		return lines;
 	}
 
-	virtual const std::vector<Pair>& GetLines() {
-		if (shouldUpdateCache)
-			UpdateCache();
+	//virtual const std::vector<Pair>& GetLines() {
+	//	if (shouldUpdateCache)
+	//		UpdateCache();
 
-		return linesCache;
-	}
+	//	return linesCache;
+	//}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
 		return vertices;
 	}
@@ -567,7 +568,7 @@ public:
 		vertices = vs;
 		shouldUpdateCache = true;
 	}
-	virtual void SetConnections(const std::vector<std::array<size_t, 2>>& connections) {
+	virtual void SetConnections(const std::vector<std::array<GLuint, 2>>& connections) {
 		lines = connections;
 		shouldUpdateCache = true;
 	}
@@ -581,7 +582,7 @@ public:
 			ImGui::Indent(propertyIndent);
 
 			std::stringstream ss;
-			ss << linesCache.size();
+			ss << lines.size();
 
 			ImGui::LabelText("line count", ss.str().c_str());
 
@@ -602,21 +603,18 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 
-		if (!wasCacheUpdatedLeft) {
+		if (shouldUpdateVBOLeft || GlobalToolConfiguration::ShouldDetectPosition().Get()) {
 			leftBuffer = std::vector<glm::vec3>(vertexCache.size());
 			for (size_t i = 0; i < vertexCache.size(); i++)
 				leftBuffer[i] = toScreen(vertexCache[i]);
 
-			indexBuffer = std::vector<GLuint>(GetLinearConnections().size() * 2);
-			for (size_t i = 0, j = 0; i < GetLinearConnections().size(); i++) {
-				indexBuffer[j++] = GetLinearConnections()[i][0];
-				indexBuffer[j++] = GetLinearConnections()[i][1];
-			}
-			//lengthBuffer = std::vector<GLushort>(GetLinearConnections().size());
-
 			glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * indexBuffer.size(), indexBuffer.data(), GL_DYNAMIC_DRAW);
-			wasCacheUpdatedLeft = true;
+			shouldUpdateVBOLeft = false;
+		}
+
+		if (shouldUpdateIBO) {
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * GetLinearConnections().size() * 2, GetLinearConnections().data(), GL_DYNAMIC_DRAW);
+			shouldUpdateIBO = false;
 		}
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -627,8 +625,7 @@ public:
 		// Apply shader
 		glUseProgram(shader);
 
-		glDrawElements(GL_LINES, indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
-		//glDrawArrays(GL_LINES, 0, GetVertices().size());
+		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
 	}
 	virtual void DrawRight(std::function<glm::vec3(glm::vec3)> toScreen, GLuint shader) {
 		if (shouldUpdateCache)
@@ -640,20 +637,13 @@ public:
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 
-		if (!wasCacheUpdatedRight) {
+		if (shouldUpdateVBORight || GlobalToolConfiguration::ShouldDetectPosition().Get()) {
 			rightBuffer = std::vector<glm::vec3>(vertexCache.size());
 			for (size_t i = 0; i < vertexCache.size(); i++)
 				rightBuffer[i] = toScreen(vertexCache[i]);
 
-			//indexBuffer = std::vector<GLuint>(GetLinearConnections().size() * 2);
-			//for (size_t i = 0, j = 0; i < GetLinearConnections().size(); i++) {
-			//	indexBuffer[j++] = GetLinearConnections()[i][0];
-			//	indexBuffer[j++] = GetLinearConnections()[i][1];
-			//}
-
 			glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * indexBuffer.size(), indexBuffer.data(), GL_DYNAMIC_DRAW);
-			wasCacheUpdatedRight = true;
+			shouldUpdateVBORight = false;
 		}
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -664,8 +654,7 @@ public:
 		// Apply shader
 		glUseProgram(shader);
 
-		glDrawElements(GL_LINES, indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
-		//glDrawArrays(GL_LINE_STRIP, 0, GetVertices().size());
+		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
 	}
 
 };
@@ -747,12 +736,12 @@ public:
 		UpdateCache();
 		return true;
 	}
-	virtual const std::vector<Pair>& GetLines() {
-		if (shouldUpdateCache)
-			UpdateCache();
+	//virtual const std::vector<Pair>& GetLines() {
+	//	if (shouldUpdateCache)
+	//		UpdateCache();
 
-		return linesCache;
-	}
+	//	return linesCache;
+	//}
 	virtual ObjectType GetType() const {
 		return CrossT;
 	}
@@ -775,13 +764,13 @@ public:
 		if (shouldUpdateCache)
 			UpdateCache();
 
-		if (!wasCacheUpdatedLeft) {
+		if (!shouldUpdateVBOLeft) {
 			leftBuffer = std::vector<Pair>(linesCache.size());
 			for (size_t i = 0; i < leftBuffer.size(); i++)
 				leftBuffer[i] = { toScreen(linesCache[i].p1), toScreen(linesCache[i].p2) };
 
 			glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * linesCache.size(), leftBuffer.data(), GL_STREAM_DRAW);
-			wasCacheUpdatedLeft = true;
+			shouldUpdateVBOLeft = true;
 		}
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
@@ -803,13 +792,13 @@ public:
 			UpdateCache();
 
 
-		if (!wasCacheUpdatedRight) {
+		if (!shouldUpdateVBORight) {
 			rightBuffer = std::vector<Pair>(linesCache.size());
 			for (size_t i = 0; i < rightBuffer.size(); i++)
 				rightBuffer[i] = { toScreen(linesCache[i].p1), toScreen(linesCache[i].p2) };
 
 			glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * linesCache.size(), rightBuffer.data(), GL_STREAM_DRAW);
-			wasCacheUpdatedRight = true;
+			shouldUpdateVBORight = true;
 		}
 
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);

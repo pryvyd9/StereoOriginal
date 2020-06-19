@@ -27,6 +27,11 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 int main(int, char**) {
+
+	auto j = sizeof(size_t);
+	auto j1 = sizeof(GLuint);
+	auto h = sizeof(std::array<GLuint, 2>);
+
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -107,12 +112,12 @@ int main(int, char**) {
 	// when necessary. 
 	// Reads user position and modifies camera position when enabled.
 	// Calls drawing methods of Renderer.
-	customRenderWindow.customRenderFunc = [&scene, &renderPipeline, shouldUsePositionDetection = &gui.shouldUsePositionDetection, &positionDetector]{
-		if (*shouldUsePositionDetection && !positionDetector.isPositionProcessingWorking)
+	customRenderWindow.customRenderFunc = [&scene, &renderPipeline, &positionDetector]{
+		if (GlobalToolConfiguration::ShouldDetectPosition().Get() && !positionDetector.isPositionProcessingWorking)
 			positionDetector.StartPositionDetection();
-		else if (!*shouldUsePositionDetection && positionDetector.isPositionProcessingWorking)
+		else if (!GlobalToolConfiguration::ShouldDetectPosition().Get() && positionDetector.isPositionProcessingWorking)
 			positionDetector.StopPositionDetection();
-
+		 
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
