@@ -33,11 +33,21 @@ class SceneObject {
 	glm::vec3 position;
 	// Local rotation;
 	glm::fquat rotation = unitQuat();
-	SceneObject* parent;
+	SceneObject* parent = nullptr;
 protected:
+	GLuint VBOLeft, VBORight, VAO;
+		
 	// When true cache will be updated on reading.
-	bool shouldUpdateCache;
+	bool shouldUpdateCache = true;
 	const float propertyIndent = -20;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) {}
+
+	virtual void DrawLeft(GLuint shader) {}
+	virtual void DrawRight(GLuint shader) {}
+
 
 	// Adds or substracts transformations.
 
@@ -73,8 +83,35 @@ protected:
 
 public:
 	std::vector<SceneObject*> children;
-
 	std::string Name = "noname";
+
+	SceneObject() {
+		glGenBuffers(2, &VBOLeft);
+		glGenVertexArrays(1, &VAO);
+	}
+	~SceneObject() {
+		glDeleteBuffers(3, &VBOLeft);
+	}
+
+	void Draw(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight,
+		GLuint shaderLeft,
+		GLuint shaderRight) {
+		if (shouldUpdateCache || GlobalToolConfiguration::ShouldDetectPosition().Get())
+			UpdateOpenGLBuffer(toLeft, toRight);
+
+		glStencilMask(0x1);
+		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		DrawLeft(shaderLeft);
+
+		glStencilMask(0x2);
+		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		DrawRight(shaderRight);
+	}
+
 
 	constexpr const glm::fquat unitQuat() const {
 		return glm::fquat(1, 0, 0, 0);
@@ -232,10 +269,6 @@ public:
 	// Do nothing here since we don't want cascade operations to fail 
 	// just because the object doesn't implement some of it.
 
-	virtual const std::vector<Pair>& GetLines() {
-		static const std::vector<Pair> empty;
-		return empty;
-	}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
 		static const std::vector<glm::vec3> empty;
 		return empty;
@@ -292,22 +325,33 @@ class StereoPolyLine : public LeafObject {
 	std::vector<Pair> linesCache;
 	std::vector<glm::vec3> vertices;
 
+	std::vector<glm::vec3> verticesCache;
+
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) {
+		UpdateCache();
+
+		leftBuffer = std::vector<glm::vec3>(verticesCache.size());
+		rightBuffer = std::vector<glm::vec3>(verticesCache.size());
+		for (size_t i = 0; i < verticesCache.size(); i++) {
+			leftBuffer[i] = toLeft(verticesCache[i]);
+			rightBuffer[i] = toRight(verticesCache[i]);
+		}
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+
 	void UpdateCache() {
-		if (vertices.size() < 2) {
-			linesCache.clear();
-			return;
-		}
-
-		auto transformedVertices = vertices;
-		CascadeTransform(transformedVertices);
-
-		linesCache = std::vector<Pair>(vertices.size() - 1);
-
-		for (size_t i = 0; i < vertices.size() - 1; i++) {
-			linesCache[i].p1 = transformedVertices[i];
-			linesCache[i].p2 = transformedVertices[i + 1];
-		}
-
+		verticesCache = vertices;
+		CascadeTransform(verticesCache);
 		shouldUpdateCache = false;
 	}
 
@@ -321,13 +365,6 @@ public:
 
 	virtual ObjectType GetType() const {
 		return StereoPolyLineT;
-	}
-
-	virtual const std::vector<Pair>& GetLines() {
-		if (shouldUpdateCache)
-			UpdateCache();
-
-		return linesCache;
 	}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
 		return vertices;
@@ -388,35 +425,89 @@ public:
 		SceneObject::DesignProperties();
 	}
 
+	virtual void DrawLeft(GLuint shader) {
+		if (verticesCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
+	}
+	virtual void DrawRight(GLuint shader) {
+		if (verticesCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINE_STRIP, 0, GetVertices().size());
+	}
+
 };
 
 struct Mesh : LeafObject {
 private:
 	std::vector<glm::vec3> vertices;
-	std::vector<Pair> linesCache;
-	std::vector<std::array<size_t, 2>> lines;
+	std::vector<std::array<GLuint, 2>> connections;
 
+	std::vector<glm::vec3> vertexCache;
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	GLuint IBO;
+
+	bool shouldUpdateIBO;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) {
+		UpdateCache();
+
+		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertexCache.size());
+		for (size_t i = 0; i < vertexCache.size(); i++) {
+			leftBuffer[i] = toLeft(vertexCache[i]);
+			rightBuffer[i] = toRight(vertexCache[i]);
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		if (shouldUpdateIBO) {
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(std::array<GLuint, 2>) * GetLinearConnections().size(), GetLinearConnections().data(), GL_DYNAMIC_DRAW);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			shouldUpdateIBO = false;
+		}
+	}
 
 	void UpdateCache() {
-		if (lines.size() < 1) {
-			linesCache.clear();
-			return;
-		}
-
-		auto transformedVertices = vertices;
-		CascadeTransform(transformedVertices);
-
-		linesCache = std::vector<Pair>(lines.size());
-
-		for (size_t i = 0; i < lines.size(); i++) {
-			linesCache[i].p1 = transformedVertices[lines[i][0]];
-			linesCache[i].p2 = transformedVertices[lines[i][1]];
-		}
-
+		vertexCache = vertices;
+		CascadeTransform(vertexCache);
 		shouldUpdateCache = false;
 	}
 
 public:
+	Mesh() {
+		glGenBuffers(1, &IBO);
+	}
+	~Mesh() {
+		glDeleteBuffers(1, &IBO);
+	}
+
 	virtual ObjectType GetType() const {
 		return MeshT;
 	}
@@ -424,38 +515,33 @@ public:
 		return sizeof(glm::vec3) * vertices.size();
 	}
 
-	virtual void Connect(size_t p1, size_t p2) {
-		lines.push_back({ p1, p2 });
-		linesCache.push_back(Pair{ vertices[p1], vertices[p2] });
+	virtual void Connect(GLuint p1, GLuint p2) {
+		connections.push_back({ p1, p2 });
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
-	virtual void Disconnect(size_t p1, size_t p2) {
-		auto pos = find(lines, std::array<size_t, 2>{ p1, p2 });
+	virtual void Disconnect(GLuint p1, GLuint p2) {
+		auto pos = find(connections, std::array<GLuint, 2>{ p1, p2 });
 
 		if (pos == -1)
 			return;
 
-		lines.erase(lines.begin() + pos);
-		linesCache.erase(linesCache.begin() + pos);
+		connections.erase(connections.begin() + pos);
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
 
-	const std::vector<std::array<size_t, 2>>& GetLinearConnections() {
-		return lines;
+	const std::vector<std::array<GLuint, 2>>& GetLinearConnections() {
+		return connections;
 	}
 
-	virtual const std::vector<Pair>& GetLines() {
-		if (shouldUpdateCache)
-			UpdateCache();
-
-		return linesCache;
-	}
 	virtual const std::vector<glm::vec3>& GetVertices() const {
 		return vertices;
 	}
 	virtual void AddVertice(const glm::vec3& v) {
 		vertices.push_back(v);
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
 	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
 		for (auto v : vs)
@@ -481,13 +567,15 @@ public:
 		vertices = vs;
 		shouldUpdateCache = true;
 	}
-	virtual void SetConnections(const std::vector<std::array<size_t, 2>>& connections) {
-		lines = connections;
+	virtual void SetConnections(const std::vector<std::array<GLuint, 2>>& connections) {
+		this->connections = connections;
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
 	virtual void RemoveVertice() {
 		vertices.pop_back();
 		shouldUpdateCache = true;
+		shouldUpdateIBO = true;
 	}
 
 	virtual void DesignProperties() {
@@ -495,7 +583,7 @@ public:
 			ImGui::Indent(propertyIndent);
 
 			std::stringstream ss;
-			ss << linesCache.size();
+			ss << connections.size();
 
 			ImGui::LabelText("line count", ss.str().c_str());
 
@@ -504,25 +592,50 @@ public:
 		}
 		SceneObject::DesignProperties();
 	}
+
+	virtual void DrawLeft(GLuint shader) {
+		if (vertexCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
+	}
+	virtual void DrawRight(GLuint shader) {
+		if (vertexCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
+	}
+
 };
 
 class WhiteSquare
 {
 public:
-
-	float leftTop[9] = {
+	float vertices[18] = {
 		-1, -1, 0,
 		 1, -1, 0,
 		-1,  1, 0,
-	};
-
-	float rightBottom[9] = {
-		 1, -1, 0,
 		 1,  1, 0,
-		-1,  1, 0,
 	};
 
-	static const uint_fast8_t VerticesSize = sizeof(leftTop);
+	static const uint_fast8_t VerticesSize = sizeof(vertices);
 
 	GLuint VBOLeftTop, VAOLeftTop;
 	GLuint VBORightBottom, VAORightBottom;
@@ -548,11 +661,32 @@ public:
 };
 
 class Cross : public LeafObject {
-	bool isCreated = false;
-	std::vector<Pair> linesCache;
+	std::vector<glm::vec3> vertices;
+
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) {
+		UpdateCache();
+
+		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
+		for (size_t i = 0; i < vertices.size(); i++) {
+			leftBuffer[i] = toLeft(vertices[i]);
+			rightBuffer[i] = toRight(vertices[i]);
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), leftBuffer.data(), GL_STREAM_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), rightBuffer.data(), GL_STREAM_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
 
 	void UpdateCache() {
-		std::vector<glm::vec3> vertices(6);
+		vertices = std::vector<glm::vec3>(6);
 
 		vertices[0].x -= size;
 		vertices[1].x += size;
@@ -564,27 +698,17 @@ class Cross : public LeafObject {
 		vertices[5].z += size;
 
 		CascadeTransform(vertices);
-
-		linesCache = std::vector<Pair>(3);
-		for (size_t i = 0; i < 3; i++) {
-			linesCache[i].p1 = vertices[i * 2];
-			linesCache[i].p2 = vertices[i * 2 + 1];
-		}
+		shouldUpdateCache = false;
 	}
+
+
 public:
 	float size = 0.1;
 	std::function<void()> keyboardBindingHandler;
 	size_t keyboardBindingHandlerId;
 
 	bool Init() {
-		UpdateCache();
 		return true;
-	}
-	virtual const std::vector<Pair>& GetLines() {
-		if (shouldUpdateCache)
-			UpdateCache();
-
-		return linesCache;
 	}
 	virtual ObjectType GetType() const {
 		return CrossT;
@@ -600,6 +724,29 @@ public:
 		}
 		SceneObject::DesignProperties();
 	}
+
+	virtual void DrawLeft(GLuint shader) {
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINES, 0, vertices.size());
+	}
+	virtual void DrawRight(GLuint shader) {
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINES, 0, vertices.size());
+	}
 };
 
 
@@ -609,6 +756,26 @@ class StereoCamera : public LeafObject
 	glm::vec3 GetPos() {
 		return positionModifier + GetLocalPosition();
 	}
+
+	glm::vec3 getLeft(const glm::vec3& pos) {
+		auto cameraPos = GetPos();
+		float denominator = cameraPos.z - pos.z;
+		return glm::vec3(
+			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
+			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
+			0
+		);
+	}
+	glm::vec3 getRight(const glm::vec3& pos) {
+		auto cameraPos = GetPos();
+		float denominator = cameraPos.z - pos.z;
+		return glm::vec3(
+			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
+			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
+			0
+		);
+	}
+
 
 public:
 	glm::vec2* viewSize = nullptr;
@@ -630,31 +797,13 @@ public:
 		);
 	}
 
-	glm::vec3 GetLeft(const glm::vec3& pos) {
-		auto cameraPos = GetPos();
-		float denominator = cameraPos.z - pos.z;
-		return glm::vec3(
-			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
-			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-			0
-		);
-	}
-	glm::vec3 GetRight(const glm::vec3& pos) {
-		auto cameraPos = GetPos();
-		float denominator = cameraPos.z - pos.z;
-		return glm::vec3(
-			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
-			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-			0
-		);
-	}
 
 	Pair GetLeft(const Pair& stereoLine)
 	{
 		Pair line;
 
-		line.p1 = PreserveAspectRatio(GetLeft(stereoLine.p1));
-		line.p2 = PreserveAspectRatio(GetLeft(stereoLine.p2));
+		line.p1 = PreserveAspectRatio(getLeft(stereoLine.p1));
+		line.p2 = PreserveAspectRatio(getLeft(stereoLine.p2));
 
 		return line;
 	}
@@ -662,11 +811,20 @@ public:
 	{
 		Pair line;
 
-		line.p1 = PreserveAspectRatio(GetRight(stereoLine.p1));
-		line.p2 = PreserveAspectRatio(GetRight(stereoLine.p2));
+		line.p1 = PreserveAspectRatio(getRight(stereoLine.p1));
+		line.p2 = PreserveAspectRatio(getRight(stereoLine.p2));
 
 		return line;
 	}
+
+
+	glm::vec3 GetLeft(const glm::vec3& v) {
+		return PreserveAspectRatio(getLeft(v));
+	}
+	glm::vec3 GetRight(const glm::vec3& v) {
+		return PreserveAspectRatio(getRight(v));
+	}
+
 
 	virtual ObjectType GetType() const {
 		return CameraT;

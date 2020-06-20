@@ -415,6 +415,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 	SceneObject* pen = nullptr;
 
 	glm::vec3 crossStartPosition;
+	glm::vec3 crossOldPosition;
 	glm::vec3 crossOriginalPosition;
 	SceneObject* crossOriginalParent;
 
@@ -441,7 +442,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
-		if (mesh == nullptr)
+		if (mesh == nullptr || crossOldPosition == GetPos())
 			return;
 
 		if (input->IsDown(Key::Escape)) {
@@ -523,6 +524,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			directingPoints->push_back(GetPos());
 		}
 
+		crossOldPosition = GetPos();
 		//std::cout << "PointPen tool Immediate mode points count: " << meshPoints->size() << std::endl;
 	}
 
@@ -781,7 +783,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	std::vector<std::vector<glm::vec3>> originalVerticesFolded;
 	std::vector<glm::vec3> originalLocalPositionsFolded;
 	std::vector<glm::vec3> originalWorldPositionsFolded;
-	std::vector<std::vector<std::array<size_t, 2>>> originalLinesFolded;
+	std::vector<std::vector<std::array<GLuint, 2>>> originalLinesFolded;
 
 #pragma endregion
 	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {

@@ -299,7 +299,7 @@ public:
 			j->objects.push_back(serialize(a));
 		return j;
 	}
-	template<typename T, size_t S>
+	template<typename T, GLuint S>
 	JsonObjectAbstract* serialize(const std::array<T, S>& v) {
 		auto j = new JsonArray();
 		for (auto a : v)
