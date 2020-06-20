@@ -7,25 +7,12 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-//#include <glm/gtc/quaternion.hpp>
 #include <functional>
 
 using namespace std;
 
-
-// Render pipeline:
-// Compute white x or y limits for each line
-// Project lines to camera z=0 plane
-// Apply white limits to shaders of lines
 class Renderer {
-	struct WhitePartOfShader {
-		bool isZero;
-		bool isX;
-		float min, max;
-	};
-
-	GLuint VAOLeft, VAORight, VBOLeft, VBORight, ShaderLeft, ShaderRight;
-
+	GLuint ShaderLeft, ShaderRight;
 
 	static void glfw_error_callback(int error, const char* description)
 	{
@@ -95,44 +82,6 @@ class Renderer {
 		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
 		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
 	}
-	void CreateBuffers() {
-		glGenVertexArrays(2, &VAOLeft);
-		glGenBuffers(2, &VBOLeft);
-	}
-
-	
-
-	//void DrawLineLeft(SceneObject* obj) {
-	//	glBindVertexArray(obj->VAO);
-	//	glBindBuffer(GL_ARRAY_BUFFER, obj->VBOLeft);
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * obj->leftCache.size(), obj->leftCache.data(), GL_STREAM_DRAW);
-
-	//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
-	//	glEnableVertexAttribArray(GL_POINTS);
-	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-	//	// Apply shader
-	//	glUseProgram(ShaderLeft);
-
-	//	glDrawArrays(GL_LINES, 0, obj->leftCache.size() * 2);
-	//}
-	//void DrawLineRight(SceneObject* obj) {
-	//	glBindVertexArray(obj->VAORight);
-	//	glBindBuffer(GL_ARRAY_BUFFER, obj->VBORight);
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(Pair) * obj->rightCache.size(), obj->rightCache.data(), GL_STREAM_DRAW);
-
-	//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(Pair::p1), 0);
-	//	glEnableVertexAttribArray(GL_POINTS);
-	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//	 
-
-	//	// Apply shader
-	//	glUseProgram(ShaderRight);
-
-	//	glDrawArrays(GL_LINES, 0, obj->rightCache.size() * 2);
-	//}
-
 
 	void DrawSquare(WhiteSquare& square) {
 		glBindVertexArray(square.VAOLeftTop);
@@ -149,24 +98,15 @@ class Renderer {
 	}
 
 	void DrawObject(StereoCamera* camera, SceneObject* o) {
-		/*if (o->GetLines().size() == 0)
-			return;*/
-
-		glStencilMask(0x1);
-		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		o->DrawLeft([&camera](const glm::vec3& p) { return camera->GetLeft(p); }, ShaderLeft);
-
-		glStencilMask(0x2);
-		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		o->DrawRight([&camera](const glm::vec3& p) { return camera->GetRight(p); }, ShaderRight);
+		o->Draw(
+			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
+			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
+			ShaderLeft,
+			ShaderRight);
 	}
 
 public:
 	GLFWwindow* glWindow;
-
-
 	const char* glsl_version;
 	float LineThickness = 1;
 	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 1);
@@ -212,14 +152,12 @@ public:
 		glEnable(GL_DEPTH_TEST);
 	}
 
-
 	bool Init() {
 		if (!InitGL()
 			|| !whiteSquare.Init())
 			return false;
 
 		CreateShaders();
-		CreateBuffers();
 
 		return true;
 	}
