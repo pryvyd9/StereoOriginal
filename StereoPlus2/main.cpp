@@ -16,8 +16,8 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	if (positionDetector.isPositionProcessingWorking)
 		scene.camera->SetLocalPosition(
 			glm::vec3(
-				positionDetector.positionHorizontal / 100.0,
-				positionDetector.positionVertical / 100.0,
+				positionDetector.positionHorizontal / 500.0,
+				positionDetector.positionVertical / 500.0,
 				-positionDetector.distance / 50.0));
 
 	// Run scene drawing.

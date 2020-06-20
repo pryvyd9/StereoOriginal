@@ -177,7 +177,7 @@ public:
 			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
 			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
-			readArray(std::function([&o](size_t a, size_t b) { o->Connect(a, b); }));
+			readArray(std::function([&o](GLuint a, GLuint b) { o->Connect(a, b); }));
 			readChildren(o);
 			return o;
 		}
@@ -757,6 +757,7 @@ class FileManager {
 		inScene->root = o;
 		o->SetParent(nullptr);
 
+		delete buffer;
 		file.close();
 	}
 
@@ -786,6 +787,7 @@ class FileManager {
 		inScene->root = o;
 		o->SetParent(nullptr);
 
+		delete buffer;
 		file.close();
 	}
 

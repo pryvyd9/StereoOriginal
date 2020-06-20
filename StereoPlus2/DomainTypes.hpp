@@ -48,7 +48,6 @@ protected:
 	virtual void DrawLeft(GLuint shader) {}
 	virtual void DrawRight(GLuint shader) {}
 
-
 	// Adds or substracts transformations.
 
 	void CascadeTransform(std::vector<glm::vec3>& vertices) const {
@@ -90,7 +89,8 @@ public:
 		glGenVertexArrays(1, &VAO);
 	}
 	~SceneObject() {
-		glDeleteBuffers(3, &VBOLeft);
+		glDeleteBuffers(2, &VBOLeft);
+		glDeleteVertexArrays(1, &VAO);
 	}
 
 	void Draw(
@@ -358,6 +358,13 @@ class StereoPolyLine : public LeafObject {
 public:
 
 	StereoPolyLine() {}
+	//~StereoPolyLine() {
+	//	glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), nullptr, GL_STREAM_DRAW);
+	//	glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), nullptr, GL_STREAM_DRAW);
+	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//}
 
 	StereoPolyLine(StereoPolyLine& copy) {
 		SetVertices(copy.GetVertices());
@@ -504,7 +511,19 @@ public:
 	Mesh() {
 		glGenBuffers(1, &IBO);
 	}
+
 	~Mesh() {
+		//glDeleteBuffers(1, &VBOLeft);
+
+		//glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		//glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), nullptr, GL_STREAM_DRAW);
+		//glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		//glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), nullptr, GL_STREAM_DRAW);
+		//glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+		//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(std::array<GLuint, 2>) * GetLinearConnections().size(), GetLinearConnections().data(), GL_DYNAMIC_DRAW);
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glDeleteBuffers(1, &IBO);
 	}
 
@@ -701,11 +720,18 @@ class Cross : public LeafObject {
 		shouldUpdateCache = false;
 	}
 
-
 public:
 	float size = 0.1;
 	std::function<void()> keyboardBindingHandler;
 	size_t keyboardBindingHandlerId;
+
+	//~Cross() {
+	//	glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), nullptr, GL_STREAM_DRAW);
+	//	glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), nullptr, GL_STREAM_DRAW);
+	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//}
 
 	bool Init() {
 		return true;
