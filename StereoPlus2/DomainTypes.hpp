@@ -894,13 +894,18 @@ public:
 		return selected();
 	}
 
+
 	static void Set(SceneObject* o) {
-		selected().clear();
-		selected().emplace(o);
+		RemoveAll();
+		Add(o);
 	}
 
 	static void Add(SceneObject* o) {
 		selected().emplace(o);
+	}
+
+	static void RemoveAll() {
+		selected().clear();
 	}
 
 	static void Remove(SceneObject* o) {

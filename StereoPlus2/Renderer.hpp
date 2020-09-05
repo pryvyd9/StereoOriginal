@@ -11,7 +11,14 @@
 
 using namespace std;
 
+// GL4.1 required
 class Renderer {
+	glm::vec4 defaultColorLeft = glm::vec4(0, 1, 1, 1);
+	glm::vec4 defaultColorRight = glm::vec4(1, 0, 0, 1);
+	glm::vec4 dimmedColorLeft = glm::vec4(0, 1, 1, 0.5);
+	glm::vec4 dimmedColorRight = glm::vec4(1, 0, 0, 0.5);
+
+
 	GLuint ShaderLeft, ShaderRight;
 
 	static void glfw_error_callback(int error, const char* description)
@@ -71,8 +78,8 @@ class Renderer {
 
 	void CreateShaders()
 	{
-		std::string vertexShaderSource1		  = GLLoader::ReadShader("shaders/.vert");
-		std::string fragmentShaderSourceLeft1 = GLLoader::ReadShader("shaders/Left.frag");
+		std::string vertexShaderSource1		   = GLLoader::ReadShader("shaders/.vert");
+		std::string fragmentShaderSourceLeft1  = GLLoader::ReadShader("shaders/Left.frag");
 		std::string fragmentShaderSourceRight1 = GLLoader::ReadShader("shaders/Right.frag");
 
 		const char* vertexShaderSource = vertexShaderSource1.c_str();
@@ -81,6 +88,15 @@ class Renderer {
 
 		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
 		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
+
+		UpdateShaderColor(defaultColorLeft, defaultColorRight);
+	}
+
+
+	void UpdateShaderColor(glm::vec4 colorLeft, glm::vec4 colorRight) {
+		// Available since GL4.1
+		glProgramUniform4f(ShaderLeft, glGetUniformLocation(ShaderLeft, "myColor"), colorLeft.r, colorLeft.g, colorLeft.b, colorLeft.a);
+		glProgramUniform4f(ShaderRight, glGetUniformLocation(ShaderRight, "myColor"), colorRight.r, colorRight.g, colorRight.b, colorRight.a);
 	}
 
 	void DrawSquare(WhiteSquare& square) {
@@ -98,6 +114,11 @@ class Renderer {
 	}
 
 	void DrawObject(StereoCamera* camera, SceneObject* o) {
+		if (!SceneObjectSelection::Selected().empty() && !exists(SceneObjectSelection::Selected(), o))
+			UpdateShaderColor(dimmedColorLeft, dimmedColorRight);
+		else
+			UpdateShaderColor(defaultColorLeft, defaultColorRight);
+
 		o->Draw(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
 			[&camera](const glm::vec3& p) { return camera->GetRight(p); },

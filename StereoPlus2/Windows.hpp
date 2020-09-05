@@ -265,22 +265,33 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return val;
 	}
 
-	void TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
-		if (ImGui::IsItemClicked()) {
-			auto isCtrlPressed = input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
+	void CallRecursive(SceneObject* o, std::function<void(SceneObject*)> f) {
+		f(o);
+		for (auto c : o->children)
+			CallRecursive(c, f);
+	}
 
-			if (isFullySelectable || GetSelectPosition() == Rest) {
-				if (isCtrlPressed) {
-					if (isSelected)
-						SceneObjectSelection::Remove(t);
-					else
-						SceneObjectSelection::Add(t);
-				}
-				else
-					SceneObjectSelection::Set(t);
-			}
+	void TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
+		if (!ImGui::IsItemClicked())
+			return;
+
+		auto isCtrlPressed = input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
+
+		if (!isFullySelectable && GetSelectPosition() != Rest)
+			return;
+
+		if (isCtrlPressed) {
+			if (isSelected)
+				CallRecursive(t, [](SceneObject* o) { SceneObjectSelection::Remove(o);});
+			else
+				CallRecursive(t, [](SceneObject* o) { SceneObjectSelection::Add(o);});
+		}
+		else {
+			SceneObjectSelection::RemoveAll();
+			CallRecursive(t, [](SceneObject* o) { SceneObjectSelection::Add(o); });
 		}
 	}
+
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
 		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
