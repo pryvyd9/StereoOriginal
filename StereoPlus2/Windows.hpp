@@ -1012,13 +1012,13 @@ class ToolWindow : Window {
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
+		auto deleteAllhandlerId = scene->OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindSceneObjects();
-		});
+		};
 		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
 			t->tool->UnbindSceneObjects();
-			s->OnDeleteAll().RemoveHandler(d);
+			s->OnDeleteAll() -= d;
 			t->OnExit();
 			delete t;
 		};

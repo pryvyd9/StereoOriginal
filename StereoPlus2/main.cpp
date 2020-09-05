@@ -27,11 +27,6 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 int main(int, char**) {
-
-	auto j = sizeof(size_t);
-	auto j1 = sizeof(GLuint);
-	auto h = sizeof(std::array<GLuint, 2>);
-
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -92,8 +87,19 @@ int main(int, char**) {
 	if (!gui.Init())
 		return false;
 
+	// Cross handlers
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
+	
+	// Return cursor
+	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
+		if (i->IsDown(Key::N5)) {
+			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight))
+				cross.SetLocalPosition(glm::vec3());
+			else
+				cross.SetWorldPosition(glm::vec3());
+		}
+	});
 
 	* ToolPool::GetCross() = &cross;
 	* ToolPool::GetScene() = &scene;

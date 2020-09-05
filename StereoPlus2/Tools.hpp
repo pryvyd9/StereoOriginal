@@ -318,7 +318,7 @@ public:
 		}
 
 		inutHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local) {
 				cross->SetParent(target);
 				if (target->GetVertices().size() > 0)
@@ -333,7 +333,7 @@ public:
 				else
 					cross->SetWorldPosition(target->GetWorldPosition());
 			}
-			});
+			};
 
 		return true;
 	}
@@ -352,7 +352,7 @@ public:
 		cross->SetParent(crossOriginalParent);
 		cross->SetLocalPosition(crossOriginalPosition);
 		keyBinding->RemoveHandler(inutHandlerId);
-		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 
 		DeleteConfig();
 
@@ -637,7 +637,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		cross->SetParent(crossOriginalParent);
 		cross->SetLocalPosition(crossOriginalPosition);
 
-		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		keyBinding->RemoveHandler(inputHandlerId);
 
 		DeleteConfig();
@@ -692,7 +692,7 @@ public:
 		
 
 		inputHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (!mesh)
 				return;
 
@@ -704,7 +704,7 @@ public:
 				cross->SetParent(crossOriginalParent);
 
 			cross->SetWorldPosition(pos);
-			});
+			};
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
@@ -981,7 +981,7 @@ public:
 
 		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
 		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			originalLocalRotation = target->GetLocalRotation();
 			originalLocalPositionsFolded[0] = target->GetLocalPosition();
@@ -992,7 +992,7 @@ public:
 				cross->SetLocalRotation(cross->unitQuat());
 			else
 				cross->SetWorldRotation(cross->unitQuat());
-			});
+			};
 
 		return true;
 	}
@@ -1015,7 +1015,7 @@ public:
 
 		keyBinding->RemoveHandler(inputHandlerId);
 		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
-		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		DeleteConfig();
 
 		cross->SetParent(crossOriginalParent);
