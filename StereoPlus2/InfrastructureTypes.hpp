@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <set>
 #include <functional>
 #include <map>
 
@@ -43,6 +44,10 @@ std::vector<int> findAllBack(const std::vector<T>& source, std::function<bool(co
 			indices.push_back(i);
 
 	return indices;
+}
+template<typename T>
+bool exists(const std::set<T>& source, const T& item) {
+	return source.find(item) != source.end();
 }
 
 
@@ -216,4 +221,8 @@ public:
 	}
 };
 
-
+#define StaticProperty(type,name) \
+static Property<type>& name() {\
+	static Property<type> v;\
+	return v;\
+}

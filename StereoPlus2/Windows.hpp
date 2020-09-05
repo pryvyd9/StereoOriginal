@@ -253,12 +253,66 @@ public:
 
 class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	const Log log = Log::For<SceneObjectInspectorWindow>();
+	const glm::vec4 selectedColor = glm::vec4(0, 0.2, 0.4, 1);
+	const glm::vec4 selectedHoveredColor = glm::vec4(0, 0.4, 1, 1);
+	const glm::vec4 selectedActiveColor = glm::vec4(0, 0, 0.8, 1);
+	const glm::vec4 unselectedColor = glm::vec4(0, 0, 0, 0);
 
 	MoveCommand* moveCommand;
 
 	static int& GetID() {
 		static int val = 0;
 		return val;
+	}
+
+	void TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
+		if (ImGui::IsItemClicked()) {
+			auto isCtrlPressed = input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
+
+			if (isFullySelectable || GetSelectPosition() == Rest) {
+				if (isCtrlPressed) {
+					if (isSelected)
+						SceneObjectSelection::Remove(t);
+					else
+						SceneObjectSelection::Add(t);
+				}
+				else
+					SceneObjectSelection::Set(t);
+			}
+		}
+	}
+
+	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
+		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
+		isSelected = exists(SceneObjectSelection::Selected(), t);
+
+		if (isSelected) {
+			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
+		}
+
+		bool open = ImGui::TreeNodeEx(t->Name.c_str(), _flags);
+
+		if (isSelected) ImGui::PopStyleColor(3);
+
+		return open;
+	}
+
+	bool Selectable(SceneObject* t, bool& isSelected) {
+		isSelected = exists(SceneObjectSelection::Selected(), t);
+
+		if (isSelected) {
+			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
+		}
+
+		bool open = ImGui::Selectable(t->Name.c_str(), isSelected);
+
+		if (isSelected) ImGui::PopStyleColor(3);
+
+		return open;
 	}
 
 	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
@@ -276,8 +330,12 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::PushID(GetID()++);
 
+		ImGui::PushStyleColor(ImGuiCol_Header, unselectedColor);
 		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
-		bool open = ImGui::TreeNodeEx(t->Name.c_str(), target_flags);
+		bool isSelected;
+		bool open = TreeNode(t, isSelected, target_flags);
+
+		TrySelect(t, isSelected, true);
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -301,6 +359,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			}
 
 		ImGui::TreePop();
+		ImGui::PopStyleColor();
 		ImGui::PopID();
 
 		return true;
@@ -314,25 +373,24 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		case CrossT:
 			return true;
+		default:
+			log.Error("Invalid SceneObject type passed: ", t->GetType());
+			return false;
 		}
-
-		log.Error("Invalid SceneObject type passed: ", t->GetType());
-		//std::cout << "[" << "Error" << "]" << "(" << class SceneObjectInspectorWindow 
-		// << ")" << "Invalid SceneObject type passed: " << t->GetType() << std::endl;
-		return false;
 	}
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
 		ImGui::PushID(GetID()++);
 
 		ImGui::Indent(indent);
-		bool open = ImGui::TreeNode(t->Name.c_str());
+		
+		bool isSelected;
+		bool open = TreeNode(t, isSelected);
 
 		ImGuiDragDropFlags src_flags = 0;
 		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
 		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
 		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-		if (ImGui::BeginDragDropSource(src_flags))
-		{
+		if (ImGui::BeginDragDropSource(src_flags)) {
 			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
 				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 
@@ -340,6 +398,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 			ImGui::EndDragDropSource();
 		}
+		else TrySelect(t, isSelected);
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -382,7 +441,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::Indent(indent);
 
-		ImGui::Selectable(t->Name.c_str());
+		bool isSelected;
+		Selectable(t, isSelected);
 
 		ImGuiDragDropFlags src_flags = 0;
 		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
@@ -397,6 +457,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			
 			ImGui::EndDragDropSource();
 		}
+		else TrySelect(t, isSelected, true);
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -448,6 +509,19 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return Center;
 	}
 
+	SelectPosition GetSelectPosition() {
+		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
+		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
+
+		float horPos = mouseScreenPos.x - nodeScreenPos.x;
+
+		if (horPos < 16)
+			return Anchor;
+
+		return Rest;
+	}
+
+
 	void ScheduleMove(SceneObject* target, int targetPos, std::set<SceneObject*> * items, InsertPosition pos) {
 		if (isCommandEmpty)
 		{
@@ -467,6 +541,7 @@ public:
 	std::set<SceneObject*>* selectedObjectsBuffer;
 
 	GroupObject** rootObject;
+	Input* input;
 	float indent = 1;
 	float centerSizeHalf = 3;
 
@@ -1216,7 +1291,6 @@ private:
 		}
 	}
 
-
 	void ShowPath() {
 		ImGui::InputText("Path", &path.getBuffer());
 
@@ -1234,87 +1308,6 @@ private:
 		}
 	}
 
-	template<Mode mode>
-	bool Design() {
-		log.Error("Unsupported mode given");
-		return false;
-	}
-
-	template<>
-	bool Design<Load>() {
-		ImGui::Begin("Open File");
-
-		ShowPath();
-
-		ListFiles();
-
-		ImGui::InputText("File", &selectedFile.getBuffer());
-
-		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
-			if (ImGui::Button("Open")) {
-				try
-				{
-					if (selectedFile.get().is_absolute())
-						FileManager::Load(selectedFile.getBuffer(), scene);
-					else
-						FileManager::Load(path.join(selectedFile), scene);
-
-					shouldClose = true;
-				}
-				catch (const FileException& e)
-				{
-					// TODO: Show error message to user
-				}
-			}
-
-			ImGui::Extensions::PopActive();
-		}
-
-		CloseButton();
-
-		ImGui::End();
-
-		return true;
-	}
-
-
-	template<>
-	bool Design<Save>() {
-		ImGui::Begin("Save File");
-
-		ShowPath();
-
-		ListFiles();
-
-		ImGui::InputText("File", &selectedFile.getBuffer());
-
-		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
-			if (ImGui::Button("Save")) {
-				try
-				{
-					if (selectedFile.get().is_absolute())
-						FileManager::Save(selectedFile.getBuffer(), scene);
-					else
-						FileManager::Save(path.join(selectedFile), scene);
-					
-					shouldClose = true;
-				}
-				catch (const FileException & e)
-				{
-					log.Error("Failed to save file");
-				}
-			}
-
-			ImGui::Extensions::PopActive();
-		}
-
-		CloseButton();
-
-		ImGui::End();
-
-		return true;
-	}
-
 public:
 
 	Mode mode;
@@ -1330,18 +1323,42 @@ public:
 		return true;
 	}
 
-
 	virtual bool Design() {
-		switch (mode)
-		{
-		case FileWindow::Load:
-			return Design<Load>();
-		case FileWindow::Save:
-			return Design<Save>();
-		default:
-			log.Error("Unsupported mode given");
-			return false;
+		ImGui::Begin(mode == FileWindow::Load ? "Open File" : "Save File");
+
+		ShowPath();
+		ListFiles();
+
+		ImGui::InputText("File", &selectedFile.getBuffer());
+
+		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
+			if (ImGui::Button(mode == FileWindow::Load ? "Open" : "Save")) {
+				try {
+					auto fileName = selectedFile.get().is_absolute() 
+						? selectedFile.getBuffer() 
+						: path.join(selectedFile);
+
+					auto action = mode == FileWindow::Load 
+						? FileManager::Load 
+						: FileManager::Save;
+
+					action(fileName, scene);
+
+					shouldClose = true;
+				}
+				catch (const FileException & e) {
+					// TODO: Show error message to user
+				}
+			}
+
+			ImGui::Extensions::PopActive();
 		}
+
+		CloseButton();
+
+		ImGui::End();
+
+		return true;
 	}
 
 	bool BindScene(Scene* scene) {

@@ -16,10 +16,15 @@ enum ObjectType {
 };
 
 enum InsertPosition {
-	Top = 0x01,
+	Top = 0x1,
 	Bottom = 0x10,
 	Center = 0x100,
 	Any = Top | Bottom | Center,
+};
+
+enum SelectPosition {
+	Anchor = 0x01,
+	Rest = 0x10,
 };
 
 struct Pair {
@@ -874,6 +879,34 @@ public:
 #pragma endregion
 
 
+
+
+class SceneObjectSelection {
+public:
+	using Selection = std::set<SceneObject*>;
+private:
+	static Selection& selected() {
+		static Selection v;
+		return v;
+	}
+public:
+	static const Selection& Selected() {
+		return selected();
+	}
+
+	static void Set(SceneObject* o) {
+		selected().clear();
+		selected().emplace(o);
+	}
+
+	static void Add(SceneObject* o) {
+		selected().emplace(o);
+	}
+
+	static void Remove(SceneObject* o) {
+		selected().erase(o);
+	}
+};
 
 class SceneObjectBuffer {
 public:

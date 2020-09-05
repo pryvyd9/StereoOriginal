@@ -35,20 +35,8 @@ enum class MoveCoordinateAction {
 
 class GlobalToolConfiguration {
 public:
-	static Property<ObjectMode>& ObjectMode() {
-		static Property<::ObjectMode> v;
-		return v;
-	}
-	static Property<SpaceMode>& SpaceMode() {
-		static Property<::SpaceMode> v;
-		return v;
-	}
-	static Property<MoveCoordinateAction>& MoveCoordinateAction() {
-		static Property<::MoveCoordinateAction> v;
-		return v;
-	}
-	static Property<bool>& ShouldDetectPosition() {
-		static Property<bool> v;
-		return v;
-	}
+	StaticProperty(::ObjectMode, ObjectMode)
+	StaticProperty(::SpaceMode, SpaceMode)
+	StaticProperty(::MoveCoordinateAction, MoveCoordinateAction)
+	StaticProperty(bool, ShouldDetectPosition)
 };

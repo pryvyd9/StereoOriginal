@@ -27,11 +27,6 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 int main(int, char**) {
-
-	auto j = sizeof(size_t);
-	auto j1 = sizeof(GLuint);
-	auto h = sizeof(std::array<GLuint, 2>);
-
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -86,6 +81,8 @@ int main(int, char**) {
 	cross.Name = "Cross";
 	if (!cross.Init())
 		return false;
+
+	inspectorWindow.input = &gui.input;
 
 	crossPropertiesWindow.Object = (SceneObject*)scene.cross;
 	gui.keyBinding.cross = &cross;
