@@ -938,17 +938,9 @@ private:
 		return ImGui::AcceptDragDropPayload(name, flags);
 	}
 	static Buffer GetBuffer(void* data) {
-		//return *(Buffer*)data;
 		return *(Buffer*)data;
 	}
 public:
-	/*static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
-			return GetBuffer(payload->Data);
-
-		return nullptr;
-	}*/
-
 	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
 			return GetBuffer(payload->Data);
@@ -984,7 +976,6 @@ public:
 	//}
 
 	static void EmplaceDragDropSelected(const char* name) {
-
 		ImGui::SetDragDropPayload("SceneObjects", SceneObjectSelection::SelectedP(), sizeof(SceneObjectSelection::Selection*));
 	}
 };
@@ -1012,32 +1003,31 @@ private:
 		return FindRoot(parent);
 	}
 
-	/*static const SceneObject* FindNewParent(const SceneObject* o, std::set<SceneObject*>* items) {
-		auto parent = o->GetParent();
-		if (parent == nullptr)
-			throw new std::exception("Object doesn't have a parent");
+	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
+		if (oldParent == nullptr) {
+			Log::For<Scene>().Error("Object doesn't have a parent");
+			return nullptr;
+		}
 
-		if (exists(*items, const_cast<SceneObject*>(parent)))
-			return FindNewParent(parent, items);
+		if (exists(*items, oldParent))
+			return FindNewParent(const_cast<SceneObject*>(oldParent->GetParent()), items);
 
-		return parent;
-	}*/
+		return oldParent;
+	}
 
-	static SceneObject* FindNewParent(SceneObject* o, std::set<SceneObject*>* items) {
-		if (o == nullptr)
-			throw new std::exception("Object doesn't have a parent");
+	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::set<SceneObject*>* items, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
+		if (oldParent == nullptr)
+			return nullptr;
 
-		if (exists(*items, o))
-			return FindNewParent(const_cast<SceneObject*>(o->GetParent()), items);
+		if (exists(disconnectedItemsToBeMoved, oldParent))
+			return oldParent;
 
-		return o;
+		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), items, disconnectedItemsToBeMoved);
 	}
 public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
 
-	// Scene selected object buffer.
-	std::set<SceneObject*> selectedObjects;
 	SceneObject* root = &defaultObject;
 	StereoCamera* camera;
 	Cross* cross;
@@ -1081,24 +1071,13 @@ public:
 		return false;
 	}
 
-	
-
-	//static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-	//	// Move single object
-	//	if (items->size() > 1)
-	//	{
-	//		std::cout << "Moving of multiple objects is not implemented" << std::endl;
-	//		return false;
-	//	}
-
-	//	// Find if item is present in target;
-
-	//	auto item = items->begin()._Ptr->_Myval;
-	//	item->SetParent(destination, destinationPos, pos);
-
-	//	return true;
-	//}
-
+	// Tree structure is preserved even if there is an unselected link.
+	//-----------------------------------------------------------------
+	// * - selected
+	//
+	//   *a      b  *a
+	//    b   ->    *c
+	//   *c
 	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
 		auto root = const_cast<SceneObject*>(FindRoot(destination));
 
@@ -1108,7 +1087,8 @@ public:
 		// Will be ignored during move but will be moved with their parents
 		std::set<SceneObject*> connectedItemsToBeMoved;
 
-		// Items which will not be moved with their parents
+		// Items which will not be moved with their parents.
+		// New parents will be assigned.
 		// Item, NewParent
 		std::map<SceneObject*, SceneObject*> strayItems;
 
@@ -1116,11 +1096,13 @@ public:
 			if (exists(*items, o)) {
 				if (exists(connectedItemsToBeMoved, parent) || exists(disconnectedItemsToBeMoved, parent))
 					connectedItemsToBeMoved.emplace(o);
+				else if (auto newParent = FindConnectedParent(parent, items, disconnectedItemsToBeMoved))
+					strayItems[o] = newParent;
 				else
 					disconnectedItemsToBeMoved.push_front(o);
 			}
 			else if (exists(*items, parent))
-				strayItems[o] = FindNewParent(o, items);
+				strayItems[o] = FindNewParent(parent, items);
 
 			return o;
 			}));
@@ -1130,17 +1112,6 @@ public:
 
 		for (auto pair : strayItems)
 			pair.first->SetParent(pair.second, true);
-
-		//// Move single object
-		//if (items->size() > 1) {
-		//	std::cout << "Moving of multiple objects is not implemented" << std::endl;
-		//	return false;
-		//}
-
-		//// Find if item is present in target;
-
-		//auto item = items->begin()._Ptr->_Myval;
-		//item->SetParent(destination, destinationPos, pos);
 
 		return true;
 	}

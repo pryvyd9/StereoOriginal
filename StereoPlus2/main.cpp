@@ -53,7 +53,6 @@ int main(int, char**) {
 	toolWindow.scene = &scene;
 
 	inspectorWindow.rootObject = (GroupObject**)&scene.root;
-	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
 
 	scene.camera = &camera;
 	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
