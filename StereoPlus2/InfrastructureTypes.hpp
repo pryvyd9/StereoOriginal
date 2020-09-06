@@ -49,6 +49,19 @@ template<typename T>
 bool exists(const std::set<T>& source, const T& item) {
 	return source.find(item) != source.end();
 }
+template<typename T>
+bool exists(const std::set<const T>& source, const T& item) {
+	return source.find(item) != source.end();
+}
+template<typename T>
+bool exists(const std::vector<T>& source, const T& item) {
+	return source.find(item) != source.end();
+}
+template<typename T>
+bool exists(const std::list<T>& source, const T& item) {
+	return std::find(source.begin(), source.end(), item) != source.end();
+}
+
 
 
 class Log {
@@ -99,7 +112,7 @@ public:
 		Line("[Warning](" + contextName + ") " + message);
 	}
 	void Information(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message);
+		Line("[Information](" + contextName + ") " + message);
 	}
 };
 

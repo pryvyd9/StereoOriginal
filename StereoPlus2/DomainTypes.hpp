@@ -314,6 +314,19 @@ public:
 			ImGui::TreePop();
 		}
 	}
+
+	void CallRecursive(std::function<void(SceneObject*)> f) {
+		f(this);
+		for (auto c : children)
+			c->CallRecursive(f);
+	}
+	template<typename T>
+	void CallRecursive(T parentState, std::function<T(SceneObject*, T)> f) {
+		auto t = f(this, parentState);
+		for (auto c : children)
+			c->CallRecursive(t, f);
+	}
+
 };
 
 class GroupObject : public SceneObject {
@@ -893,6 +906,10 @@ public:
 	static const Selection& Selected() {
 		return selected();
 	}
+	static const Selection** SelectedP() {
+		static const Selection* v = &selected();
+		return &v;
+	}
 
 
 	static void Set(SceneObject* o) {
@@ -921,9 +938,17 @@ private:
 		return ImGui::AcceptDragDropPayload(name, flags);
 	}
 	static Buffer GetBuffer(void* data) {
+		//return *(Buffer*)data;
 		return *(Buffer*)data;
 	}
 public:
+	/*static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
+			return GetBuffer(payload->Data);
+
+		return nullptr;
+	}*/
+
 	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
 			return GetBuffer(payload->Data);
@@ -945,10 +970,22 @@ public:
 		return false;
 	}
 
-	static void EmplaceDragDropSceneObject(const char* name, SceneObject* objectPointer, Buffer* buffer) {
-		(*buffer)->emplace(objectPointer);
+	//static void EmplaceDragDropSceneObject(const char* name, SceneObject* objectPointer, Buffer* buffer) {
+	//	(*buffer)->emplace(objectPointer);
 
-		ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
+	//	ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
+	//}
+	//static void EmplaceDragDropSceneObject(const char* name, const std::set<SceneObject*>* objectPointers, Buffer* buffer) {
+	//	(*buffer)->merge(*const_cast<std::set<SceneObject*>*>(objectPointers));
+	//	//(*buffer)->set_uni(*const_cast<std::set<SceneObject*>*>(objectPointers));
+	//	//(*buffer)->emplace(objectPointer);
+	//	auto j = objectPointers->size();
+	//	ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
+	//}
+
+	static void EmplaceDragDropSelected(const char* name) {
+
+		ImGui::SetDragDropPayload("SceneObjects", SceneObjectSelection::SelectedP(), sizeof(SceneObjectSelection::Selection*));
 	}
 };
 
@@ -966,6 +1003,35 @@ public:
 private:
 	GroupObject defaultObject;
 	Event<> deleteAll;
+
+	static const SceneObject* FindRoot(const SceneObject* o) {
+		auto parent = o->GetParent();
+		if (parent == nullptr)
+			return o;
+
+		return FindRoot(parent);
+	}
+
+	/*static const SceneObject* FindNewParent(const SceneObject* o, std::set<SceneObject*>* items) {
+		auto parent = o->GetParent();
+		if (parent == nullptr)
+			throw new std::exception("Object doesn't have a parent");
+
+		if (exists(*items, const_cast<SceneObject*>(parent)))
+			return FindNewParent(parent, items);
+
+		return parent;
+	}*/
+
+	static SceneObject* FindNewParent(SceneObject* o, std::set<SceneObject*>* items) {
+		if (o == nullptr)
+			throw new std::exception("Object doesn't have a parent");
+
+		if (exists(*items, o))
+			return FindNewParent(const_cast<SceneObject*>(o->GetParent()), items);
+
+		return o;
+	}
 public:
 	// Stores all objects.
 	std::vector<SceneObject*> objects;
@@ -1017,18 +1083,64 @@ public:
 
 	
 
+	//static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
+	//	// Move single object
+	//	if (items->size() > 1)
+	//	{
+	//		std::cout << "Moving of multiple objects is not implemented" << std::endl;
+	//		return false;
+	//	}
+
+	//	// Find if item is present in target;
+
+	//	auto item = items->begin()._Ptr->_Myval;
+	//	item->SetParent(destination, destinationPos, pos);
+
+	//	return true;
+	//}
+
 	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-		// Move single object
-		if (items->size() > 1)
-		{
-			std::cout << "Moving of multiple objects is not implemented" << std::endl;
-			return false;
-		}
+		auto root = const_cast<SceneObject*>(FindRoot(destination));
 
-		// Find if item is present in target;
+		// Will be moved to destination
+		std::list<SceneObject*> disconnectedItemsToBeMoved;
 
-		auto item = items->begin()._Ptr->_Myval;
-		item->SetParent(destination, destinationPos, pos);
+		// Will be ignored during move but will be moved with their parents
+		std::set<SceneObject*> connectedItemsToBeMoved;
+
+		// Items which will not be moved with their parents
+		// Item, NewParent
+		std::map<SceneObject*, SceneObject*> strayItems;
+
+		root->CallRecursive(root, std::function<SceneObject*(SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
+			if (exists(*items, o)) {
+				if (exists(connectedItemsToBeMoved, parent) || exists(disconnectedItemsToBeMoved, parent))
+					connectedItemsToBeMoved.emplace(o);
+				else
+					disconnectedItemsToBeMoved.push_front(o);
+			}
+			else if (exists(*items, parent))
+				strayItems[o] = FindNewParent(o, items);
+
+			return o;
+			}));
+
+		for (auto o : disconnectedItemsToBeMoved)
+			o->SetParent(destination, destinationPos, pos);
+
+		for (auto pair : strayItems)
+			pair.first->SetParent(pair.second, true);
+
+		//// Move single object
+		//if (items->size() > 1) {
+		//	std::cout << "Moving of multiple objects is not implemented" << std::endl;
+		//	return false;
+		//}
+
+		//// Find if item is present in target;
+
+		//auto item = items->begin()._Ptr->_Myval;
+		//item->SetParent(destination, destinationPos, pos);
 
 		return true;
 	}

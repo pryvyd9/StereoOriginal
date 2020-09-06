@@ -258,6 +258,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	const glm::vec4 selectedActiveColor = glm::vec4(0, 0, 0.8, 1);
 	const glm::vec4 unselectedColor = glm::vec4(0, 0, 0, 0);
 
+	bool hasMovementOccured;
+
 	MoveCommand* moveCommand;
 
 	static int& GetID() {
@@ -265,33 +267,102 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return val;
 	}
 
-	void CallRecursive(SceneObject* o, std::function<void(SceneObject*)> f) {
-		f(o);
-		for (auto c : o->children)
-			CallRecursive(c, f);
+	bool IsMovedToItself(const SceneObject* target, std::set<SceneObject*>& buffer) {
+		for (auto o : buffer) {
+			if (o == target)
+				return true;
+			else if (auto parent = target->GetParent();
+				parent != nullptr && (parent == o || IsMovedToItself(parent, buffer)))
+				return true;
+		}
+
+		return false;
 	}
 
-	void TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
-		if (!ImGui::IsItemClicked())
-			return;
-
-		auto isCtrlPressed = input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
-
-		if (!isFullySelectable && GetSelectPosition() != Rest)
-			return;
+	void Select(SceneObject* t, bool isSelected = false, bool ignoreCtrl = false) {
+		auto isCtrlPressed = ignoreCtrl
+			? false
+			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
 
 		if (isCtrlPressed) {
 			if (isSelected)
-				CallRecursive(t, [](SceneObject* o) { SceneObjectSelection::Remove(o);});
+				t->CallRecursive([](SceneObject* o) { SceneObjectSelection::Remove(o); });
 			else
-				CallRecursive(t, [](SceneObject* o) { SceneObjectSelection::Add(o);});
+				t->CallRecursive([](SceneObject* o) { SceneObjectSelection::Add(o); });
 		}
 		else {
 			SceneObjectSelection::RemoveAll();
-			CallRecursive(t, [](SceneObject* o) { SceneObjectSelection::Add(o); });
+			t->CallRecursive([](SceneObject* o) { SceneObjectSelection::Add(o); });
 		}
 	}
 
+	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
+		static SceneObject* clickedItem;
+		
+		if (hasMovementOccured)
+			clickedItem = nullptr;
+		else if (ImGui::IsItemClicked())
+			clickedItem = t;
+
+		if (!input->IsUp(Key::MouseLeft) || !ImGui::IsItemHovered() || clickedItem != t) {
+			if (hasMovementOccured)
+				clickedItem = nullptr;
+			return false;
+		}
+
+		if (!isFullySelectable && GetSelectPosition() != Rest)
+			return false;
+
+		Select(t, isSelected);
+
+		return true;
+	}
+	bool TryDragDropSource(SceneObject* o, ImGuiDragDropFlags flags = 0) {
+		if (!ImGui::BeginDragDropSource(flags))
+			return false;
+
+		if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
+			ImGui::Text("Moving \"%s\"", o->Name.c_str());
+
+		//EmplaceDragDropObject(o);
+		if (SceneObjectSelection::Selected().empty())
+			Select(o);
+
+		EmplaceDragDropSelected();
+
+		ImGui::EndDragDropSource();
+
+		return true;
+	}
+	bool TryDragDropTarget(SceneObject* o, int pos, bool forceCenter = false, ImGuiDragDropFlags flags = 0) {
+		if (!ImGui::BeginDragDropTarget())
+			return false;
+
+		//flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		if (auto buffer = GetDragDropBuffer(flags)) {
+			
+			// We can't move object into itself
+			if (IsMovedToItself(o, *buffer)) {
+				ImGui::EndDragDropTarget();
+				buffer->clear();
+				return true;
+			}
+
+			if (forceCenter)
+				ScheduleMove(o, 0, buffer, Center);
+			else {
+				InsertPosition relativePosition = GetPosition(Any);
+				if (relativePosition == Center)
+					ScheduleMove(o, 0, buffer, Center);
+				else
+					ScheduleMove(const_cast<SceneObject*>(o->GetParent()), pos, buffer, relativePosition);
+			}
+		}
+		ImGui::EndDragDropTarget();
+
+		return true;
+	}
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
 		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
@@ -309,7 +380,6 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		return open;
 	}
-
 	bool Selectable(SceneObject* t, bool& isSelected) {
 		isSelected = exists(SceneObjectSelection::Selected(), t);
 
@@ -329,8 +399,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
 		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
 	}
-	void EmplaceDragDropObject(SceneObject* objectPointer) {
-		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", objectPointer, &selectedObjectsBuffer);
+	/*void EmplaceDragDropObject(const std::set<SceneObject*>& objectPointers) {
+		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", &objectPointers, &selectedObjectsBuffer);
+	}*/
+	void EmplaceDragDropSelected() {
+		SceneObjectBuffer::EmplaceDragDropSelected("SceneObjects");
 	}
 
 	bool DesignRootNode(GroupObject* t) {
@@ -346,19 +419,23 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		bool isSelected;
 		bool open = TreeNode(t, isSelected, target_flags);
 
-		TrySelect(t, isSelected, true);
+		if (!TryDragDropTarget(t, Center, true) && !TrySelect(t, isSelected) && TryDragDropSource(t) && !isSelected)
+			Select(t, isSelected, true);
 
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (auto buffer = GetDragDropBuffer(target_flags))
-			{
-				ScheduleMove(t, 0, buffer, GetPosition(Center));
-			}
-			ImGui::EndDragDropTarget();
-		}
+
+		//TrySelect(t, isSelected, true);
+
+		//if (ImGui::BeginDragDropTarget())
+		//{
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	if (auto buffer = GetDragDropBuffer(target_flags))
+		//	{
+		//		ScheduleMove(t, 0, buffer, GetPosition(Center));
+		//	}
+		//	ImGui::EndDragDropTarget();
+		//}
 
 		for (size_t i = 0; i < t->children.size(); i++)
 			if (!DesignTreeNode(t->children[i], t->children, i))
@@ -401,31 +478,15 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
 		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
 		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-		if (ImGui::BeginDragDropSource(src_flags)) {
-			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
-				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 
-			EmplaceDragDropObject(t);
+		//if (!TryDragDropTarget(t, pos) && !TrySelect(t, isSelected) && TryDragDropSource(t, src_flags) && !isSelected)
+		//	Select(t, isSelected, true);
 
-			ImGui::EndDragDropSource();
-		}
-		else TrySelect(t, isSelected);
+		!TryDragDropTarget(t, pos) && !TryDragDropSource(t, src_flags) && TrySelect(t, isSelected);
 
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (auto buffer = GetDragDropBuffer(target_flags))
-			{
-				InsertPosition relativePosition = GetPosition(Any);
-				if (relativePosition == Center)
-					ScheduleMove(t, 0, buffer, relativePosition);
-				else
-					ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, relativePosition);
-			}
-			ImGui::EndDragDropTarget();
-		}
+		//if (!TryDragDropTarget(t, pos) && !TrySelect(t, isSelected) && TryDragDropSource(t, src_flags) && !isSelected)
+		//	Select(t, isSelected, true);
+
 
 		if (open)
 		{
@@ -459,28 +520,33 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
 		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
 		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-		if (ImGui::BeginDragDropSource(src_flags))
-		{
-			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
-				ImGui::Text("Moving \"%s\"", t->Name.c_str());
-			
-			EmplaceDragDropObject(t);
-			
-			ImGui::EndDragDropSource();
-		}
-		else TrySelect(t, isSelected, true);
 
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (auto buffer = GetDragDropBuffer(target_flags))
-			{
-				ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, GetPosition(Top | Bottom));
-			}
-			ImGui::EndDragDropTarget();
-		}
+		if (!TryDragDropTarget(t, pos) && !TrySelect(t, isSelected) && TryDragDropSource(t, src_flags) && !isSelected)
+			Select(t, isSelected, true);
+
+
+		//if (ImGui::BeginDragDropSource(src_flags))
+		//{
+		//	if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
+		//		ImGui::Text("Moving \"%s\"", t->Name.c_str());
+		//	
+		//	EmplaceDragDropObject(t);
+		//	
+		//	ImGui::EndDragDropSource();
+		//}
+		//else TrySelect(t, isSelected, true);
+
+		//if (ImGui::BeginDragDropTarget())
+		//{
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	if (auto buffer = GetDragDropBuffer(target_flags))
+		//	{
+		//		ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, GetPosition(Top | Bottom));
+		//	}
+		//	ImGui::EndDragDropTarget();
+		//}
 
 
 		ImGui::Unindent(indent);
@@ -546,6 +612,9 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		moveCommand->items = items;
 		moveCommand->pos = pos;
 		moveCommand->caller = (IHolder*)this;
+		moveCommand->callback = [&] { 
+			hasMovementOccured = true;
+		};
 	}
 
 public:
@@ -553,6 +622,7 @@ public:
 
 	GroupObject** rootObject;
 	Input* input;
+	//KeyBinding* keyBinding;
 	float indent = 1;
 	float centerSizeHalf = 3;
 
@@ -571,6 +641,7 @@ public:
 		GetID() = 0;
 
 		DesignRootNode(*rootObject);
+		hasMovementOccured = false;
 
 		ImGui::End();
 		return true;

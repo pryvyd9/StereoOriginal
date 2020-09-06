@@ -76,6 +76,8 @@ protected:
 		items->clear();
 		caller->isCommandEmpty = true;
 
+		callback();
+
 		return res;
 	};
 public:
@@ -97,4 +99,5 @@ public:
 	std::set<SceneObject*>* items;
 	InsertPosition pos;
 	IHolder* caller;
+	std::function<void()> callback = [] {};
 };

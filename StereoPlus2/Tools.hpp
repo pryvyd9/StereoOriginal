@@ -836,7 +836,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		isPositionModified = true;
 		areVerticesModified = true;
 		int v = 0;
-		CallRecursive(target, [&](SceneObject* o) {
+		target->CallRecursive([&](SceneObject* o) {
 			if (o != target)
 				o->SetLocalPosition(originalLocalPositionsFolded[v] * scale);
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
@@ -912,11 +912,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		return false;
 	}
 
-	void CallRecursive(SceneObject* o, std::function<void(SceneObject*)> f) {
-		f(o);
-		for (auto c : o->children)
-			CallRecursive(c, f);
-	}
 public:
 
 	const std::multimap<ObjectType, Mode> supportedConfigs{
@@ -971,7 +966,7 @@ public:
 		originalLocalPositionsFolded.clear();
 		originalWorldPositionsFolded.clear();
 
-		CallRecursive(target, [&](SceneObject* o) {
+		target->CallRecursive([&](SceneObject* o) {
 			originalVerticesFolded.push_back(o->GetVertices());
 			originalLocalPositionsFolded.push_back(o->GetLocalPosition());
 			originalWorldPositionsFolded.push_back(o->GetWorldPosition());
@@ -1032,7 +1027,7 @@ public:
 		if (isRotationModified)
 			target->SetLocalRotation(originalLocalRotation);
 
-		CallRecursive(target, [=, &sceneObjectI, &meshI](SceneObject* o) {
+		target->CallRecursive([=, &sceneObjectI, &meshI](SceneObject* o) {
 			if (isPositionModified)
 				o->SetLocalPosition(originalLocalPositionsFolded[sceneObjectI]);
 			if (areVerticesModified)
