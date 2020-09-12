@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GLLoader.hpp"
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "InfrastructureTypes.hpp"
 #include <list>
 #include <set>

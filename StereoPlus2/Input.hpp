@@ -63,9 +63,35 @@ namespace Key {
 	const KeyPair Enter			= KeyboardKey(GLFW_KEY_ENTER		);
 	const KeyPair Escape		= KeyboardKey(GLFW_KEY_ESCAPE		);
 
+	const KeyPair Delete		= KeyboardKey(GLFW_KEY_DELETE		);
+
 	// Char
 	const KeyPair A = KeyboardKey(GLFW_KEY_A);
-
+	const KeyPair B = KeyboardKey(GLFW_KEY_B);
+	const KeyPair C = KeyboardKey(GLFW_KEY_C);
+	const KeyPair D = KeyboardKey(GLFW_KEY_D);
+	const KeyPair E = KeyboardKey(GLFW_KEY_E);
+	const KeyPair F = KeyboardKey(GLFW_KEY_F);
+	const KeyPair G = KeyboardKey(GLFW_KEY_G);
+	const KeyPair H = KeyboardKey(GLFW_KEY_H);
+	const KeyPair I = KeyboardKey(GLFW_KEY_I);
+	const KeyPair J = KeyboardKey(GLFW_KEY_J);
+	const KeyPair K = KeyboardKey(GLFW_KEY_K);
+	const KeyPair L = KeyboardKey(GLFW_KEY_L);
+	const KeyPair M = KeyboardKey(GLFW_KEY_M);
+	const KeyPair N = KeyboardKey(GLFW_KEY_N);
+	const KeyPair O = KeyboardKey(GLFW_KEY_O);
+	const KeyPair P = KeyboardKey(GLFW_KEY_P);
+	const KeyPair Q = KeyboardKey(GLFW_KEY_Q);
+	const KeyPair R = KeyboardKey(GLFW_KEY_R);
+	const KeyPair S = KeyboardKey(GLFW_KEY_S);
+	const KeyPair T = KeyboardKey(GLFW_KEY_T);
+	const KeyPair U = KeyboardKey(GLFW_KEY_U);
+	const KeyPair V = KeyboardKey(GLFW_KEY_V);
+	const KeyPair W = KeyboardKey(GLFW_KEY_W);
+	const KeyPair X = KeyboardKey(GLFW_KEY_X);
+	const KeyPair Y = KeyboardKey(GLFW_KEY_Y);
+	const KeyPair Z = KeyboardKey(GLFW_KEY_Z);
 }
 
 

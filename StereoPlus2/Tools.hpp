@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GLLoader.hpp"
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "Commands.hpp"
 #include "Input.hpp"
 #include <map>
@@ -755,6 +755,11 @@ public:
 
 
 class TransformTool : public EditingTool<TransformToolMode> {
+	/*struct SelectedItemsState {
+		std::vector<SceneObject*> items;
+	};*/
+
+
 	const Log Logger = Log::For<TransformTool>();
 
 	size_t inputHandlerId;

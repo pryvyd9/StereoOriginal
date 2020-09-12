@@ -5,8 +5,6 @@
 #include <set>
 #include <array>
 
-#pragma region Scene Objects
-
 enum ObjectType {
 	Group,
 	StereoPolyLineT,
@@ -20,11 +18,6 @@ enum InsertPosition {
 	Bottom = 0x10,
 	Center = 0x100,
 	Any = Top | Bottom | Center,
-};
-
-enum SelectPosition {
-	Anchor = 0x01,
-	Rest = 0x10,
 };
 
 struct Pair {
@@ -93,6 +86,14 @@ public:
 		glGenBuffers(2, &VBOLeft);
 		glGenVertexArrays(1, &VAO);
 	}
+	SceneObject(SceneObject* copy) : SceneObject() {
+		position = copy->position;
+		rotation = copy->rotation;
+		parent = copy->parent;
+		children = copy->children;
+		Name = copy->Name;
+	}
+
 	~SceneObject() {
 		glDeleteBuffers(2, &VBOLeft);
 		glDeleteVertexArrays(1, &VAO);
@@ -327,6 +328,16 @@ public:
 			c->CallRecursive(t, f);
 	}
 
+	virtual SceneObject* Clone() { return nullptr; }
+	SceneObject& operator=(const SceneObject& o) {
+		position = o.position;
+		rotation = o.rotation;
+		parent = o.parent;
+		children = o.children;
+		Name = o.Name;
+
+		return *this;
+	}
 };
 
 class GroupObject : public SceneObject {
@@ -334,13 +345,32 @@ public:
 	virtual ObjectType GetType() const {
 		return Group;
 	}
+
+	GroupObject() {}
+	GroupObject(GroupObject* copy) : SceneObject(copy) {}
+	GroupObject& operator=(const GroupObject& o) {
+		SceneObject::operator=(o);
+		return *this;
+	}
+	virtual SceneObject* Clone() { 
+		return new GroupObject(this);
+	}
+
 };
 
 class LeafObject : public SceneObject {
+public:
+	LeafObject() {}
+	LeafObject(LeafObject* copy) : SceneObject(copy){}
+	LeafObject& operator=(const LeafObject& o) {
+		SceneObject::operator=(o);
+		return *this;
+	}
+
 };
 
 class StereoPolyLine : public LeafObject {
-	std::vector<Pair> linesCache;
+	//std::vector<Pair> linesCache;
 	std::vector<glm::vec3> vertices;
 
 	std::vector<glm::vec3> verticesCache;
@@ -376,16 +406,8 @@ class StereoPolyLine : public LeafObject {
 public:
 
 	StereoPolyLine() {}
-	//~StereoPolyLine() {
-	//	glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), nullptr, GL_STREAM_DRAW);
-	//	glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), nullptr, GL_STREAM_DRAW);
-	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//}
-
-	StereoPolyLine(StereoPolyLine& copy) {
-		SetVertices(copy.GetVertices());
+	StereoPolyLine(StereoPolyLine* copy) : LeafObject(copy){
+		vertices = copy->vertices;
 	}
 
 	virtual ObjectType GetType() const {
@@ -421,15 +443,15 @@ public:
 	}
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
 		vertices.clear();
-		linesCache.clear();
+		//linesCache.clear();
 		for (auto v : vs)
 			AddVertice(v);
 		shouldUpdateCache = true;
 	}
 
 	virtual void RemoveVertice() {
-		if (linesCache.size() > 0)
-			linesCache.pop_back();
+		//if (linesCache.size() > 0)
+		//	linesCache.pop_back();
 		if (vertices.size() > 0)
 			vertices.pop_back();
 		shouldUpdateCache = true;
@@ -440,7 +462,7 @@ public:
 			ImGui::Indent(propertyIndent);
 
 			std::stringstream ss;
-			ss << linesCache.size();
+			ss << (vertices.size() > 0 ? vertices.size() - 1 : 0);
 
 			ImGui::LabelText("line count", ss.str().c_str());
 
@@ -477,6 +499,15 @@ public:
 		// Apply shader
 		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, GetVertices().size());
+	}
+
+	SceneObject* Clone() override {
+		return new StereoPolyLine(this);
+	}
+	StereoPolyLine& operator=(const StereoPolyLine& o) {
+		vertices = o.vertices;
+		LeafObject::operator=(o);
+		return *this;
 	}
 
 };
@@ -529,19 +560,14 @@ public:
 	Mesh() {
 		glGenBuffers(1, &IBO);
 	}
+	Mesh(Mesh* copy) : LeafObject(copy) {
+		glGenBuffers(1, &IBO);
+
+		vertices = copy->vertices;
+		connections = copy->connections;
+	}
 
 	~Mesh() {
-		//glDeleteBuffers(1, &VBOLeft);
-
-		//glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-		//glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), nullptr, GL_STREAM_DRAW);
-		//glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-		//glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertexCache.size(), nullptr, GL_STREAM_DRAW);
-		//glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-		//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(std::array<GLuint, 2>) * GetLinearConnections().size(), GetLinearConnections().data(), GL_DYNAMIC_DRAW);
-		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glDeleteBuffers(1, &IBO);
 	}
 
@@ -658,6 +684,16 @@ public:
 		// Apply shader
 		glUseProgram(shader);
 		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
+	}
+
+	SceneObject* Clone() override {
+		return new Mesh(this);
+	}
+	Mesh& operator=(const Mesh& o) {
+		vertices = o.vertices;
+		connections = o.connections;
+		LeafObject::operator=(o);
+		return *this;
 	}
 
 };
@@ -793,8 +829,6 @@ public:
 	}
 };
 
-
-
 class StereoCamera : public LeafObject
 {
 	glm::vec3 GetPos() {
@@ -886,250 +920,5 @@ public:
 			ImGui::TreePop();
 		}
 		SceneObject::DesignProperties();
-	}
-};
-
-#pragma endregion
-
-
-
-
-class SceneObjectSelection {
-public:
-	using Selection = std::set<SceneObject*>;
-private:
-	static Selection& selected() {
-		static Selection v;
-		return v;
-	}
-public:
-	static const Selection& Selected() {
-		return selected();
-	}
-	static const Selection** SelectedP() {
-		static const Selection* v = &selected();
-		return &v;
-	}
-
-
-	static void Set(SceneObject* o) {
-		RemoveAll();
-		Add(o);
-	}
-
-	static void Add(SceneObject* o) {
-		selected().emplace(o);
-	}
-
-	static void RemoveAll() {
-		selected().clear();
-	}
-
-	static void Remove(SceneObject* o) {
-		selected().erase(o);
-	}
-};
-
-class SceneObjectBuffer {
-public:
-	using Buffer = std::set<SceneObject*>*;
-private:
-	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
-		return ImGui::AcceptDragDropPayload(name, flags);
-	}
-	static Buffer GetBuffer(void* data) {
-		return *(Buffer*)data;
-	}
-public:
-	static Buffer GetDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags))
-			return GetBuffer(payload->Data);
-
-		return nullptr;
-	}
-	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<SceneObject*>* outSceneObjects) {
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
-			auto objectPointers = GetBuffer(payload->Data);
-
-			for (auto objectPointer : *objectPointers)
-				outSceneObjects->push_back(objectPointer);
-
-			objectPointers->clear();
-
-			return true;
-		}
-
-		return false;
-	}
-
-	//static void EmplaceDragDropSceneObject(const char* name, SceneObject* objectPointer, Buffer* buffer) {
-	//	(*buffer)->emplace(objectPointer);
-
-	//	ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
-	//}
-	//static void EmplaceDragDropSceneObject(const char* name, const std::set<SceneObject*>* objectPointers, Buffer* buffer) {
-	//	(*buffer)->merge(*const_cast<std::set<SceneObject*>*>(objectPointers));
-	//	//(*buffer)->set_uni(*const_cast<std::set<SceneObject*>*>(objectPointers));
-	//	//(*buffer)->emplace(objectPointer);
-	//	auto j = objectPointers->size();
-	//	ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
-	//}
-
-	static void EmplaceDragDropSelected(const char* name) {
-		ImGui::SetDragDropPayload("SceneObjects", SceneObjectSelection::SelectedP(), sizeof(SceneObjectSelection::Selection*));
-	}
-};
-
-class Scene {
-public:
-	
-	template<InsertPosition p>
-	static bool is(InsertPosition pos) {
-		return p == pos;
-	}
-	template<InsertPosition p>
-	static bool has(InsertPosition pos) {
-		return (p & pos) != 0;
-	}
-private:
-	GroupObject defaultObject;
-	Event<> deleteAll;
-
-	static const SceneObject* FindRoot(const SceneObject* o) {
-		auto parent = o->GetParent();
-		if (parent == nullptr)
-			return o;
-
-		return FindRoot(parent);
-	}
-
-	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
-		if (oldParent == nullptr) {
-			Log::For<Scene>().Error("Object doesn't have a parent");
-			return nullptr;
-		}
-
-		if (exists(*items, oldParent))
-			return FindNewParent(const_cast<SceneObject*>(oldParent->GetParent()), items);
-
-		return oldParent;
-	}
-
-	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::set<SceneObject*>* items, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
-		if (oldParent == nullptr)
-			return nullptr;
-
-		if (exists(disconnectedItemsToBeMoved, oldParent))
-			return oldParent;
-
-		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), items, disconnectedItemsToBeMoved);
-	}
-public:
-	// Stores all objects.
-	std::vector<SceneObject*> objects;
-
-	SceneObject* root = &defaultObject;
-	StereoCamera* camera;
-	Cross* cross;
-
-	GLFWwindow* glWindow;
-
-	IEvent<>& OnDeleteAll() {
-		return deleteAll;
-	}
-
-	Scene() {
-		defaultObject.Name = "Root";
-	}
-
-	bool Insert(SceneObject* destination, SceneObject* obj) {
-		obj->SetParent(destination);
-		objects.push_back(obj);
-		return true;
-	}
-
-	bool Insert(SceneObject* obj) {
-		obj->SetParent(root);
-		objects.push_back(obj);
-		return true;
-	}
-
-	bool Delete(SceneObject* source, SceneObject* obj) {
-		for (size_t i = 0; i < source->children.size(); i++)
-			if (source->children[i] == obj)
-			{
-				for (size_t j = 0; i < objects.size(); j++)
-					if (objects[j] == obj) {
-						source->children.erase(source->children.begin() + i);
-						objects.erase(objects.begin() + j);
-						delete obj;
-						return true;
-					}
-			}
-
-		std::cout << "The object for deletion was not found" << std::endl;
-		return false;
-	}
-
-	// Tree structure is preserved even if there is an unselected link.
-	//-----------------------------------------------------------------
-	// * - selected
-	//
-	//   *a      b  *a
-	//    b   ->    *c
-	//   *c
-	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-		auto root = const_cast<SceneObject*>(FindRoot(destination));
-
-		// Will be moved to destination
-		std::list<SceneObject*> disconnectedItemsToBeMoved;
-
-		// Will be ignored during move but will be moved with their parents
-		std::set<SceneObject*> connectedItemsToBeMoved;
-
-		// Items which will not be moved with their parents.
-		// New parents will be assigned.
-		// Item, NewParent
-		std::map<SceneObject*, SceneObject*> strayItems;
-
-		root->CallRecursive(root, std::function<SceneObject*(SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
-			if (exists(*items, o)) {
-				if (exists(connectedItemsToBeMoved, parent) || exists(disconnectedItemsToBeMoved, parent))
-					connectedItemsToBeMoved.emplace(o);
-				else if (auto newParent = FindConnectedParent(parent, items, disconnectedItemsToBeMoved))
-					strayItems[o] = newParent;
-				else
-					disconnectedItemsToBeMoved.push_front(o);
-			}
-			else if (exists(*items, parent))
-				strayItems[o] = FindNewParent(parent, items);
-
-			return o;
-			}));
-
-		for (auto o : disconnectedItemsToBeMoved)
-			o->SetParent(destination, destinationPos, pos);
-
-		for (auto pair : strayItems)
-			pair.first->SetParent(pair.second, true);
-
-		return true;
-	}
-
-	void DeleteAll() {
-		deleteAll.Invoke();
-		cross->SetParent(nullptr);
-
-		for (auto o : objects)
-			delete o;
-
-		objects.clear();
-		root = &defaultObject;
-		root->children.clear();
-	}
-
-	~Scene() {
-		for (auto o : objects)
-			delete o;
 	}
 };

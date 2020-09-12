@@ -1,5 +1,5 @@
 #include "GLLoader.hpp"
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "ToolPool.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
@@ -27,6 +27,14 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 int main(int, char**) {
+	/*std::list<int> h(1);
+	h.be
+	auto it = h.begin();
+	h.insert(it, 23);
+	it++;
+	auto it1 = h.begin();
+	it1++;*/
+
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -117,6 +125,23 @@ int main(int, char**) {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
+	gui.keyBinding.AddHandler([i = &gui.input, s = &scene] {
+		if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+			if (i->IsDown(Key::Z))
+				StateBuffer::Rollback(s->objects);
+			else if (i->IsDown(Key::Y))
+				StateBuffer::Repeat(s->objects);
+			}
+		});
+
+	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
+		if (i->IsDown(Key::Delete)) {
+			StateBuffer::Commit(s->objects);
+			s->DeleteSelected();
+			}
+		});
+
+
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |
 		!gui.OnExit()) {
@@ -126,5 +151,7 @@ int main(int, char**) {
 
 	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
+
+	//StateBuffer::Clear();
     return true;
 }

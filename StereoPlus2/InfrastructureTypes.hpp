@@ -61,6 +61,10 @@ template<typename T>
 bool exists(const std::list<T>& source, const T& item) {
 	return std::find(source.begin(), source.end(), item) != source.end();
 }
+template<typename K, typename V>
+bool keyExists(const std::set<K,V>& source, const K& item) {
+	return source.find(item) != source.end();
+}
 
 
 

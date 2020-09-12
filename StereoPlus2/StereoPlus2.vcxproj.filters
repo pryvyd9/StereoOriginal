@@ -131,6 +131,9 @@
     <ClInclude Include="ToolConfiguration.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DomainUtils.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">

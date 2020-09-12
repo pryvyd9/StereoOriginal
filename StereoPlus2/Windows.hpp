@@ -2,7 +2,7 @@
 #include "GLLoader.hpp"
 #include "Window.hpp"
 #include <functional>
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "Commands.hpp"
 #include "Tools.hpp"
 #include "ToolPool.hpp"
