@@ -32,10 +32,13 @@ protected:
 		if (!CheckScene())
 			return false;
 
+		StateBuffer::Commit();
+
 		if (destination == nullptr)
 			scene->Insert(func());
 		else
 			scene->Insert(destination, func());
+
 
 		return true;
 	};

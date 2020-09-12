@@ -165,10 +165,16 @@ public:
 		dest->insert(dest->begin() + newParentPos, 1, this);
 		source->erase(source->begin() + sourcePositionInt);
 	}
-	void SetParent(SceneObject* newParent, bool shouldConvertValues = false) {
-		ForceUpdateCache();
+	void SetParent(
+		SceneObject* newParent,
+		bool shouldConvertValues = false, 
+		bool shouldIgnoreOldParent = false,
+		bool shouldForceUpdateCache = true,
+		bool shouldUpdateNewParent = true) {
+		if (shouldForceUpdateCache)
+			ForceUpdateCache();
 		
-		if (parent && parent->children.size() > 0) {
+		if (!shouldIgnoreOldParent && parent && parent->children.size() > 0) {
 			auto pos = std::find(parent->children.begin(), parent->children.end(), this);
 			if (pos != parent->children.end())
 				parent->children.erase(pos);
@@ -188,7 +194,7 @@ public:
 		}
 
 
-		if (newParent)
+		if (shouldUpdateNewParent && newParent)
 			newParent->children.push_back(this);
 	}
 

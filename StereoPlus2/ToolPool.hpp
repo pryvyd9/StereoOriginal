@@ -16,7 +16,8 @@ class ToolPool {
 			tool->BindInput(*GetKeyBinding()) &&
 			tool->BindCross(*GetCross()) &&
 			tool->BindScene(*GetScene()) &&
-			tool->BindDestination(&(*GetScene())->root);
+			//tool->BindDestination(&(*GetScene())->root);
+			tool->BindDestination(&(*GetScene())->root.Get());
 	}
 
 	static bool Init(TransformTool* tool) {

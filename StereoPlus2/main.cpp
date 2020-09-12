@@ -27,13 +27,14 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 int main(int, char**) {
-	/*std::list<int> h(1);
-	h.be
-	auto it = h.begin();
-	h.insert(it, 23);
-	it++;
-	auto it1 = h.begin();
-	it1++;*/
+	Property<int> a, b;
+
+	a.BindTwoWay(b, 1);
+
+	Command::ExecuteAll();
+
+	a.Set(2);
+	a.Set(3);
 
 	// Declare main components.
 	PositionDetector positionDetector;
@@ -106,6 +107,12 @@ int main(int, char**) {
 	if (!ToolPool::Init())
 		return false;
 
+	StateBuffer::BufferSize().Set(30);
+	StateBuffer::RootObject().BindTwoWay(scene.root, scene.root.Get());
+	StateBuffer::Objects().Set(&scene.objects);
+	if (!StateBuffer::Init())
+		return false;
+
 	// Position detector doesn't initialize itself
 	// so we need to help it.
 	positionDetector.onStartProcess = [&positionDetector] {
@@ -125,18 +132,18 @@ int main(int, char**) {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
-	gui.keyBinding.AddHandler([i = &gui.input, s = &scene] {
+	gui.keyBinding.AddHandler([i = &gui.input] {
 		if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
 			if (i->IsDown(Key::Z))
-				StateBuffer::Rollback(s->objects);
+				StateBuffer::Rollback();
 			else if (i->IsDown(Key::Y))
-				StateBuffer::Repeat(s->objects);
-			}
+				StateBuffer::Repeat();
+		}
 		});
 
 	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
 		if (i->IsDown(Key::Delete)) {
-			StateBuffer::Commit(s->objects);
+			StateBuffer::Commit();
 			s->DeleteSelected();
 			}
 		});
@@ -151,7 +158,6 @@ int main(int, char**) {
 
 	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
-
-	//StateBuffer::Clear();
+	StateBuffer::Clear();
     return true;
 }

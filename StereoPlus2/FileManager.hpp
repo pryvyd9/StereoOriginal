@@ -728,14 +728,14 @@ class FileManager {
 	static void SaveJson(std::string filename, Scene* inScene) {
 		if (inScene == nullptr)
 			Fail("InScene was null");
-		if (inScene->root == nullptr)
+		if (inScene->root.Get() == nullptr)
 			Fail("InScene Root was null");
 
 		std::ofstream out(filename);
 
 		ojstream bs;
 
-		bs.put(*inScene->root);
+		bs.put(*inScene->root.Get());
 
 		out << bs.getBuffer();
 
@@ -757,6 +757,8 @@ class FileManager {
 		inScene->root = o;
 		o->SetParent(nullptr);
 
+		inScene->objects.erase(inScene->objects.begin());
+
 		delete buffer;
 		file.close();
 	}
@@ -765,7 +767,7 @@ class FileManager {
 		std::ofstream file(filename, std::ios::binary | std::ios::out);
 
 		auto bs = obstream();
-		bs.put(*(SceneObject*)inScene->root);
+		bs.put(*(SceneObject*)inScene->root.Get());
 
 		file.write(bs.getBuffer(), bs.getSize());
 
@@ -786,6 +788,8 @@ class FileManager {
 		auto o = str.get<SceneObject*>();
 		inScene->root = o;
 		o->SetParent(nullptr);
+
+		inScene->objects.erase(inScene->objects.begin());
 
 		delete buffer;
 		file.close();

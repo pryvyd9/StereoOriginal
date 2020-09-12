@@ -55,7 +55,7 @@ bool exists(const std::set<const T>& source, const T& item) {
 }
 template<typename T>
 bool exists(const std::vector<T>& source, const T& item) {
-	return source.find(item) != source.end();
+	return std::find(source.begin(), source.end(), item) != source.end();
 }
 template<typename T>
 bool exists(const std::list<T>& source, const T& item) {
@@ -217,14 +217,35 @@ public:
 		for (auto h : IEvent<T...>::handlers)
 			h.second(vs...);
 	}
+	void InvokeExcept(T... vs, size_t id) {
+		for (auto h : IEvent<T...>::handlers)
+			if (h.first != id)
+				h.second(vs...);
+	}
 };
 
 template<typename T>
 class Property {
 	T value;
 	Event<T> changed;
+	std::map<size_t, std::pair<size_t, size_t>> twoWayBindings;
+
+	static size_t getFreeId() {
+		static size_t v = 0;
+		return v++;
+	}
+
+	void Set(const T& v, size_t eventToIgnore) {
+		auto old = value;
+		value = v;
+		if (old != v)
+			changed.InvokeExcept(v, eventToIgnore);
+	}
 public:
 	const T& Get() const {
+		return value;
+	}
+	T& Get() {
 		return value;
 	}
 	void Set(const T& v) {
@@ -233,8 +254,39 @@ public:
 		if (old != v)
 			changed.Invoke(v);
 	}
-	IEvent<T>& OnChanged() {
-		return changed;
+	IEvent<T>& OnChanged() const {
+		return *(IEvent<T>*)&changed;
+	}
+	void Bind(const Property<T>& p) {
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+	}
+	void Bind(const Property<T>& p, const T& startValue) {
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+		Set(startValue);
+	}
+	void BindTwoWay(Property<T>& p) {
+		size_t e1, e2, bindingId = getFreeId();
+
+		e1 = p.OnChanged().AddHandler([t = this, b = bindingId, tb = &twoWayBindings](const T& o) {
+			t->Set(o, (*tb)[b].second);
+			});
+		e2 = OnChanged().AddHandler([p = &p, b = bindingId, tb = &twoWayBindings](const T& o) {
+			p->Set(o, (*tb)[b].first);
+			});
+
+		twoWayBindings[bindingId] = { e1, e2 };
+		p.twoWayBindings[bindingId] = { e1, e2 };
+	}
+	void BindTwoWay(Property<T>& p, const T& startValue) {
+		Set(startValue);
+		p.Set(startValue);
+
+		BindTwoWay(p);
+	}
+
+	Property<T>& operator=(const T& v) {
+		Set(v);
+		return *this;
 	}
 };
 

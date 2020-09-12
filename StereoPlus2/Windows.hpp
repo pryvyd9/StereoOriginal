@@ -1111,7 +1111,7 @@ class ToolWindow : Window {
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
 		creatingTool.BindScene(scene);
-		creatingTool.BindDestination(&scene->root);
+		creatingTool.BindDestination(&scene->root.Get());
 		creatingTool.func = initFunc;
 	}
 
@@ -1349,6 +1349,9 @@ public:
 					auto action = mode == FileWindow::Load 
 						? FileManager::Load 
 						: FileManager::Save;
+
+					if (mode == FileWindow::Load)
+						StateBuffer::Commit();
 
 					action(fileName, scene);
 
