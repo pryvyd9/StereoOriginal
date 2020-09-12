@@ -226,62 +226,46 @@ public:
 
 template<typename T>
 class Property {
-	T value;
-	Event<T> changed;
-	std::map<size_t, std::pair<size_t, size_t>> twoWayBindings;
-
-	static size_t getFreeId() {
-		static size_t v = 0;
-		return v++;
-	}
-
-	void Set(const T& v, size_t eventToIgnore) {
-		auto old = value;
-		value = v;
-		if (old != v)
-			changed.InvokeExcept(v, eventToIgnore);
-	}
+	template<typename T>
+	class Node {
+		T value;
+		Event<T> changed;
+	public:
+		const T& Get() const {
+			return value;
+		}
+		T& Get() {
+			return value;
+		}
+		void Set(const T& v) {
+			auto old = value;
+			value = v;
+			if (old != v)
+				changed.Invoke(v);
+		}
+		IEvent<T>& OnChanged() const {
+			return *(IEvent<T>*) & changed;
+		}
+	};
+	std::shared_ptr<Node<T>> node = std::shared_ptr<Node<T>>(new Node<T>());
 public:
 	const T& Get() const {
-		return value;
+		return node->Get();
 	}
 	T& Get() {
-		return value;
+		return node->Get();
 	}
 	void Set(const T& v) {
-		auto old = value;
-		value = v;
-		if (old != v)
-			changed.Invoke(v);
+		node->Set(v);
 	}
 	IEvent<T>& OnChanged() const {
-		return *(IEvent<T>*)&changed;
+		return node->OnChanged();
 	}
 	void Bind(const Property<T>& p) {
 		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
 	}
-	void Bind(const Property<T>& p, const T& startValue) {
-		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
-		Set(startValue);
-	}
-	void BindTwoWay(Property<T>& p) {
-		size_t e1, e2, bindingId = getFreeId();
-
-		e1 = p.OnChanged().AddHandler([t = this, b = bindingId, tb = &twoWayBindings](const T& o) {
-			t->Set(o, (*tb)[b].second);
-			});
-		e2 = OnChanged().AddHandler([p = &p, b = bindingId, tb = &twoWayBindings](const T& o) {
-			p->Set(o, (*tb)[b].first);
-			});
-
-		twoWayBindings[bindingId] = { e1, e2 };
-		p.twoWayBindings[bindingId] = { e1, e2 };
-	}
-	void BindTwoWay(Property<T>& p, const T& startValue) {
-		Set(startValue);
-		p.Set(startValue);
-
-		BindTwoWay(p);
+	void BindTwoWay(const Property<T>& p) {
+		node = p.node;
 	}
 
 	Property<T>& operator=(const T& v) {

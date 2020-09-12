@@ -29,12 +29,11 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 int main(int, char**) {
 	Property<int> a, b;
 
-	a.BindTwoWay(b, 1);
+	a.BindTwoWay(b);
+	a = 1;
 
-	Command::ExecuteAll();
-
-	a.Set(2);
-	a.Set(3);
+	a = 2;
+	a = 3;
 
 	// Declare main components.
 	PositionDetector positionDetector;
@@ -61,7 +60,7 @@ int main(int, char**) {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject = (GroupObject**)&scene.root;
+	inspectorWindow.rootObject = (GroupObject**)&scene.root.Get();
 
 	scene.camera = &camera;
 	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
@@ -107,9 +106,10 @@ int main(int, char**) {
 	if (!ToolPool::Init())
 		return false;
 
-	StateBuffer::BufferSize().Set(30);
-	StateBuffer::RootObject().BindTwoWay(scene.root, scene.root.Get());
-	StateBuffer::Objects().Set(&scene.objects);
+	StateBuffer::BufferSize() = 30;
+	StateBuffer::RootObject().BindTwoWay(scene.root);
+	StateBuffer::RootObject() = scene.root.Get();
+	StateBuffer::Objects() = &scene.objects;
 	if (!StateBuffer::Init())
 		return false;
 
