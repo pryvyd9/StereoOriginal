@@ -1350,8 +1350,10 @@ public:
 						? FileManager::Load 
 						: FileManager::Save;
 
-					if (mode == FileWindow::Load)
+					if (mode == FileWindow::Load) {
 						StateBuffer::Commit();
+						scene->DeleteAll();
+					}
 
 					action(fileName, scene);
 

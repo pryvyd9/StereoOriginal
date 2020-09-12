@@ -7,183 +7,6 @@ enum SelectPosition {
 	Rest = 0x10,
 };
 
-//class StateBuffer {
-//public:
-//	StaticProperty(int, BufferSize)
-//	StaticProperty(SceneObject*, RootObject)
-//	StaticProperty(std::vector<SceneObject*>*, Objects)
-//private:
-//	struct State {
-//		// Reference, Shallow copy
-//		std::map<SceneObject*, SceneObject*> copies;
-//
-//		// Objects in their original order
-//		std::vector<SceneObject*> objects;
-//
-//		// Objects that have root object as their parent.
-//		//std::vector<SceneObject*> rootChildren;
-//
-//		SceneObject* rootCopy;
-//	};
-//
-//	static std::list<State>& states() {
-//		// Empty default state.
-//		static std::list<State> v(1);
-//		return v;
-//	}
-//
-//	static int& position() {
-//		// Point to states().size().
-//		static int v = 1;
-//		return v;
-//	}
-//
-//	static void PushPast(std::vector<SceneObject*>& objects) {
-//		states().push_back(State());
-//		
-//		if (BufferSize().Get() < states().size())
-//			Erase(0, states().size() - BufferSize().Get());
-//
-//		position() = states().size();
-//
-//		auto current = &states().back();
-//
-//		current->objects = objects;
-//		//current->rootChildren = RootObject().Get()->children;
-//		current->rootCopy = RootObject().Get()->Clone();
-//
-//		for (auto o : objects)
-//			current->copies[o] = o->Clone();
-//	}
-//
-//	// Erase saved copies.
-//	static void Erase(int from, int to) {
-//		auto f = iterAt(from);
-//		auto t = iterAt(to);
-//		for (auto it = f; it != t; it++)
-//			for (auto o : it->copies)
-//				delete o.second;
-//		
-//		states().erase(f, t);
-//	}
-//	static void ClearPast() {
-//		if (position() < 1)
-//			return;
-//
-//		Erase(0, position());
-//
-//		position() = 0;
-//	}
-//	static void ClearFuture() {
-//		if (position() >= states().size() - 1)
-//			return;
-//
-//		Erase(position() + 1, states().size());
-//	}
-//
-//	static std::list<State>::iterator iterAt(int pos) {
-//		auto it = states().begin();
-//		for (size_t i = 0; i < pos; i++, it++);
-//		return it;
-//	}
-//	static State& at(int pos) {
-//		return iterAt(pos)._Ptr->_Myval;
-//	}
-//	static bool isModern() {
-//		return position() == states().size();
-//	}
-//
-//	static void Apply(std::vector<SceneObject*>& objects, int pos) {
-//		// Saved state at position pos.
-//		auto saved = at(pos);
-//
-//		RootObject().Get()->children.clear();
-//
-//		// Delete current objects.
-//		for (auto o : objects)
-//			delete o;
-//
-//
-//		std::map<SceneObject*, SceneObject*> newCopies;
-//		for (auto o : saved.copies)
-//			newCopies[o.first] = o.second->Clone();
-//
-//		objects = std::vector<SceneObject*>(saved.objects.size());
-//		for (auto i = 0; i < saved.objects.size(); i++)
-//			objects[i] = newCopies[saved.objects[i]];
-//
-//		auto newRoot = saved.rootCopy->Clone();
-//
-//		newRoot->CallRecursive([&](SceneObject* o) {
-//			if (o->GetParent() != nullptr)
-//				o->SetParent(newCopies[const_cast<SceneObject*>(o->GetParent())]);
-//
-//			for (size_t i = 0; i < o->children.size(); i++)
-//				o->children[i] = newCopies[o->children[i]];
-//			});
-//
-//		RootObject().Set(newRoot);
-//	}
-//
-//
-//	static void ApplyPast(std::vector<SceneObject*>& objects) {
-//		position()--;
-//		Apply(objects, position());
-//	}
-//	static void ApplyFuture(std::vector<SceneObject*>& objects) {
-//		position()++;
-//		Apply(objects, position());
-//	}
-//
-//public:
-//	static bool Init() {
-//		if (!RootObject().Get() ||
-//			!Objects().Get()) {
-//			Log::For<StateBuffer>().Error("Initialization failed.");
-//			return false;
-//		}
-//
-//		states().front().rootCopy = RootObject().Get()->Clone();
-//
-//		return true;
-//	}
-//
-//	// Revert, Undo, Apply previous state
-//	static void Rollback() {
-//		if (position() < 1)
-//			return;
-//
-//		if (isModern()) {
-//			// Commit
-//			PushPast(*Objects().Get());
-//			position()--;
-//		}
-//
-//		ApplyPast(*Objects().Get());
-//	}
-//
-//	// Do, Save current state
-//	static void Commit() {
-//		if (!isModern())
-//			ClearFuture();
-//
-//		PushPast(*Objects().Get());
-//	}
-//
-//	// Repeat, Redo, Apply next state
-//	static void Repeat() {
-//		if (position() >= states().size() - 1)
-//			return;
-//
-//		ApplyFuture(*Objects().Get());
-//	}
-//
-//	static void Clear() {
-//		Erase(0, states().size());
-//	}
-//};
-
-
 class StateBuffer {
 public:
 	// Buffer requires 1 additional state for saving current state.
@@ -246,20 +69,8 @@ private:
 
 		states().erase(f, t);
 	}
-	static void ClearPast() {
-		if (position() < 1)
-			return;
-
-		Erase(0, position());
-
-		position() = 0;
-	}
 	static void ClearFuture() {
-		if (position() >= states().size() - 1)
-			return;
-
 		Erase(position(), states().size());
-		//Erase(position() + 1, states().size());
 	}
 
 	static std::list<State>::iterator iterAt(int pos) {
@@ -269,9 +80,6 @@ private:
 	}
 	static State& at(int pos) {
 		return iterAt(pos)._Ptr->_Myval;
-	}
-	static bool isModern() {
-		return position() == states().size();
 	}
 
 	static void Apply(std::vector<SceneObject*>& objects, int pos) {
@@ -295,17 +103,6 @@ private:
 
 		auto newRoot = saved.rootCopy->Clone();
 
-		//newRoot->CallRecursive([&](SceneObject* o) {
-		//	if (o->GetParent() != nullptr) {
-		//		auto p = newCopies[const_cast<SceneObject*>(o->GetParent())];
-		//		o->SetParent(p, false, true);
-		//		//p->children.pu
-		//	}
-
-		//	for (size_t i = 0; i < o->children.size(); i++)
-		//		o->children[i] = newCopies[o->children[i]];
-		//	});
-
 		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
 			if (p != nullptr) 
 				o->SetParent(p, false, true, false, false);
@@ -318,8 +115,6 @@ private:
 
 		RootObject().Set(newRoot);
 	}
-
-
 	static void ApplyPast(std::vector<SceneObject*>& objects) {
 		position()--;
 		Apply(objects, position());
@@ -337,8 +132,6 @@ public:
 			return false;
 		}
 
-		//states().front().rootCopy = RootObject().Get()->Clone();
-
 		return true;
 	}
 
@@ -347,8 +140,12 @@ public:
 		if (position() < 1)
 			return;
 
-		if (isModern()) {
-			// Commit
+		if (position() == states().size() - 1) {
+			ClearFuture();
+			PushPast(*Objects().Get());
+			position()--;
+		}
+		else if (position() == states().size()) {
 			PushPast(*Objects().Get());
 			position()--;
 		}
@@ -358,7 +155,7 @@ public:
 
 	// Do, Save current state
 	static void Commit() {
-		if (!isModern())
+		if (position() < states().size())
 			ClearFuture();
 
 		PushPast(*Objects().Get());
@@ -370,16 +167,12 @@ public:
 			return;
 
 		ApplyFuture(*Objects().Get());
-
-		//if (position() == states().size() - 1)
-		//	position() = states().size();
 	}
 
 	static void Clear() {
 		Erase(0, states().size());
 	}
 };
-
 
 class SceneObjectSelection {
 public:
@@ -479,7 +272,7 @@ public:
 		return (p & pos) != 0;
 	}
 private:
-	GroupObject defaultObject;
+	SceneObject* defaultObject = new GroupObject();
 	Event<> deleteAll;
 
 	static const SceneObject* FindRoot(const SceneObject* o) {
@@ -516,8 +309,6 @@ public:
 	std::vector<SceneObject*> objects;
 
 	Property<SceneObject*> root;
-
-	//SceneObject* root = &defaultObject;
 	StereoCamera* camera;
 	Cross* cross;
 
@@ -528,8 +319,8 @@ public:
 	}
 
 	Scene() {
-		defaultObject.Name = "Root";
-		root.Set(&defaultObject);
+		defaultObject->Name = "Root";
+		root.Set(defaultObject);
 	}
 
 	bool Insert(SceneObject* destination, SceneObject* obj) {
@@ -625,7 +416,7 @@ public:
 		delete root.Get();
 
 		objects.clear();
-		root.Set(&defaultObject);
+		root.Set(defaultObject);
 	}
 
 	~Scene() {

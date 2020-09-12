@@ -89,6 +89,7 @@ public:
 };
 
 class ibstream {
+	bool isRoot = true;
 	const Log log = Log::For<ibstream>();
 	char* buffer = nullptr;
 	size_t pos = 0;
@@ -121,11 +122,14 @@ class ibstream {
 	template<typename T>
 	T* start() {
 		auto o = new T();
-		scene->Insert((SceneObject*)o);
+		if (isRoot)
+			isRoot = false;
+		else
+			objects.push_back(o);
 		return o;
 	}
 public:
-	Scene* scene;
+	std::vector<SceneObject*> objects;
 
 	template<typename T>
 	T get(size_t size = sizeof(T)) {
@@ -412,6 +416,8 @@ public:
 };
 
 class ijstream {
+	bool isRoot = true;
+
 	std::istringstream buffer;
 
 	void skipName() {
@@ -532,7 +538,10 @@ class ijstream {
 	template<typename T>
 	T* start() {
 		auto t = new T();
-		scene->Insert(t);
+		if (isRoot)
+			isRoot = false;
+		else
+			objects.push_back(t);
 		return t;
 	}
 
@@ -564,7 +573,7 @@ class ijstream {
 			}));
 	}
 public:
-	Scene* scene;
+	std::vector<SceneObject*> objects;
 
 	template<typename T>
 	T get(std::string str) {
@@ -751,15 +760,13 @@ class FileManager {
 
 		ijstream str;
 		str.setBuffer(buffer);
-		str.scene = inScene;
 
 		auto o = str.read();
 		inScene->root = o;
-		o->SetParent(nullptr);
 
-		inScene->objects.erase(inScene->objects.begin());
-
-		delete buffer;
+		inScene->objects = str.objects;
+		
+		delete[] buffer;
 		file.close();
 	}
 
@@ -783,15 +790,13 @@ class FileManager {
 
 		ibstream str;
 		str.setBuffer(buffer);
-		str.scene = inScene;
 
 		auto o = str.get<SceneObject*>();
 		inScene->root = o;
-		o->SetParent(nullptr);
 
-		inScene->objects.erase(inScene->objects.begin());
+		inScene->objects = str.objects;
 
-		delete buffer;
+		delete[] buffer;
 		file.close();
 	}
 
