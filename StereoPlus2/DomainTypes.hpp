@@ -99,21 +99,45 @@ public:
 		glDeleteVertexArrays(1, &VAO);
 	}
 
+	//void Draw(
+	//	std::function<glm::vec3(glm::vec3)> toLeft,
+	//	std::function<glm::vec3(glm::vec3)> toRight,
+	//	GLuint shaderLeft,
+	//	GLuint shaderRight,
+	//	GLuint stencilMaskLeft,
+	//	GLuint stencilMaskRight) {
+	//	if (shouldUpdateCache || GlobalToolConfiguration::ShouldDetectPosition().Get())
+	//		UpdateOpenGLBuffer(toLeft, toRight);
+
+	//	glStencilMask(stencilMaskLeft);
+	//	glStencilFunc(GL_ALWAYS, stencilMaskLeft, 0xFF);
+	//	glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+	//	DrawLeft(shaderLeft);
+
+	//	glStencilMask(stencilMaskRight);
+	//	glStencilFunc(GL_ALWAYS, stencilMaskRight, 0xFF);
+	//	glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+	//	DrawRight(shaderRight);
+	//}
+
+
 	void Draw(
 		std::function<glm::vec3(glm::vec3)> toLeft,
 		std::function<glm::vec3(glm::vec3)> toRight,
 		GLuint shaderLeft,
-		GLuint shaderRight) {
+		GLuint shaderRight,
+		GLuint stencilMaskLeft,
+		GLuint stencilMaskRight) {
 		if (shouldUpdateCache || GlobalToolConfiguration::ShouldDetectPosition().Get())
 			UpdateOpenGLBuffer(toLeft, toRight);
 
-		glStencilMask(0x1);
-		glStencilFunc(GL_ALWAYS, 0x1, 0xFF);
+		glStencilMask(stencilMaskLeft);
+		glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		DrawLeft(shaderLeft);
 
-		glStencilMask(0x2);
-		glStencilFunc(GL_ALWAYS, 0x2, 0xFF);
+		glStencilMask(stencilMaskRight);
+		glStencilFunc(GL_ALWAYS, stencilMaskRight, stencilMaskLeft | stencilMaskRight);
 		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		DrawRight(shaderRight);
 	}
@@ -718,7 +742,7 @@ public:
 
 	GLuint VBOLeftTop, VAOLeftTop;
 	GLuint VBORightBottom, VAORightBottom;
-	GLuint ShaderProgramLeftTop, ShaderProgramRightBottom;
+	GLuint ShaderProgram;
 
 
 	bool Init()
@@ -727,8 +751,7 @@ public:
 		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
 		auto fragmentShaderSource = GLLoader::ReadShader("shaders/WhiteSquare.frag");
 
-		ShaderProgramLeftTop = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
-		ShaderProgramRightBottom = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
+		ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
 
 		glGenVertexArrays(1, &VAOLeftTop);
 		glGenBuffers(1, &VBOLeftTop);
