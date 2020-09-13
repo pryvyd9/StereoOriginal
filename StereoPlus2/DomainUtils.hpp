@@ -21,9 +21,6 @@ private:
 		// Objects in their original order
 		std::vector<SceneObject*> objects;
 
-		// Objects that have root object as their parent.
-		//std::vector<SceneObject*> rootChildren;
-
 		SceneObject* rootCopy;
 	};
 
@@ -63,9 +60,11 @@ private:
 	static void Erase(int from, int to) {
 		auto f = iterAt(from);
 		auto t = iterAt(to);
-		for (auto it = f; it != t; it++)
+		for (auto it = f; it != t; it++) {
+			delete it->rootCopy;
 			for (auto o : it->copies)
 				delete o.second;
+		}
 
 		states().erase(f, t);
 	}
@@ -86,7 +85,7 @@ private:
 		// Saved state at position pos.
 		auto saved = at(pos);
 
-		RootObject().Get()->children.clear();
+		delete RootObject().Get();
 
 		// Delete current objects.
 		for (auto o : objects)
@@ -272,7 +271,6 @@ public:
 		return (p & pos) != 0;
 	}
 private:
-	SceneObject* defaultObject = new GroupObject();
 	Event<> deleteAll;
 
 	static const SceneObject* FindRoot(const SceneObject* o) {
@@ -319,8 +317,8 @@ public:
 	}
 
 	Scene() {
-		defaultObject->Name = "Root";
-		root.Set(defaultObject);
+		root = new GroupObject();
+		root.Get()->Name = "Root";
 	}
 
 	bool Insert(SceneObject* destination, SceneObject* obj) {
@@ -416,7 +414,8 @@ public:
 		delete root.Get();
 
 		objects.clear();
-		root.Set(defaultObject);
+		root = new GroupObject();
+		root.Get()->Name = "Root";
 	}
 
 	~Scene() {

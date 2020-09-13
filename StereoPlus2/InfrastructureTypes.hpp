@@ -247,7 +247,8 @@ class Property {
 			return *(IEvent<T>*) & changed;
 		}
 	};
-	std::shared_ptr<Node<T>> node = std::shared_ptr<Node<T>>(new Node<T>());
+	
+	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
 public:
 	const T& Get() const {
 		return node->Get();

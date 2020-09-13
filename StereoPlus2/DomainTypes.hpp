@@ -529,7 +529,7 @@ private:
 
 	GLuint IBO;
 
-	bool shouldUpdateIBO;
+	bool shouldUpdateIBO = true;
 
 	virtual void UpdateOpenGLBuffer(
 		std::function<glm::vec3(glm::vec3)> toLeft,
