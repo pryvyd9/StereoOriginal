@@ -12,14 +12,14 @@ public:
 	// Buffer requires 1 additional state for saving current state.
 	StaticProperty(int, BufferSize)
 	StaticProperty(SceneObject*, RootObject)
-	StaticProperty(std::vector<SceneObject*>*, Objects)
+	StaticProperty(std::vector<PON>*, Objects)
 private:
 	struct State {
 		// Reference, Shallow copy
 		std::map<SceneObject*, SceneObject*> copies;
 
 		// Objects in their original order
-		std::vector<SceneObject*> objects;
+		std::vector<std::pair<SceneObject*, PON>> objects;
 
 		SceneObject* rootCopy;
 	};
@@ -34,7 +34,7 @@ private:
 		return v;
 	}
 
-	static void PushPast(std::vector<SceneObject*>& objects) {
+	static void PushPast(std::vector<PON>& objects) {
 		states().push_back(State());
 
 		if (auto correctedBuffer = BufferSize().Get() + 1;
@@ -45,11 +45,12 @@ private:
 
 		auto current = &states().back();
 
-		current->objects = objects;
 		current->rootCopy = RootObject().Get()->Clone();
 
-		for (auto o : objects)
-			current->copies[o] = o->Clone();
+		for (auto o : objects) {
+			current->objects.push_back({ o.Get(), o });
+			current->copies[o.Get()] = o->Clone();
+		}
 	}
 
 	// Erase saved copies.
@@ -77,7 +78,7 @@ private:
 		return iterAt(pos)._Ptr->_Myval;
 	}
 
-	static void Apply(std::vector<SceneObject*>& objects, int pos) {
+	static void Apply(std::vector<PON>& objects, int pos) {
 		// Saved state at position pos.
 		auto saved = at(pos);
 
@@ -85,16 +86,17 @@ private:
 
 		// Delete current objects.
 		for (auto o : objects)
-			delete o;
-
+			o.Delete();
 
 		std::map<SceneObject*, SceneObject*> newCopies;
 		for (auto o : saved.copies)
 			newCopies[o.first] = o.second->Clone();
 
-		objects = std::vector<SceneObject*>(saved.objects.size());
-		for (auto i = 0; i < saved.objects.size(); i++)
-			objects[i] = newCopies[saved.objects[i]];
+		objects.clear();
+		for (auto o : saved.objects) {
+			o.second.Set(newCopies[o.first]);
+			objects.push_back(o.second);
+		}
 
 		auto newRoot = saved.rootCopy->Clone();
 
@@ -110,11 +112,11 @@ private:
 
 		RootObject().Set(newRoot);
 	}
-	static void ApplyPast(std::vector<SceneObject*>& objects) {
+	static void ApplyPast(std::vector<PON>& objects) {
 		position()--;
 		Apply(objects, position());
 	}
-	static void ApplyFuture(std::vector<SceneObject*>& objects) {
+	static void ApplyFuture(std::vector<PON>& objects) {
 		position()++;
 		Apply(objects, position());
 	}
@@ -307,7 +309,7 @@ private:
 	}
 public:
 	// Stores all objects.
-	std::vector<SceneObject*> objects;
+	std::vector<PON> objects;
 
 	Property<SceneObject*> root;
 	StereoCamera* camera;
@@ -339,10 +341,9 @@ public:
 		for (size_t i = 0; i < source->children.size(); i++)
 			if (source->children[i] == obj)
 				for (size_t j = 0; i < objects.size(); j++)
-					if (objects[j] == obj) {
+					if (objects[j].Get() == obj) {
 						source->children.erase(source->children.begin() + i);
 						objects.erase(objects.begin() + j);
-						delete obj;
 						return true;
 					}
 
@@ -356,9 +357,6 @@ public:
 	void DeleteAll() {
 		deleteAll.Invoke();
 		cross->SetParent(nullptr);
-
-		for (auto o : objects)
-			delete o;
 
 		delete root.Get();
 
@@ -419,7 +417,7 @@ public:
 
 
 	~Scene() {
-		for (auto o : objects)
-			delete o;
+		delete root.Get();
+		objects.clear();
 	}
 };

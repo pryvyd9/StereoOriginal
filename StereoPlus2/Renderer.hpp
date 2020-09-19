@@ -163,8 +163,12 @@ public:
 
 	WhiteSquare whiteSquare;
 	WhiteSquare whiteSquareDim;
-
-	void Pipeline(const Scene& scene) {
+	//struct less {
+	//	constexpr bool operator()(const PON& _Left, const PON& _Right) const {
+	//		return _Left < _Right;
+	//	}
+	//};
+	void Pipeline(Scene& scene) {
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 
@@ -188,15 +192,21 @@ public:
 		
 		if (SceneObjectSelection::Selected().empty()) {
 			for (auto o : scene.objects)
-				DrawBright(scene.camera, o);
+				DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross);
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
+			std::vector<SceneObject*> sceneObjects(scene.objects.size());
+			for (size_t i = 0; i < scene.objects.size(); i++)
+				//sceneObjects[i] = const_cast<Scene*>(&scene)->objects[i].Get();
+				sceneObjects[i] = scene.objects[i].Get();
+
 			std::vector<SceneObject*> dimObjects;
+
 			std::set_difference(
-				scene.objects.begin(),
-				scene.objects.end(),
+				sceneObjects.begin(),
+				sceneObjects.end(),
 				SceneObjectSelection::Selected().begin(),
 				SceneObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));

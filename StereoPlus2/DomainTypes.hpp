@@ -957,3 +957,63 @@ public:
 		SceneObject::DesignProperties();
 	}
 };
+
+// Persistent object node
+class PON {
+	struct Node {
+		SceneObject* object = nullptr;
+		int referenceCount = 0;
+	};
+	Node* node;
+	std::map<SceneObject*, Node*> existingNodes;
+public:
+	PON(const PON& o) {
+		node = o.node;
+		node->referenceCount++;
+	}
+	PON(SceneObject* o) {
+		if (auto n = existingNodes.find(o);
+			n != existingNodes.end()) {
+			node = n->second;
+		}
+		else {
+			node = new Node();
+			existingNodes[o] = node;
+			Set(o);
+		}
+
+		node->referenceCount++;
+	}
+	~PON() {
+		node->referenceCount--;
+		if (node->referenceCount > 0)
+			return;
+
+		existingNodes.erase(node->object);
+		Delete();
+		delete node;
+	}
+
+	SceneObject* Get() const {
+		return node->object;
+	}
+	void Set(SceneObject* o) {
+		Delete();
+		node->object = o;
+	}
+	void Delete() {
+		if (!node->object)
+			return;
+
+		delete node->object;
+		node->object = nullptr;
+	}
+
+	SceneObject* operator->() {
+		return Get();
+	}
+
+	bool operator<(const PON& o) const {
+		return node < o.node;
+	}
+};

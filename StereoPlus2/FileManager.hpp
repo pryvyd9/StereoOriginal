@@ -764,7 +764,15 @@ class FileManager {
 		auto o = str.read();
 		inScene->root = o;
 
-		inScene->objects = str.objects;
+		std::vector<PON> newObjects;
+		for (auto o : str.objects)
+			newObjects.push_back(o);
+
+		//std::vector<PON> newObjects(str.objects.size());
+		//for (size_t i = 0; i < str.objects.size(); i++)
+		//	newObjects[i] = PON(str.objects[i]);
+		
+		inScene->objects = newObjects;
 		
 		delete[] buffer;
 		file.close();
@@ -794,7 +802,15 @@ class FileManager {
 		auto o = str.get<SceneObject*>();
 		inScene->root = o;
 
-		inScene->objects = str.objects;
+		//std::vector<PON> newObjects(str.objects.size());
+		//for (size_t i = 0; i < str.objects.size(); i++)
+		//	newObjects[i] = PON(str.objects[i]);
+
+		std::vector<PON> newObjects;
+		for (auto o : str.objects)
+			newObjects.push_back(o);
+
+		inScene->objects = newObjects;
 
 		delete[] buffer;
 		file.close();
