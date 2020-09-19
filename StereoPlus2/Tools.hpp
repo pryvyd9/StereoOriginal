@@ -11,26 +11,7 @@
 #include "TemplateExtensions.hpp"
 #include "ToolConfiguration.hpp"
 
-class Tool {
-protected:
-	/*struct Change {
-		SceneObject* reference, * stateCopy;
-	};*/
-	//static std::stack<Change>& GetChanges() {
-	//	static auto val = std::stack<Change>();
-	//	return val;
-	//}
-public:
-	//virtual bool Rollback() {
-	//	if (GetChanges().size() <= 0)
-	//		return true;
-	//	
-	//	auto change = GetChanges().top();
-	//	change.reference = change.stateCopy;
-	//	
-	//	return true;
-	//}
-};
+class Tool {};
 
 template<typename T>
 class CreatingTool : Tool, public ISceneHolder {
@@ -49,6 +30,8 @@ public:
 	}
 
 	bool Create() {
+		StateBuffer::Commit();
+
 		auto command = new CreateCommand();
 		if (!command->BindScene(scene))
 			return false;
@@ -64,23 +47,14 @@ public:
 
 		return true;
 	}
-
-	/*virtual bool Rollback() {
-		auto command = new DeleteCommand();
-		if (!command->BindScene(scene))
-			return false;
-
-		command->source = *destination;
-		command->target = GetCreatedObjects().top();
-		GetCreatedObjects().pop();
-
-		return true;
-	}*/
 };
-
 
 template<typename EditMode>
 class EditingTool : Tool {
+	static size_t& isBeingModifiedHandler() {
+		static size_t v;
+		return v;
+	}
 protected:
 	using Mode = EditMode;
 
@@ -91,6 +65,17 @@ protected:
 
 	KeyBinding* keyBinding = nullptr;
 	Config* config = nullptr;
+
+	static bool& isBeingModified() {
+		static bool v;
+		return v;
+	}
+
+	//static bool& isBeingContinuouslyModified() {
+	//	static bool v;
+	//	return v;
+	//}
+
 
 	void DeleteConfig() {
 		if (config != nullptr)
@@ -106,6 +91,15 @@ public:
 		Transform,
 	};
 
+	EditingTool() {
+		if (isBeingModifiedHandler() != 0)
+			return;
+
+		isBeingModifiedHandler() = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
+			isBeingModified() = true;
+			//StateBuffer::Commit();
+			});
+	}
 
 	virtual Type GetType() = 0;
 	virtual bool BindSceneObjects(std::vector<SceneObject*> obj) = 0;
@@ -755,11 +749,6 @@ public:
 
 
 class TransformTool : public EditingTool<TransformToolMode> {
-	/*struct SelectedItemsState {
-		std::vector<SceneObject*> items;
-	};*/
-
-
 	const Log Logger = Log::For<TransformTool>();
 
 	size_t inputHandlerId;
@@ -792,6 +781,15 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 #pragma endregion
 	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
+		//if (SceneObjectSelection::Selected().empty())
+		//	return;
+
+		if (isBeingModified() && !input->IsContinuousInputExceptFirstFrame())
+			StateBuffer::Commit();
+
+
+		target = SceneObjectSelection::Selected().begin()._Ptr->_Myval;
+
 		if (target == nullptr)
 			return;
 		if (input->IsDown(Key::Escape)) {

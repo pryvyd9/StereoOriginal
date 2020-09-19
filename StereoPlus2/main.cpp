@@ -102,7 +102,6 @@ int main(int, char**) {
 	* ToolPool::GetCross() = &cross;
 	* ToolPool::GetScene() = &scene;
 	* ToolPool::GetKeyBinding() = &gui.keyBinding;
-
 	if (!ToolPool::Init())
 		return false;
 

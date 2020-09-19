@@ -35,7 +35,19 @@ class SceneObject {
 protected:
 	GLuint VBOLeft, VBORight, VAO;
 		
+	static bool& isAnyObjectUpdated() {
+		static bool v;
+		return v;
+	}
+	static Event<>& onBeforeAnyElementChanged() {
+		static Event<> v;
+		return v;
+	}
+
+	//Event<const SceneObject&> onBeforeChange;
+
 	// When true cache will be updated on reading.
+	// Means the object was changed.
 	bool shouldUpdateCache = true;
 	const float propertyIndent = -20;
 
@@ -98,28 +110,6 @@ public:
 		glDeleteBuffers(2, &VBOLeft);
 		glDeleteVertexArrays(1, &VAO);
 	}
-
-	//void Draw(
-	//	std::function<glm::vec3(glm::vec3)> toLeft,
-	//	std::function<glm::vec3(glm::vec3)> toRight,
-	//	GLuint shaderLeft,
-	//	GLuint shaderRight,
-	//	GLuint stencilMaskLeft,
-	//	GLuint stencilMaskRight) {
-	//	if (shouldUpdateCache || GlobalToolConfiguration::ShouldDetectPosition().Get())
-	//		UpdateOpenGLBuffer(toLeft, toRight);
-
-	//	glStencilMask(stencilMaskLeft);
-	//	glStencilFunc(GL_ALWAYS, stencilMaskLeft, 0xFF);
-	//	glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-	//	DrawLeft(shaderLeft);
-
-	//	glStencilMask(stencilMaskRight);
-	//	glStencilFunc(GL_ALWAYS, stencilMaskRight, 0xFF);
-	//	glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-	//	DrawRight(shaderRight);
-	//}
-
 
 	void Draw(
 		std::function<glm::vec3(glm::vec3)> toLeft,
@@ -296,9 +286,22 @@ public:
 
 	// Forces the object and all children to update cache.
 	void ForceUpdateCache() {
+		if (!isAnyObjectUpdated()) {
+			isAnyObjectUpdated() = true;
+			onBeforeAnyElementChanged().Invoke();
+		
+			(new FuncCommand())->func = [&] {
+				isAnyObjectUpdated() = false;
+			};
+		}
+
 		shouldUpdateCache = true;
 		for (auto c : children)
 			c->ForceUpdateCache();
+	}
+
+	static IEvent<>& OnBeforeAnyElementChanged() {
+		return onBeforeAnyElementChanged();
 	}
 
 	// Virtual methods to be overridden.
@@ -325,9 +328,13 @@ public:
 		if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 			
-			if (ImGui::DragFloat3("local position", (float*)&GetLocalPosition(), 0.01, 0, 0, "%.5f") |
-				ImGui::DragFloat4("local rotation", (float*)&GetLocalRotation(), 0.01, 0, 1, "%.3f"))
-				ForceUpdateCache();
+			//static glm::vec3 localPos = GetLocalPosition();
+			//static glm::quat localRot = GetLocalRotation();
+
+			if (static glm::vec3 localPos = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&localPos, 0.01, 0, 0, "%.5f"))
+				SetLocalPosition(localPos);
+			if (static glm::quat localRot = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&localRot, 0.01, 0, 1, "%.3f"))
+				SetLocalRotation(localRot);
 			
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();
@@ -400,7 +407,6 @@ public:
 };
 
 class StereoPolyLine : public LeafObject {
-	//std::vector<Pair> linesCache;
 	std::vector<glm::vec3> vertices;
 
 	std::vector<glm::vec3> verticesCache;

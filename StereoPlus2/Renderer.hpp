@@ -13,6 +13,11 @@ using namespace std;
 
 // GL4.1 required
 class Renderer {
+	const int stencilBufferMaskBright1 = 0x1;
+	const int stencilBufferMaskBright2 = 0x2;
+	const int stencilBufferMaskDim1 = 0x4;
+	const int stencilBufferMaskDim2 = 0x8;
+
 	glm::vec4 defaultColorLeft = glm::vec4(0, 1, 1, 1);
 	glm::vec4 defaultColorRight = glm::vec4(1, 0, 0, 1);
 	glm::vec4 dimmedColorLeft = glm::vec4(0, 1, 1, 0.5);
@@ -97,8 +102,6 @@ class Renderer {
 		UpdateShaderColor(whiteSquare.ShaderProgram, whiteColorBright, "myColor");
 		UpdateShaderColor(whiteSquareDim.ShaderProgram, whiteColorDim, "myColor");
 	}
-
-
 	void UpdateShaderColor(glm::vec4 colorLeft, glm::vec4 colorRight) {
 		// Available since GL4.1
 		UpdateShaderColor(ShaderLeft, colorLeft, "myColor");
@@ -130,8 +133,8 @@ class Renderer {
 			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
 			ShaderLeft,
 			ShaderRight,
-			0x1,
-			0x2);
+			stencilBufferMaskBright1,
+			stencilBufferMaskBright2);
 	}
 	void DrawDim(StereoCamera* camera, SceneObject* o) {
 		UpdateShaderColor(dimmedColorLeft, dimmedColorRight);
@@ -140,8 +143,8 @@ class Renderer {
 			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
 			ShaderLeft,
 			ShaderRight,
-			0x4,
-			0x8);
+			stencilBufferMaskDim1,
+			stencilBufferMaskDim2);
 	}
 
 	void DrawIntersection(const WhiteSquare& square, GLuint stencilMask) {
@@ -187,7 +190,7 @@ public:
 			for (auto o : scene.objects)
 				DrawBright(scene.camera, o);
 			DrawBright(scene.camera, scene.cross);
-			DrawIntersection(whiteSquare, 0x1 | 0x2);
+			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
 			std::vector<SceneObject*> dimObjects;
@@ -200,12 +203,12 @@ public:
 
 			for (auto o : dimObjects)
 				DrawDim(scene.camera, o);
-			DrawIntersection(whiteSquareDim, 0x4 | 0x8);
+			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
 			for (auto o : SceneObjectSelection::Selected())
 				DrawBright(scene.camera, o);
 			DrawBright(scene.camera, scene.cross);
-			DrawIntersection(whiteSquare, 0x1 | 0x2);
+			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 
 		// Anti aliasing

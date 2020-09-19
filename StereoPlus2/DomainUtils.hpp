@@ -25,20 +25,17 @@ private:
 	};
 
 	static std::list<State>& states() {
-		// Empty default state.
 		static std::list<State> v;
 		return v;
 	}
 
 	static int& position() {
-		// Point to states().size().
 		static int v = 0;
 		return v;
 	}
 
 	static void PushPast(std::vector<SceneObject*>& objects) {
 		states().push_back(State());
-
 
 		if (auto correctedBuffer = BufferSize().Get() + 1;
 			correctedBuffer < states().size())
@@ -49,7 +46,6 @@ private:
 		auto current = &states().back();
 
 		current->objects = objects;
-		//current->rootChildren = RootObject().Get()->children;
 		current->rootCopy = RootObject().Get()->Clone();
 
 		for (auto o : objects)
@@ -181,7 +177,15 @@ private:
 		static Selection v;
 		return v;
 	}
+	static Event<const Selection&>& onChanged() {
+		static Event<const Selection&> v;
+		return v;
+	}
 public:
+	static IEvent<const Selection&>& OnChanged() {
+		return onChanged();
+	}
+
 	static const Selection& Selected() {
 		return selected();
 	}
@@ -190,24 +194,25 @@ public:
 		return &v;
 	}
 
-
 	static void Set(SceneObject* o) {
 		RemoveAll();
 		Add(o);
+		onChanged().Invoke(selected());
 	}
-
 	static void Add(SceneObject* o) {
 		selected().emplace(o);
+		onChanged().Invoke(selected());
 	}
-
 	static void RemoveAll() {
 		selected().clear();
+		onChanged().Invoke(selected());
 	}
-
 	static void Remove(SceneObject* o) {
 		selected().erase(o);
+		onChanged().Invoke(selected());
 	}
 };
+
 
 class SceneObjectBuffer {
 public:
@@ -280,7 +285,6 @@ private:
 
 		return FindRoot(parent);
 	}
-
 	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
 		if (oldParent == nullptr) {
 			Log::For<Scene>().Error("Object doesn't have a parent");
@@ -292,7 +296,6 @@ private:
 
 		return oldParent;
 	}
-
 	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
 		if (oldParent == nullptr)
 			return nullptr;
@@ -326,7 +329,6 @@ public:
 		objects.push_back(obj);
 		return true;
 	}
-
 	bool Insert(SceneObject* obj) {
 		obj->SetParent(root.Get());
 		objects.push_back(obj);
@@ -347,10 +349,22 @@ public:
 		std::cout << "The object for deletion was not found" << std::endl;
 		return false;
 	}
-
 	void DeleteSelected() {
 		for (auto o : SceneObjectSelection::Selected())
 			Delete(const_cast<SceneObject*>(o->GetParent()), o);
+	}
+	void DeleteAll() {
+		deleteAll.Invoke();
+		cross->SetParent(nullptr);
+
+		for (auto o : objects)
+			delete o;
+
+		delete root.Get();
+
+		objects.clear();
+		root = new GroupObject();
+		root.Get()->Name = "Root";
 	}
 
 	// Tree structure is preserved even if there is an unselected link.
@@ -403,20 +417,6 @@ public:
 		return true;
 	}
 
-
-	void DeleteAll() {
-		deleteAll.Invoke();
-		cross->SetParent(nullptr);
-
-		for (auto o : objects)
-			delete o;
-
-		delete root.Get();
-
-		objects.clear();
-		root = new GroupObject();
-		root.Get()->Name = "Root";
-	}
 
 	~Scene() {
 		for (auto o : objects)

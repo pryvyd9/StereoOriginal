@@ -125,12 +125,25 @@ class Input
 	float mouseSensivity = 1e-2;
 	float mouseMaxMagnitude = 1e4;
 
-	
+	// Continuous input is a state when there is
+	// input with delay in between.
+	bool isContinuousInput = false;
+	bool isContinuousInputExceptFirstFrame = false;
+	// seconds
+	float continuousInputAwaitTime = 1;
+	size_t lastPressedTime;
+
+	bool isAnythingPressed = false;
+	bool isAnythingPressedLast = false;
+
 	void UpdateStatus(Key::KeyPair key, KeyStatus* status) {
 		bool isPressed = 
 			key.type == Key::Mouse 
 			? glfwGetMouseButton(glWindow, key.code) == GLFW_PRESS
 			: glfwGetKey(glWindow, key.code) == GLFW_PRESS;
+
+		if (isPressed)
+			isAnythingPressed = true;
 
 		status->isDown = isPressed && !status->isPressed;
 		status->isUp = !isPressed && status->isPressed;
@@ -179,9 +192,15 @@ public:
 	glm::vec2 MousePosition() {
 		return mouseNewPos;
 	}
-
 	glm::vec2 MouseMoveDirection() {
 		return glm::length(mouseNewPos - mouseOldPos) == 0 ? glm::vec2(0) : glm::normalize(mouseNewPos - mouseOldPos);
+	}
+
+	bool IsContinuousInput() {
+		return isContinuousInput;
+	}
+	bool IsContinuousInputExceptFirstFrame() {
+		return isContinuousInputExceptFirstFrame;
 	}
 
 	bool MouseMoved() {
@@ -225,9 +244,25 @@ public:
 		for (auto node : keyStatuses)
 			UpdateStatus(node.first, node.second);
 
+		if (isAnythingPressed) {
+			isContinuousInput = true;
+			lastPressedTime = Time::GetTime();
+			if (!isAnythingPressedLast)
+				isContinuousInputExceptFirstFrame = true;
+		}
+		else if (isContinuousInput && (Time::GetTime() - lastPressedTime) > continuousInputAwaitTime * 1e3) {
+			isContinuousInput = false;
+			isContinuousInputExceptFirstFrame = false;
+		}
+		else if (isAnythingPressedLast)
+			isContinuousInputExceptFirstFrame = true;
+
+
 		// Handle OnInput actions
 		for (auto handler : handlers)
 			handler.second();
+
+		isAnythingPressedLast = isAnythingPressed;
 	}
 
 	bool Init() {

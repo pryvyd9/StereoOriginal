@@ -134,12 +134,15 @@ public:
 		auto end = std::chrono::steady_clock::now();
 		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
 		*GetBegin() = end;
-	};
+	}
 	static float GetFrameRate() {
 		return 1 / GetDeltaTime();
 	}
 	static float GetDeltaTime() {
 		return (float)*GetDeltaTimeMicroseconds() / 1e6;
+	}
+	static size_t GetTime() {
+		return std::chrono::time_point_cast<std::chrono::milliseconds>(*GetBegin()).time_since_epoch().count();
 	}
 };
 
@@ -216,11 +219,6 @@ public:
 	void Invoke(T... vs) {
 		for (auto h : IEvent<T...>::handlers)
 			h.second(vs...);
-	}
-	void InvokeExcept(T... vs, size_t id) {
-		for (auto h : IEvent<T...>::handlers)
-			if (h.first != id)
-				h.second(vs...);
 	}
 };
 
