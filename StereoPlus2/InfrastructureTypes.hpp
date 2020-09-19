@@ -53,6 +53,15 @@ template<typename T>
 bool exists(const std::set<const T>& source, const T& item) {
 	return source.find(item) != source.end();
 }
+template<typename K, typename T>
+bool exists(const std::set<K>& source, const T& item, std::function<T(const K&)> selector) {
+	for (auto o : source)
+		if (selector(o) == item)
+			return true;
+
+	return false;
+}
+
 template<typename T>
 bool exists(const std::vector<T>& source, const T& item) {
 	return std::find(source.begin(), source.end(), item) != source.end();

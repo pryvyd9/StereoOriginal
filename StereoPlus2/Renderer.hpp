@@ -163,11 +163,7 @@ public:
 
 	WhiteSquare whiteSquare;
 	WhiteSquare whiteSquareDim;
-	//struct less {
-	//	constexpr bool operator()(const PON& _Left, const PON& _Right) const {
-	//		return _Left < _Right;
-	//	}
-	//};
+
 	void Pipeline(Scene& scene) {
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
@@ -197,26 +193,20 @@ public:
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
-			std::vector<SceneObject*> sceneObjects(scene.objects.size());
-			for (size_t i = 0; i < scene.objects.size(); i++)
-				//sceneObjects[i] = const_cast<Scene*>(&scene)->objects[i].Get();
-				sceneObjects[i] = scene.objects[i].Get();
-
-			std::vector<SceneObject*> dimObjects;
-
+			std::vector<PON> dimObjects;
 			std::set_difference(
-				sceneObjects.begin(),
-				sceneObjects.end(),
+				scene.objects.begin(),
+				scene.objects.end(),
 				SceneObjectSelection::Selected().begin(),
 				SceneObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));
 
 			for (auto o : dimObjects)
-				DrawDim(scene.camera, o);
+				DrawDim(scene.camera, o.Get());
 			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
 			for (auto o : SceneObjectSelection::Selected())
-				DrawBright(scene.camera, o);
+				DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross);
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}

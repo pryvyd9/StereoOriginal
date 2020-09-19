@@ -357,7 +357,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
 		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
-		isSelected = exists(SceneObjectSelection::Selected(), t);
+		isSelected = exists(SceneObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
 
 		if (isSelected) {
 			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
@@ -372,7 +372,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return open;
 	}
 	bool Selectable(SceneObject* t, bool& isSelected) {
-		isSelected = exists(SceneObjectSelection::Selected(), t);
+		isSelected = exists(SceneObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
+		//isSelected = exists(SceneObjectSelection::Selected(), t);
 
 		if (isSelected) {
 			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);

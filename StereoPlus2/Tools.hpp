@@ -788,7 +788,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			StateBuffer::Commit();
 
 
-		target = SceneObjectSelection::Selected().begin()._Ptr->_Myval;
+		target = SceneObjectSelection::Selected().begin()->Get();
 
 		if (target == nullptr)
 			return;

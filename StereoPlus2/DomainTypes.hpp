@@ -965,20 +965,23 @@ class PON {
 		int referenceCount = 0;
 	};
 	Node* node;
-	std::map<SceneObject*, Node*> existingNodes;
+	static std::map<SceneObject*, Node*>& existingNodes() {
+		static std::map<SceneObject*, Node*> v;
+		return v;
+	}
 public:
 	PON(const PON& o) {
 		node = o.node;
 		node->referenceCount++;
 	}
 	PON(SceneObject* o) {
-		if (auto n = existingNodes.find(o);
-			n != existingNodes.end()) {
+		if (auto n = existingNodes().find(o);
+			n != existingNodes().end()) {
 			node = n->second;
 		}
 		else {
 			node = new Node();
-			existingNodes[o] = node;
+			existingNodes()[o] = node;
 			Set(o);
 		}
 
@@ -989,7 +992,7 @@ public:
 		if (node->referenceCount > 0)
 			return;
 
-		existingNodes.erase(node->object);
+		existingNodes().erase(node->object);
 		Delete();
 		delete node;
 	}
@@ -1013,7 +1016,7 @@ public:
 		return Get();
 	}
 
-	bool operator<(const PON& o) const {
+	constexpr bool operator<(const PON& o) const {
 		return node < o.node;
 	}
 };

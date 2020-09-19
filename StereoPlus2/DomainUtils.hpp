@@ -173,7 +173,7 @@ public:
 
 class SceneObjectSelection {
 public:
-	using Selection = std::set<SceneObject*>;
+	using Selection = std::set<PON>;
 private:
 	static Selection& selected() {
 		static Selection v;
@@ -352,7 +352,7 @@ public:
 	}
 	void DeleteSelected() {
 		for (auto o : SceneObjectSelection::Selected())
-			Delete(const_cast<SceneObject*>(o->GetParent()), o);
+			Delete(const_cast<SceneObject*>(o->GetParent()), o.Get());
 	}
 	void DeleteAll() {
 		deleteAll.Invoke();
