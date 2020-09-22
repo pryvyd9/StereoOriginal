@@ -105,7 +105,6 @@ public:
 		children = copy->children;
 		Name = copy->Name;
 	}
-
 	~SceneObject() {
 		glDeleteBuffers(2, &VBOLeft);
 		glDeleteVertexArrays(1, &VAO);
@@ -814,17 +813,6 @@ public:
 	std::function<void()> keyboardBindingHandler;
 	size_t keyboardBindingHandlerId;
 
-	//~Cross() {
-	//	glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), nullptr, GL_STREAM_DRAW);
-	//	glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), nullptr, GL_STREAM_DRAW);
-	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//}
-
-	bool Init() {
-		return true;
-	}
 	virtual ObjectType GetType() const {
 		return CrossT;
 	}

@@ -355,10 +355,6 @@ public:
 	}
 };
 
-
-
-
-
 template<ObjectType type>
 class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, public CreatingTool<Mesh> {
 #pragma region Types
@@ -728,7 +724,6 @@ public:
 	};
 };
 
-
 class TransformTool : public EditingTool<TransformToolMode> {
 	const Log Logger = Log::For<TransformTool>();
 
@@ -790,6 +785,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			
 			Translate(transformPos, target.Get());
 			transformOldPos = transformPos;
+			cross->ForceUpdateCache();
 			return;
 		case Mode::Scale:
 			if (scale == oldScale && transformPos == transformOldPos)
@@ -798,6 +794,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			Scale(transformPos, scale, target.Get());
 			oldScale = scale;
 			transformOldPos = transformPos;
+			cross->ForceUpdateCache();
 			return;
 		case Mode::Rotate:
 
@@ -810,6 +807,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 			oldAngle = angle;
 			transformOldPos = transformPos;
+			cross->ForceUpdateCache();
 			return;
 		}
 
@@ -941,7 +939,7 @@ public:
 
 		originalLocalRotation = target->GetLocalRotation();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
-		cross->SetParent(target.Get());
+		cross->SetParent(target.Get(), false, true, true, false);
 		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
 			cross->SetWorldRotation(cross->unitQuat());
 
@@ -997,7 +995,7 @@ public:
 		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 		DeleteConfig();
 
-		cross->SetParent(crossOriginalParent);
+		cross->SetParent(crossOriginalParent, false, true, true, false);
 		cross->SetLocalRotation(cross->unitQuat());
 		cross->SetLocalPosition(glm::vec3());
 

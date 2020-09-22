@@ -27,17 +27,6 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 int main(int, char**) {
-	Property<int> a, b;
-
-	a.BindTwoWay(b);
-	a = 1;
-
-	a = 2;
-	a = 3;
-
-	//ReadonlyPropertyP<SceneObject*> h;
-	//h.BindAndApply(h);
-
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -63,13 +52,16 @@ int main(int, char**) {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	//inspectorWindow.rootObject = (GroupObject**)&scene.root.Get().Get();
 	inspectorWindow.rootObject.BindAndApply(scene.root);
+	inspectorWindow.input = &gui.input;
+
+	cameraPropertiesWindow.Object = &camera;
+	crossPropertiesWindow.Object = &cross;
 
 	scene.camera = &camera;
-	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
-
-	
+	scene.glWindow = renderPipeline.glWindow;
+	scene.camera->viewSize = &customRenderWindow.renderSize;
+	scene.cross = &cross;
 
 	gui.windows = {
 		(Window*)&customRenderWindow,
@@ -79,40 +71,25 @@ int main(int, char**) {
 		(Window*)&attributesWindow,
 		(Window*)&toolWindow,
 	};
-
 	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
-
-	scene.glWindow = gui.glWindow;
-	scene.camera->viewSize = &customRenderWindow.renderSize;
-	scene.cross = &cross;
-
 	gui.scene = &scene;
-
-	cross.Name = "Cross";
-	if (!cross.Init())
-		return false;
-
-	inspectorWindow.input = &gui.input;
-
-	crossPropertiesWindow.Object = (SceneObject*)scene.cross;
 	gui.keyBinding.cross = &cross;
 	if (!gui.Init())
 		return false;
 
+	cross.Name = "Cross";
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 
 	ToolPool::Cross() = ReadonlyProperty<Cross*>(&cross);
 	ToolPool::Scene() = ReadonlyProperty<Scene*>(&scene);
 	ToolPool::KeyBinding() = ReadonlyProperty<KeyBinding*>(&gui.keyBinding);
-	//* ToolPool::GetKeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 
 	StateBuffer::BufferSize() = 30;
 	StateBuffer::RootObject().BindTwoWay(scene.root);
-	StateBuffer::RootObject() = scene.root.Get();
 	StateBuffer::Objects() = &scene.objects;
 	if (!StateBuffer::Init())
 		return false;
