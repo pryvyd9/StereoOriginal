@@ -231,6 +231,144 @@ public:
 	}
 };
 
+
+//template<typename T>
+//class AbstractProperty {
+//protected:
+//	template<typename T>
+//	class Node {
+//		T value;
+//		Event<T> changed;
+//	public:
+//		const T& Get() const {
+//			return value;
+//		}
+//		T& Get() {
+//			return value;
+//		}
+//		void Set(const T& v) {
+//			auto& old = value;
+//			value = v;
+//			if (old != v)
+//				changed.Invoke(v);
+//		}
+//		IEvent<T>& OnChanged() const {
+//			return *(IEvent<T>*) & changed;
+//		}
+//	};
+//
+//	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
+//	T& Get() {
+//		return node->Get();
+//	}
+//	void Set(const T& v) {
+//		node->Set(v);
+//	}
+//	AbstractProperty<T>& operator=(const T& v) {
+//		Set(v);
+//		return *this;
+//	}
+//	void Bind(const AbstractProperty<T>& p) {
+//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+//	}
+//	void BindAndApply(const AbstractProperty<T>& p) {
+//		Set(p.Get());
+//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+//	}
+//	void BindTwoWay(const AbstractProperty<T>& p) {
+//		node = p.node;
+//	}
+//public:
+//	IEvent<T>& OnChanged() const {
+//		return node->OnChanged();
+//	}
+//};
+//
+//template<typename T>
+//class Property : public AbstractProperty<T> {
+//public:
+//	T& Get() const {
+//		return AbstractProperty<T>::Get();
+//	}
+//	void Set(const T& v) {
+//		AbstractProperty<T>::Set(v);
+//	}
+//	Property<T>& operator=(const T& v) {
+//		Set(v);
+//		return *this;
+//	}
+//	void Bind(const Property<T>& p) {
+//		AbstractProperty<T>::Bind(p);
+//	}
+//	void BindAndApply(const Property<T>& p) {
+//		AbstractProperty<T>::BindAndApply(p);
+//	}
+//	void BindTwoWay(const Property<T>& p) {
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//};
+////template<typename T>
+////class AbstractReadonlyProperty : public AbstractProperty<T> {
+////protected:
+////	T& Get() const {
+////		return AbstractProperty<T>::Get();
+////	}
+////	void BindAndApply(const AbstractReadonlyProperty<T>& p) {
+////		// Since it's readonly it doesn't matter if it's the same node.
+////		AbstractProperty<T>::BindTwoWay(p);
+////	}
+////	T& operator->() const {
+////		return Get();
+////	}
+////};
+//
+//template<typename T>
+//class ReadonlyProperty : public AbstractProperty<T> {
+//public:
+//	ReadonlyProperty() {}
+//	ReadonlyProperty(const T& o) {
+//		AbstractProperty<T>::Set(o);
+//	}
+//	T& Get() const {
+//		return AbstractProperty<T>::Get();
+//	}
+//	void BindAndApply(const ReadonlyProperty<T>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//	void BindAndApply(const Property<T>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//	T& operator->() const {
+//		return Get();
+//	}
+//};
+//
+//template<typename T>
+//class ReadonlyProperty<T*> : public AbstractProperty<T*> {
+//public:
+//	ReadonlyProperty() {}
+//	ReadonlyProperty(const T* o) {
+//		AbstractProperty<T*>::node->Set(*o);
+//	}
+//	T* Get() const {
+//		return AbstractProperty<T*>::node->Get();
+//		//return &AbstractProperty<T*>::Get();
+//	}
+//	void BindAndApply(const ReadonlyProperty<T*>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T*>::BindTwoWay(p);
+//	}
+//	void BindAndApply(const Property<T*>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T*>::BindTwoWay(p);
+//	}
+//	T* operator->() const {
+//		return Get();
+//	}
+//};
+
 template<typename T>
 class Property {
 	template<typename T>
@@ -254,7 +392,7 @@ class Property {
 			return *(IEvent<T>*) & changed;
 		}
 	};
-	
+
 	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
 public:
 	const T& Get() const {
@@ -272,6 +410,10 @@ public:
 	void Bind(const Property<T>& p) {
 		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
 	}
+	void BindAndApply(const Property<T>& p) {
+		Set(p.Get());
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+	}
 	void BindTwoWay(const Property<T>& p) {
 		node = p.node;
 	}
@@ -280,6 +422,36 @@ public:
 		Set(v);
 		return *this;
 	}
+	T* operator->() const {
+		return &Get();
+	}
+};
+
+template<typename T>
+class ReadonlyProperty : Property<T> {
+public:
+	ReadonlyProperty() {}
+	ReadonlyProperty(T o) {
+		Property<T>::Set(o);
+	}
+	void BindAndApply(const Property<T>& p) {
+		Property<T>::BindAndApply(p);
+	}
+	void BindAndApply(const ReadonlyProperty<T>& p) {
+		Property<T>::BindAndApply(p);
+	}
+	void Bind(const Property<T>& p) {
+		Property<T>::Bind(p);
+	}
+	const T& Get() const {
+		return Property<T>::Get();
+	}
+	T& Get() {
+		return Property<T>::Get();
+	}
+	T operator->() const {
+		return Get();
+	}
 };
 
 #define StaticProperty(type,name) \
@@ -287,3 +459,4 @@ static Property<type>& name() {\
 	static Property<type> v;\
 	return v;\
 }
+

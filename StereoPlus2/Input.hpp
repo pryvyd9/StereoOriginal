@@ -2,6 +2,7 @@
 
 #include "GLLoader.hpp"
 #include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include <map>
 #include <vector>
 
@@ -291,6 +292,9 @@ public:
 	float crossMinSize = 0.001;
 	float crossMaxSize = 1;
 
+	//Event<> OnBeforeChangeBuffer;
+	//Event<const SceneObjectSelection::Selection*> OnBeforeDeleteObject;
+
 	size_t AddHandler(std::function<void()> func) {
 		static size_t id = 0;
 
@@ -479,9 +483,21 @@ public:
 			c->ForceUpdateCache();
 			});
 	}
-
+	void ChangeBuffer() {
+		AddHandler([i = input] {
+		//AddHandler([i = input, obcf = &OnBeforeChangeBuffer] {
+			//obcf->Invoke();
+			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+				if (i->IsDown(Key::Z))
+					StateBuffer::Rollback();
+				else if (i->IsDown(Key::Y))
+					StateBuffer::Repeat();
+			}
+			});
+	}
 	bool Init() {
 		Cross();
+		ChangeBuffer();
 
 		return true;
 	}

@@ -15,8 +15,6 @@ class Tool {};
 
 template<typename T>
 class CreatingTool : Tool, public ISceneHolder {
-	SceneObject** destination;
-
 	static std::stack<SceneObject*>& GetCreatedObjects() {
 		static std::stack<SceneObject*> val;
 		return val;
@@ -24,19 +22,14 @@ class CreatingTool : Tool, public ISceneHolder {
 public:
 	std::function<void(T*)> func;
 
-	bool BindDestination(SceneObject** destination) {
-		this->destination = destination;
-		return true;
-	}
+	ReadonlyProperty<PON> destination;
 
 	bool Create() {
 		StateBuffer::Commit();
 
 		auto command = new CreateCommand();
-		if (!command->BindScene(scene))
-			return false;
-
-		command->destination = *destination;
+		command->scene.BindAndApply(scene);
+		command->destination = destination.Get().Get();
 		command->func = [=] {
 			T* obj = new T();
 			func(obj);
@@ -63,7 +56,6 @@ protected:
 		T* Get() { return (T*)this; };
 	};
 
-	KeyBinding* keyBinding = nullptr;
 	Config* config = nullptr;
 
 	static bool& isBeingModified() {
@@ -91,22 +83,20 @@ public:
 		Transform,
 	};
 
+	ReadonlyProperty<KeyBinding*> keyBinding;
+
 	EditingTool() {
 		if (isBeingModifiedHandler() != 0)
 			return;
 
 		isBeingModifiedHandler() = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
 			isBeingModified() = true;
-			//StateBuffer::Commit();
 			});
 	}
 
 	virtual Type GetType() = 0;
-	virtual bool BindSceneObjects(std::vector<SceneObject*> obj) = 0;
+	virtual bool BindSceneObjects(std::vector<PON> obj) = 0;
 	virtual bool UnbindSceneObjects() = 0;
-	virtual bool BindInput(KeyBinding* keyBinding) {
-		return this->keyBinding = keyBinding;
-	}
 };
 
 template<ObjectType type>
@@ -140,7 +130,6 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	size_t spaceModeChangeHandlerId;
 	Mode mode;
 
-	Cross* cross = nullptr;
 	SceneObject* target = nullptr;
 
 	glm::vec3 crossOriginalPosition;
@@ -275,13 +264,14 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 #pragma endregion
 
 public:
+	ReadonlyProperty<Cross*> cross;
 	std::vector<std::function<void()>> onTargetReleased;
 
-	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
+	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (target != nullptr && !UnbindSceneObjects())
 			return false;
 
-		if (keyBinding == nullptr)
+		if (keyBinding.Get() == nullptr)
 		{
 			Logger.Warning("KeyBinding wasn't assigned");
 			return false;
@@ -292,7 +282,7 @@ public:
 			Logger.Warning("Invalid Object passed to PointPenEditingTool");
 			return true;
 		}
-		target = objs[0];
+		target = objs[0].Get();
 
 		crossOriginalPosition = cross->GetLocalPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
@@ -359,10 +349,6 @@ public:
 		return target;
 	}
 
-	bool BindCross(Cross* cross) {
-		this->cross = cross;
-		return true;
-	}
 	void SetMode(Mode mode) {
 		DeleteConfig();
 		this->mode = mode;
@@ -402,8 +388,6 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 	size_t spaceModeChangeHandlerId;
 
 	Mode mode;
-
-	Cross* cross = nullptr;
 
 	Mesh* mesh = nullptr;
 	SceneObject* pen = nullptr;
@@ -645,6 +629,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 
 public:
+	ReadonlyProperty<Cross*> cross;
 
 	ExtrusionEditingTool() {
 		func = [&, mesh = &mesh](Mesh* o) {
@@ -665,11 +650,11 @@ public:
 		};
 	}
 
-	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
+	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (pen != nullptr && !UnbindSceneObjects())
 			return false;
 
-		if (keyBinding == nullptr) {
+		if (keyBinding.Get() == nullptr) {
 			Logger.Error("KeyBinding wasn't assigned");
 			return false;
 		}
@@ -678,7 +663,7 @@ public:
 			Logger.Warning("Invalid Object passed to ExtrusionEditingTool");
 			return true;
 		}
-		pen = objs[0];
+		pen = objs[0].Get();
 
 		crossOriginalPosition = cross->GetLocalPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
@@ -727,10 +712,6 @@ public:
 		return Type::Extrusion;
 	}
 
-	bool BindCross(Cross* cross) {
-		return this->cross = cross;
-	}
-
 	void SetMode(Mode mode) {
 		this->mode = mode;
 	}
@@ -756,8 +737,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	Mode mode;
 	ObjectType type;
 
-	Cross* cross = nullptr;
-	SceneObject* target = nullptr;
+	PON target;
 
 	SceneObject* crossOriginalParent;
 
@@ -784,13 +764,13 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		//if (SceneObjectSelection::Selected().empty())
 		//	return;
 
-		if (isBeingModified() && !input->IsContinuousInputExceptFirstFrame())
-			StateBuffer::Commit();
+		//if (isBeingModified() && !input->IsContinuousInputExceptFirstFrame())
+		//	StateBuffer::Commit();
 
 
-		target = SceneObjectSelection::Selected().begin()->Get();
+		//target = SceneObjectSelection::Selected().begin()->Get();
 
-		if (target == nullptr)
+		if (!target.HasValue())
 			return;
 		if (input->IsDown(Key::Escape)) {
 			Cancel();
@@ -808,14 +788,14 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			if (transformPos == transformOldPos)
 				return;
 			
-			Translate(transformPos, target);
+			Translate(transformPos, target.Get());
 			transformOldPos = transformPos;
 			return;
 		case Mode::Scale:
 			if (scale == oldScale && transformPos == transformOldPos)
 				return;
 
-			Scale(transformPos, scale, target);
+			Scale(transformPos, scale, target.Get());
 			oldScale = scale;
 			transformOldPos = transformPos;
 			return;
@@ -824,7 +804,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			if (angle == oldAngle && transformPos == transformOldPos)
 				return;
 
-			Rotate(target);
+			Rotate(target.Get());
 
 			nullifyUntouchedAngles();
 
@@ -916,6 +896,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	}
 
 public:
+	ReadonlyProperty<Cross*> cross;
 
 	const std::multimap<ObjectType, Mode> supportedConfigs{
 		{ Group, Mode::Translate },
@@ -933,11 +914,11 @@ public:
 	glm::vec3 angle;
 	glm::vec3 transformPos;
 
-	virtual bool BindSceneObjects(std::vector<SceneObject*> objs) {
+	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (!UnbindSceneObjects())
 			return false;
 
-		if (keyBinding == nullptr) {
+		if (keyBinding.Get() == nullptr) {
 			Logger.Error("KeyBinding wasn't assigned");
 			return false;
 		}
@@ -960,7 +941,7 @@ public:
 
 		originalLocalRotation = target->GetLocalRotation();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
-		cross->SetParent(target);
+		cross->SetParent(target.Get());
 		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
 			cross->SetWorldRotation(cross->unitQuat());
 
@@ -995,7 +976,7 @@ public:
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		if (this->target == nullptr)
+		if (!this->target.HasValue())
 			return true;
 
 		isPositionModified = false;
@@ -1047,13 +1028,13 @@ public:
 		UnbindSceneObjects();
 	}
 	SceneObject* GetTarget() {
-		return target;
+		if (target.HasValue())
+			return target.Get();
+		else 
+			return nullptr;
 	}
 	virtual Type GetType() {
 		return Type::Transform;
-	}
-	bool BindCross(Cross* cross) {
-		return this->cross = cross;
 	}
 	void SetMode(Mode mode) {
 		this->mode = mode;

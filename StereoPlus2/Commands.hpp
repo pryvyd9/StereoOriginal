@@ -11,19 +11,15 @@
 
 class ISceneHolder {
 protected:
-	Scene* scene = nullptr;
 	bool CheckScene() {
-		if (scene == nullptr) {
+		if (scene.Get() == nullptr) {
 			std::cout << "Scene wasn't bind" << std::endl;
 			return false;
 		}
 		return true;
 	}
 public:
-	bool BindScene(Scene* scene) {
-		this->scene = scene;
-		return true;
-	}
+	ReadonlyProperty<Scene*> scene;
 };
 
 class CreateCommand : Command, public ISceneHolder {
@@ -33,9 +29,9 @@ protected:
 			return false;
 
 		if (destination == nullptr)
-			scene->Insert(func());
+			scene.Get()->Insert(func());
 		else
-			scene->Insert(destination, func());
+			scene.Get()->Insert(destination, func());
 
 		return true;
 	};
@@ -54,7 +50,7 @@ protected:
 		if (!CheckScene())
 			return false;
 
-		scene->Delete(source, target);
+		scene.Get()->Delete(source, target);
 		return true;
 	};
 public:
@@ -96,7 +92,7 @@ public:
 
 	SceneObject* target;
 	int targetPos;
-	std::set<SceneObject*>* items;
+	std::set<PON>* items;
 	InsertPosition pos;
 	IHolder* caller;
 	std::function<void()> callback = [] {};

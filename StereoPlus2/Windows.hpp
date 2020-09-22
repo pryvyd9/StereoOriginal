@@ -267,12 +267,12 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return val;
 	}
 
-	bool IsMovedToItself(const SceneObject* target, std::set<SceneObject*>& buffer) {
+	bool IsMovedToItself(const SceneObject* target, std::set<PON>& buffer) {
 		for (auto o : buffer) {
-			if (o == target)
+			if (o.Get() == target)
 				return true;
 			else if (auto parent = target->GetParent();
-				parent != nullptr && (parent == o || IsMovedToItself(parent, buffer)))
+				parent != nullptr && (parent == o.Get() || IsMovedToItself(parent, buffer)))
 				return true;
 		}
 
@@ -533,8 +533,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return Rest;
 	}
 
-
-	void ScheduleMove(SceneObject* target, int targetPos, std::set<SceneObject*>* items, InsertPosition pos) {
+	void ScheduleMove(SceneObject* target, int targetPos, std::set<PON>* items, InsertPosition pos) {
 		if (isCommandEmpty) {
 			moveCommand = new MoveCommand();
 			isCommandEmpty = false;
@@ -546,13 +545,13 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		moveCommand->items = items;
 		moveCommand->pos = pos;
 		moveCommand->caller = (IHolder*)this;
-		moveCommand->callback = [&] { 
+		moveCommand->callback = [&] {
 			hasMovementOccured = true;
 		};
 	}
 
 public:
-	GroupObject** rootObject;
+	ReadonlyProperty<PON> rootObject;
 	Input* input;
 	float indent = 1;
 	float centerSizeHalf = 3;
@@ -570,7 +569,7 @@ public:
 		// Reset elements' IDs.
 		GetID() = 0;
 
-		DesignRootNode(*rootObject);
+		DesignRootNode((GroupObject*)rootObject.Get().Get());
 		hasMovementOccured = false;
 
 		ImGui::End();
@@ -638,7 +637,7 @@ class PointPenToolWindow : Window, Attributes {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<SceneObject*> objects;
+			std::vector<PON> objects;
 			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
@@ -758,7 +757,7 @@ class ExtrusionToolWindow : Window, Attributes {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<SceneObject*> objects;
+			std::vector<PON> objects;
 			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
 				if (objects.size() > 1)
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
@@ -893,7 +892,7 @@ class TransformToolWindow : Window, Attributes {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<SceneObject*> objects;
+			std::vector<PON> objects;
 			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
@@ -1096,13 +1095,13 @@ class ToolWindow : Window {
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
+		auto deleteAllhandlerId = scene.Get()->OnDeleteAll().AddHandler([t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindSceneObjects();
 		});
 		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
 			t->tool->UnbindSceneObjects();
-			s->OnDeleteAll().RemoveHandler(d);
+			s.Get()->OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
 			delete t;
 		};
@@ -1111,14 +1110,14 @@ class ToolWindow : Window {
 
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
-		creatingTool.BindScene(scene);
-		creatingTool.BindDestination(&scene->root.Get());
+		creatingTool.scene.BindAndApply(scene);
+		creatingTool.destination.BindAndApply(scene.Get()->root);
 		creatingTool.func = initFunc;
 	}
 
 public:
 	AttributesWindow* attributesWindow;
-	Scene* scene = nullptr;
+	ReadonlyProperty<Scene*> scene;
 
 	virtual bool Init() {
 		if (attributesWindow == nullptr)
@@ -1127,7 +1126,7 @@ public:
 			return false;
 		}
 
-		if (scene == nullptr)
+		if (scene.Get() == nullptr)
 		{
 			log.Error("Scene wasn't assigned");
 			return false;

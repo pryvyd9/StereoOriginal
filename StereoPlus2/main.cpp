@@ -35,6 +35,9 @@ int main(int, char**) {
 	a = 2;
 	a = 3;
 
+	//ReadonlyPropertyP<SceneObject*> h;
+	//h.BindAndApply(h);
+
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -60,7 +63,8 @@ int main(int, char**) {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject = (GroupObject**)&scene.root.Get();
+	//inspectorWindow.rootObject = (GroupObject**)&scene.root.Get().Get();
+	inspectorWindow.rootObject.BindAndApply(scene.root);
 
 	scene.camera = &camera;
 	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
@@ -99,9 +103,10 @@ int main(int, char**) {
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 
-	* ToolPool::GetCross() = &cross;
-	* ToolPool::GetScene() = &scene;
-	* ToolPool::GetKeyBinding() = &gui.keyBinding;
+	ToolPool::Cross() = ReadonlyProperty<Cross*>(&cross);
+	ToolPool::Scene() = ReadonlyProperty<Scene*>(&scene);
+	ToolPool::KeyBinding() = ReadonlyProperty<KeyBinding*>(&gui.keyBinding);
+	//* ToolPool::GetKeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 
@@ -131,16 +136,9 @@ int main(int, char**) {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
-	gui.keyBinding.AddHandler([i = &gui.input] {
-		if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
-			if (i->IsDown(Key::Z))
-				StateBuffer::Rollback();
-			else if (i->IsDown(Key::Y))
-				StateBuffer::Repeat();
-		}
-		});
-
 	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
+	//gui.keyBinding.AddHandler([i = &gui.input, k = &gui.keyBinding, s = &scene]{
+		//k->OnBeforeDeleteObject.Invoke(&SceneObjectSelection::Selected());
 		if (i->IsDown(Key::Delete)) {
 			StateBuffer::Commit();
 			s->DeleteSelected();

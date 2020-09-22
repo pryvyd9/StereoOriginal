@@ -11,7 +11,7 @@ class StateBuffer {
 public:
 	// Buffer requires 1 additional state for saving current state.
 	StaticProperty(int, BufferSize)
-	StaticProperty(SceneObject*, RootObject)
+	StaticProperty(PON, RootObject)
 	StaticProperty(std::vector<PON>*, Objects)
 private:
 	struct State {
@@ -82,20 +82,18 @@ private:
 		// Saved state at position pos.
 		auto saved = at(pos);
 
-		delete RootObject().Get();
-
 		// Delete current objects.
-		for (auto o : objects)
+		for (auto& o : objects)
 			o.Delete();
 
 		std::map<SceneObject*, SceneObject*> newCopies;
-		for (auto o : saved.copies)
-			newCopies[o.first] = o.second->Clone();
+		for (auto [f,s] : saved.copies)
+			newCopies[f] = s->Clone();
 
 		objects.clear();
-		for (auto o : saved.objects) {
-			o.second.Set(newCopies[o.first]);
-			objects.push_back(o.second);
+		for (auto [a,b] : saved.objects) {
+			b.Set(newCopies[a]);
+			objects.push_back(b);
 		}
 
 		auto newRoot = saved.rootCopy->Clone();
@@ -123,7 +121,7 @@ private:
 
 public:
 	static bool Init() {
-		if (!RootObject().Get() ||
+		if (!RootObject().Get().Get() ||
 			!Objects().Get()) {
 			Log::For<StateBuffer>().Error("Initialization failed.");
 			return false;
@@ -218,7 +216,7 @@ public:
 
 class SceneObjectBuffer {
 public:
-	using Buffer = std::set<SceneObject*>*;
+	using Buffer = std::set<PON>*;
 private:
 	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
 		return ImGui::AcceptDragDropPayload(name, flags);
@@ -233,7 +231,7 @@ public:
 
 		return nullptr;
 	}
-	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<SceneObject*>* outSceneObjects) {
+	static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::vector<PON>* outSceneObjects) {
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
 			auto objectPointers = GetBuffer(payload->Data);
 
@@ -247,20 +245,6 @@ public:
 
 		return false;
 	}
-
-	//static void EmplaceDragDropSceneObject(const char* name, SceneObject* objectPointer, Buffer* buffer) {
-	//	(*buffer)->emplace(objectPointer);
-
-	//	ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
-	//}
-	//static void EmplaceDragDropSceneObject(const char* name, const std::set<SceneObject*>* objectPointers, Buffer* buffer) {
-	//	(*buffer)->merge(*const_cast<std::set<SceneObject*>*>(objectPointers));
-	//	//(*buffer)->set_uni(*const_cast<std::set<SceneObject*>*>(objectPointers));
-	//	//(*buffer)->emplace(objectPointer);
-	//	auto j = objectPointers->size();
-	//	ImGui::SetDragDropPayload("SceneObjects", buffer, sizeof(Buffer));
-	//}
-
 	static void EmplaceDragDropSelected(const char* name) {
 		ImGui::SetDragDropPayload("SceneObjects", SceneObjectSelection::SelectedP(), sizeof(SceneObjectSelection::Selection*));
 	}
@@ -307,32 +291,39 @@ private:
 
 		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), disconnectedItemsToBeMoved);
 	}
+
+	static PON CreateRoot() {
+		auto r = new GroupObject();
+		r->Name = "Root";
+		return PON(r);
+	}
 public:
 	// Stores all objects.
 	std::vector<PON> objects;
 
-	Property<SceneObject*> root;
+	Property<PON> root;
 	StereoCamera* camera;
 	Cross* cross;
 
 	GLFWwindow* glWindow;
+
+	
 
 	IEvent<>& OnDeleteAll() {
 		return deleteAll;
 	}
 
 	Scene() {
-		root = new GroupObject();
-		root.Get()->Name = "Root";
+		root = CreateRoot();
 	}
-
+	
 	bool Insert(SceneObject* destination, SceneObject* obj) {
 		obj->SetParent(destination);
 		objects.push_back(obj);
 		return true;
 	}
 	bool Insert(SceneObject* obj) {
-		obj->SetParent(root.Get());
+		obj->SetParent(root.Get().Get());
 		objects.push_back(obj);
 		return true;
 	}
@@ -358,11 +349,8 @@ public:
 		deleteAll.Invoke();
 		cross->SetParent(nullptr);
 
-		delete root.Get();
-
 		objects.clear();
-		root = new GroupObject();
-		root.Get()->Name = "Root";
+		root = CreateRoot();
 	}
 
 	// Tree structure is preserved even if there is an unselected link.
@@ -414,10 +402,15 @@ public:
 
 		return true;
 	}
+	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<PON>* items, InsertPosition pos) {
+		std::set<SceneObject*> nitems;
+		for (auto o : *items)
+			nitems.emplace(o.Get());
 
+		return MoveTo(destination, destinationPos, &nitems, pos);
+	}
 
 	~Scene() {
-		delete root.Get();
 		objects.clear();
 	}
 };

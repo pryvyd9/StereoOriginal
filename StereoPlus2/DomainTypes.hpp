@@ -964,15 +964,22 @@ class PON {
 		SceneObject* object = nullptr;
 		int referenceCount = 0;
 	};
-	Node* node;
+	Node* node = nullptr;
 	static std::map<SceneObject*, Node*>& existingNodes() {
 		static std::map<SceneObject*, Node*> v;
 		return v;
 	}
-public:
-	PON(const PON& o) {
+	constexpr void Init(const PON& o) {
 		node = o.node;
-		node->referenceCount++;
+		if (node)
+			node->referenceCount++;
+	}
+public:
+	PON() {
+		node = nullptr;
+	}
+	PON(const PON& o) {
+		Init(o);
 	}
 	PON(SceneObject* o) {
 		if (auto n = existingNodes().find(o);
@@ -988,6 +995,9 @@ public:
 		node->referenceCount++;
 	}
 	~PON() {
+		if (!node)
+			return;
+
 		node->referenceCount--;
 		if (node->referenceCount > 0)
 			return;
@@ -997,12 +1007,27 @@ public:
 		delete node;
 	}
 
+	bool HasValue() const {
+		return node && node->object;
+	}
+
 	SceneObject* Get() const {
+		if (!node)
+			throw new std::exception("PON doesn't have value");
+
 		return node->object;
 	}
 	void Set(SceneObject* o) {
-		Delete();
+		if (node) {
+			if (node->object)
+				existingNodes().erase(node->object);
+			Delete();
+		}
+		else
+			node = new Node();
+
 		node->object = o;
+		existingNodes()[o] = node;
 	}
 	void Delete() {
 		if (!node->object)
@@ -1016,7 +1041,20 @@ public:
 		return Get();
 	}
 
+	constexpr PON& operator=(const PON& o) {
+		Init(o);
+		return *this;
+	}
 	constexpr bool operator<(const PON& o) const {
 		return node < o.node;
 	}
+	constexpr bool operator!=(const PON& o) const {
+		return node != o.node;
+	}
+
+	struct less {
+		bool operator()(const PON& o1, const PON& o2) {
+			return o1 < o2;
+		}
+	};
 };

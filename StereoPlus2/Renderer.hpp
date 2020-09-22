@@ -193,10 +193,15 @@ public:
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
+			std::set<PON> objectsSorted;
+			for (auto o : scene.objects)
+				objectsSorted.emplace(o);
+
 			std::vector<PON> dimObjects;
+
 			std::set_difference(
-				scene.objects.begin(),
-				scene.objects.end(),
+				objectsSorted.begin(),
+				objectsSorted.end(),
 				SceneObjectSelection::Selected().begin(),
 				SceneObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));
@@ -206,7 +211,8 @@ public:
 			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
 			for (auto o : SceneObjectSelection::Selected())
-				DrawBright(scene.camera, o.Get());
+				if (o.HasValue())
+					DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross);
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
