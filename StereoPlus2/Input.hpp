@@ -248,7 +248,7 @@ public:
 		if (isAnythingPressed) {
 			isContinuousInput = true;
 			lastPressedTime = Time::GetTime();
-			if (!isAnythingPressedLast)
+			if (isAnythingPressedLast)
 				isContinuousInputExceptFirstFrame = true;
 		}
 		else if (isContinuousInput && (Time::GetTime() - lastPressedTime) > continuousInputAwaitTime * 1e3) {
@@ -260,10 +260,11 @@ public:
 
 
 		// Handle OnInput actions
-		for (auto handler : handlers)
-			handler.second();
+		for (auto [id,handler] : handlers)
+			handler();
 
 		isAnythingPressedLast = isAnythingPressed;
+		isAnythingPressed = false;
 	}
 
 	bool Init() {

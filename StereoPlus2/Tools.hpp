@@ -729,6 +729,10 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
+	size_t stateChangedHandlerId;
+	size_t anyObjectChangedHandlerId;
+
+
 	Mode mode;
 	ObjectType type;
 
@@ -748,6 +752,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	bool areLinesModified = false;
 	bool isPositionModified = false;
 	bool isRotationModified = false;
+	bool wasCommitDone = false;
 
 	std::vector<std::vector<glm::vec3>> originalVerticesFolded;
 	std::vector<glm::vec3> originalLocalPositionsFolded;
@@ -759,9 +764,12 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		//if (SceneObjectSelection::Selected().empty())
 		//	return;
 
-		//if (isBeingModified() && !input->IsContinuousInputExceptFirstFrame())
-		//	StateBuffer::Commit();
+		//Logger.Information(isBeingModified(), input->IsContinuousInput());
 
+		if (!input->IsContinuousInput()) {
+			isBeingModified() = false;
+			wasCommitDone = false;
+		}
 
 		//target = SceneObjectSelection::Selected().begin()->Get();
 
@@ -940,6 +948,17 @@ public:
 		originalLocalRotation = target->GetLocalRotation();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
 		cross->SetParent(target.Get(), false, true, true, false);
+		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] { 
+			cross->SetParent(target.Get(), false, true, true, false); 
+			});
+		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
+			if (wasCommitDone)
+				return;
+
+			StateBuffer::Commit();
+			wasCommitDone = true;
+			//Logger.Information("commit");
+			});
 		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
 			cross->SetWorldRotation(cross->unitQuat());
 
@@ -993,6 +1012,8 @@ public:
 		keyBinding->RemoveHandler(inputHandlerId);
 		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
 		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
+		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
+		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 		DeleteConfig();
 
 		cross->SetParent(crossOriginalParent, false, true, true, false);

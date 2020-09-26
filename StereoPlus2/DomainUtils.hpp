@@ -34,6 +34,11 @@ private:
 		return v;
 	}
 
+	static Event<>& onStateChange() {
+		static Event<> v;
+		return v;
+	}
+
 	static void PushPast(std::vector<PON>& objects) {
 		states().push_back(State());
 
@@ -120,6 +125,10 @@ private:
 	}
 
 public:
+	static IEvent<>& OnStateChange() {
+		return onStateChange();
+	}
+
 	static bool Init() {
 		if (!RootObject().Get().Get() ||
 			!Objects().Get()) {
@@ -146,6 +155,8 @@ public:
 		}
 
 		ApplyPast(*Objects().Get());
+
+		onStateChange().Invoke();
 	}
 
 	// Do, Save current state
@@ -162,6 +173,8 @@ public:
 			return;
 
 		ApplyFuture(*Objects().Get());
+
+		onStateChange().Invoke();
 	}
 
 	static void Clear() {

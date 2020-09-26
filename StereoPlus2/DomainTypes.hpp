@@ -44,13 +44,21 @@ protected:
 		return v;
 	}
 
-	//Event<const SceneObject&> onBeforeChange;
-
 	// When true cache will be updated on reading.
 	// Means the object was changed.
 	bool shouldUpdateCache = true;
 	const float propertyIndent = -20;
 
+	virtual void HandleBeforeUpdate() {
+		if (!isAnyObjectUpdated()) {
+			isAnyObjectUpdated() = true;
+			onBeforeAnyElementChanged().Invoke();
+
+			(new FuncCommand())->func = [&] {
+				isAnyObjectUpdated() = false;
+			};
+		}
+	}
 	virtual void UpdateOpenGLBuffer(
 		std::function<glm::vec3(glm::vec3)> toLeft,
 		std::function<glm::vec3(glm::vec3)> toRight) {}
@@ -93,6 +101,10 @@ protected:
 public:
 	std::vector<SceneObject*> children;
 	std::string Name = "noname";
+
+	static IEvent<>& OnBeforeAnyElementChanged() {
+		return onBeforeAnyElementChanged();
+	}
 
 	SceneObject() {
 		glGenBuffers(2, &VBOLeft);
@@ -285,23 +297,13 @@ public:
 
 	// Forces the object and all children to update cache.
 	void ForceUpdateCache() {
-		if (!isAnyObjectUpdated()) {
-			isAnyObjectUpdated() = true;
-			onBeforeAnyElementChanged().Invoke();
-		
-			(new FuncCommand())->func = [&] {
-				isAnyObjectUpdated() = false;
-			};
-		}
+		HandleBeforeUpdate();
 
 		shouldUpdateCache = true;
 		for (auto c : children)
 			c->ForceUpdateCache();
 	}
 
-	static IEvent<>& OnBeforeAnyElementChanged() {
-		return onBeforeAnyElementChanged();
-	}
 
 	// Virtual methods to be overridden.
 	// Do nothing here since we don't want cascade operations to fail 
@@ -807,6 +809,9 @@ class Cross : public LeafObject {
 		CascadeTransform(vertices);
 		shouldUpdateCache = false;
 	}
+
+	// Cross is being continuously modified so don't notify it's updates.
+	virtual void HandleBeforeUpdate() {}
 
 public:
 	float size = 0.1;
