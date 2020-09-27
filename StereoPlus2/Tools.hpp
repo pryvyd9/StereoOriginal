@@ -128,12 +128,16 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	Log Logger = Log::For<PointPenEditingTool>();
 	size_t inutHandlerId;
 	size_t spaceModeChangeHandlerId;
+	size_t stateChangedHandlerId;
+	size_t anyObjectChangedHandlerId;
+
 	Mode mode;
 
-	SceneObject* target = nullptr;
+	PON target;
 
 	glm::vec3 crossOriginalPosition;
 	SceneObject* crossOriginalParent;
+	bool wasCommitDone = false;
 
 
 	template<Mode mode>
@@ -159,6 +163,11 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
+		if (!input->IsContinuousInput()) {
+			isBeingModified() = false;
+			wasCommitDone = false;
+		}
+
 		if (input->IsDown(Key::Escape)) {
 			UnbindSceneObjects();
 			return;
@@ -223,7 +232,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		auto pointsCount = points.size();
 
 
-		if (!GetConfig<Mode::Step>()->isPointCreated) {
+		if (!GetConfig<Mode::Step>()->isPointCreated || points.empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
 			target->AddVertice(GetPos());
@@ -232,6 +241,8 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		}
 
 		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter)) {
+			isBeingModified() = false;
+			wasCommitDone = false;
 			target->AddVertice(GetPos());
 
 			return;
@@ -244,7 +255,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	}
 
 	void ProcessInput(Input* input) {
-		if (target == nullptr) {
+		if (!target.HasValue()) {
 			UnbindSceneObjects();
 			return;
 		}
@@ -268,27 +279,25 @@ public:
 	std::vector<std::function<void()>> onTargetReleased;
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
-		if (target != nullptr && !UnbindSceneObjects())
+		if (target.HasValue() && !UnbindSceneObjects())
 			return false;
 
-		if (keyBinding.Get() == nullptr)
-		{
+		if (!keyBinding.Get()) {
 			Logger.Warning("KeyBinding wasn't assigned");
 			return false;
 		}
 
-		if (objs[0]->GetType() != type)
-		{
+		if (objs[0]->GetType() != type) {
 			Logger.Warning("Invalid Object passed to PointPenEditingTool");
 			return true;
 		}
-		target = objs[0].Get();
+		target = objs[0];
 
 		crossOriginalPosition = cross->GetLocalPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
 
 		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
-			cross->SetParent(target);
+			cross->SetParent(target.Get(), false, true, true, false);
 			if (target->GetVertices().size() > 0)
 				cross->SetLocalPosition(target->GetVertices().back());
 			else
@@ -304,39 +313,53 @@ public:
 		inutHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
 		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
 			if (v == SpaceMode::Local) {
-				cross->SetParent(target);
+				cross->SetParent(target.Get(), false, true, true, false);
 				if (target->GetVertices().size() > 0)
 					cross->SetLocalPosition(target->GetVertices().back());
 				else
 					cross->SetLocalPosition(glm::vec3());
 			}
 			else {
-				cross->SetParent(crossOriginalParent);
+				cross->SetParent(crossOriginalParent, false, true, true, false);
 				if (target->GetVertices().size() > 0)
 					cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
 				else
 					cross->SetWorldPosition(target->GetWorldPosition());
 			}
 			});
+		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
+			cross->SetParent(target.Get(), false, true, true, false);
+			if (!target.HasValue() || target->GetVertices().empty())
+				cross->SetLocalPosition(glm::vec3());
+			else
+				cross->SetLocalPosition(target->GetVertices().back());
+			});
+		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
+			if (wasCommitDone)
+				return;
+
+			StateBuffer::Commit();
+			wasCommitDone = true;
+			Logger.Information("commit");
+			});
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		if (this->target == nullptr)
+		if (!target.HasValue())
 			return true;
 
-		auto target = (StereoPolyLine*)this->target;
 		target->RemoveVertice();
-		this->target = nullptr;
-		
 
 		for (auto func : onTargetReleased)
 			func();
 
-		cross->SetParent(crossOriginalParent);
+		cross->SetParent(crossOriginalParent, false, true, true, false);
 		cross->SetLocalPosition(crossOriginalPosition);
 		keyBinding->RemoveHandler(inutHandlerId);
 		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
+		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
+		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 
 		DeleteConfig();
 
@@ -346,7 +369,9 @@ public:
 		return Type::PointPen;
 	}
 	SceneObject* GetTarget() {
-		return target;
+		return target.HasValue()
+			? target.Get()
+			: nullptr;
 	}
 
 	void SetMode(Mode mode) {
@@ -382,11 +407,15 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
+	size_t stateChangedHandlerId;
+	size_t anyObjectChangedHandlerId;
 
 	Mode mode;
 
-	Mesh* mesh = nullptr;
-	SceneObject* pen = nullptr;
+	PON mesh = nullptr;
+	PON pen = nullptr;
+
+	bool wasCommitDone = false;
 
 	glm::vec3 crossStartPosition;
 	glm::vec3 crossOldPosition;
@@ -416,7 +445,12 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
-		if (mesh == nullptr || crossOldPosition == GetPos())
+		if (!input->IsContinuousInput()) {
+			isBeingModified() = false;
+			wasCommitDone = false;
+		}
+
+		if (!mesh.HasValue() || crossOldPosition == GetPos())
 			return;
 
 		if (input->IsDown(Key::Escape)) {
@@ -427,7 +461,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		auto& meshPoints = mesh->GetVertices();
 		auto& penPoints = pen->GetVertices();
 		auto transformVector = GetPos() - crossStartPosition;
-
+		auto mesh = (Mesh*)this->mesh.Get();
 
 		if (GetConfig<Mode::Immediate>()->directingPoints.size() < 1) {
 			// We need to select one point and create an additional point
@@ -504,7 +538,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Step>(Input* input) {
-		if (mesh == nullptr)
+		if (!mesh.HasValue())
 			return;
 		
 		if (input->IsDown(Key::Escape)) {
@@ -514,10 +548,11 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 		auto& meshPoints = mesh->GetVertices();
 		auto& penPoints = pen->GetVertices();
+		auto mesh = (Mesh*)this->mesh.Get();
 
 		auto transformVector = GetPos() - crossStartPosition;
 
-		if (!GetConfig<Mode::Step>()->isPointCreated) {
+		if (!GetConfig<Mode::Step>()->isPointCreated || meshPoints.empty()) {
 			mesh->AddVertice(penPoints[0] + transformVector);
 
 			for (size_t i = 1; i < penPoints.size(); i++) {
@@ -531,6 +566,9 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		}
 
 		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter)) {
+			isBeingModified() = false;
+			wasCommitDone = false;
+
 			auto s = meshPoints.size();
 			mesh->AddVertice(penPoints[0] + transformVector);
 			mesh->Connect(s - penPoints.size(), s);
@@ -567,17 +605,18 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 	}
 	template<>
 	void UnbindSceneObjects<StereoPolyLineT, Mode::Immediate>() {
-		if (this->pen == nullptr)
+		if (!pen.HasValue())
 			return;
 
-		this->pen = nullptr;
+		//this->pen = nullptr;
 	}
 	template<>
 	void UnbindSceneObjects<StereoPolyLineT, Mode::Step>() {
-		if (this->pen == nullptr)
+		if (!pen.HasValue())
 			return;
 
 		auto& penPoints = pen->GetVertices();
+		auto mesh = (Mesh*)this->mesh.Get();
 
 		if (GetConfig<Mode::Step>()->isPointCreated && mesh->GetVertices().size() > 0) {
 			if (mesh->GetVertices().size() > penPoints.size())
@@ -604,7 +643,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			}
 		}
 
-		this->pen = nullptr;
+		//this->pen = nullptr;
 	}
 
 	void ResetTool() {
@@ -613,6 +652,8 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 
 		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 		keyBinding->RemoveHandler(inputHandlerId);
+		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
+		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 
 		DeleteConfig();
 	}
@@ -638,7 +679,7 @@ public:
 			o->SetWorldRotation(pen->GetWorldRotation());
 
 			if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local) {
-				cross->SetParent(o);
+				cross->SetParent(o, false, true, true, false);
 				cross->SetLocalPosition(glm::vec3());
 			}
 
@@ -647,10 +688,10 @@ public:
 	}
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
-		if (pen != nullptr && !UnbindSceneObjects())
+		if (pen.HasValue() && !UnbindSceneObjects())
 			return false;
 
-		if (keyBinding.Get() == nullptr) {
+		if (!keyBinding.Get()) {
 			Logger.Error("KeyBinding wasn't assigned");
 			return false;
 		}
@@ -659,24 +700,36 @@ public:
 			Logger.Warning("Invalid Object passed to ExtrusionEditingTool");
 			return true;
 		}
-		pen = objs[0].Get();
+		pen = objs[0];
 
 		crossOriginalPosition = cross->GetLocalPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
+		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
+			cross->SetParent(mesh.Get(), false, true, true, false);
+			cross->SetLocalPosition(glm::vec3());
+			});
+		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
+			if (wasCommitDone)
+				return;
+
+			StateBuffer::Commit();
+			wasCommitDone = true;
+			//Logger.Information("commit");
+			});
 
 		
 
 		inputHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
 		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
-			if (!mesh)
+			if (!mesh.HasValue())
 				return;
 
 			auto pos = cross->GetWorldPosition();
 			
 			if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetParent(mesh);
+				cross->SetParent(mesh.Get(), false, true, true, false);
 			else
-				cross->SetParent(crossOriginalParent);
+				cross->SetParent(crossOriginalParent, false, true, true, false);
 
 			cross->SetWorldPosition(pos);
 			});
@@ -702,7 +755,9 @@ public:
 	}
 
 	SceneObject* GetTarget() {
-		return pen;
+		return pen.HasValue()
+			? pen.Get()
+			: nullptr;
 	}
 	virtual Type GetType() {
 		return Type::Extrusion;
@@ -713,7 +768,7 @@ public:
 	}
 
 	bool Create() {
-		if (pen == nullptr) {
+		if (!pen.HasValue()) {
 			std::cout << "Pen was not assigned" << std::endl;
 			return false;
 		}

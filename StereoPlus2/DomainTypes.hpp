@@ -455,6 +455,7 @@ public:
 	}
 
 	virtual void AddVertice(const glm::vec3& v) {
+		HandleBeforeUpdate();
 		vertices.push_back(v);
 		shouldUpdateCache = true;
 	}
@@ -463,32 +464,35 @@ public:
 			AddVertice(v);
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
+		HandleBeforeUpdate();
 		vertices[index] = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeX(size_t index, const float& v) {
+		HandleBeforeUpdate();
 		vertices[index].x = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeY(size_t index, const float& v) {
+		HandleBeforeUpdate();
 		vertices[index].y = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeZ(size_t index, const float& v) {
+		HandleBeforeUpdate();
 		vertices[index].z = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+		HandleBeforeUpdate();
 		vertices.clear();
-		//linesCache.clear();
 		for (auto v : vs)
 			AddVertice(v);
 		shouldUpdateCache = true;
 	}
 
 	virtual void RemoveVertice() {
-		//if (linesCache.size() > 0)
-		//	linesCache.pop_back();
+		HandleBeforeUpdate();
 		if (vertices.size() > 0)
 			vertices.pop_back();
 		shouldUpdateCache = true;
@@ -616,6 +620,7 @@ public:
 	}
 
 	virtual void Connect(GLuint p1, GLuint p2) {
+		HandleBeforeUpdate();
 		connections.push_back({ p1, p2 });
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
@@ -626,6 +631,7 @@ public:
 		if (pos == -1)
 			return;
 
+		HandleBeforeUpdate();
 		connections.erase(connections.begin() + pos);
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
@@ -639,6 +645,7 @@ public:
 		return vertices;
 	}
 	virtual void AddVertice(const glm::vec3& v) {
+		HandleBeforeUpdate();
 		vertices.push_back(v);
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
@@ -648,31 +655,38 @@ public:
 			AddVertice(v);
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) {
+		HandleBeforeUpdate();
 		vertices[index] = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeX(size_t index, const float& v) {
+		HandleBeforeUpdate();
 		vertices[index].x = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeY(size_t index, const float& v) {
+		HandleBeforeUpdate();
 		vertices[index].y = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVerticeZ(size_t index, const float& v) {
+		HandleBeforeUpdate();
 		vertices[index].z = v;
 		shouldUpdateCache = true;
 	}
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+		HandleBeforeUpdate();
 		vertices = vs;
 		shouldUpdateCache = true;
 	}
 	virtual void SetConnections(const std::vector<std::array<GLuint, 2>>& connections) {
+		HandleBeforeUpdate();
 		this->connections = connections;
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
 	}
 	virtual void RemoveVertice() {
+		HandleBeforeUpdate();
 		vertices.pop_back();
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;

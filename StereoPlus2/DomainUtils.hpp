@@ -182,7 +182,7 @@ public:
 	}
 };
 
-class SceneObjectSelection {
+class ObjectSelection {
 public:
 	using Selection = std::set<PON>;
 private:
@@ -227,9 +227,9 @@ public:
 };
 
 
-class SceneObjectBuffer {
+class DragDropBuffer {
 public:
-	using Buffer = std::set<PON>*;
+	using Buffer = ObjectSelection::Selection*;
 private:
 	static const ImGuiPayload* AcceptDragDropPayload(const char* name, ImGuiDragDropFlags flags) {
 		return ImGui::AcceptDragDropPayload(name, flags);
@@ -259,7 +259,7 @@ public:
 		return false;
 	}
 	static void EmplaceDragDropSelected(const char* name) {
-		ImGui::SetDragDropPayload("SceneObjects", SceneObjectSelection::SelectedP(), sizeof(SceneObjectSelection::Selection*));
+		ImGui::SetDragDropPayload("SceneObjects", ObjectSelection::SelectedP(), sizeof(ObjectSelection::Selection*));
 	}
 };
 
@@ -276,6 +276,7 @@ public:
 	}
 private:
 	Event<> deleteAll;
+	Log Logger = Log::For<Scene>();
 
 	static const SceneObject* FindRoot(const SceneObject* o) {
 		auto parent = o->GetParent();
@@ -342,6 +343,11 @@ public:
 	}
 
 	bool Delete(SceneObject* source, SceneObject* obj) {
+		if (!source) {
+			Logger.Warning("You cannot delete root object");
+			return true;
+		}
+
 		for (size_t i = 0; i < source->children.size(); i++)
 			if (source->children[i] == obj)
 				for (size_t j = 0; i < objects.size(); j++)
@@ -351,11 +357,11 @@ public:
 						return true;
 					}
 
-		std::cout << "The object for deletion was not found" << std::endl;
+		Logger.Error("The object for deletion was not found");
 		return false;
 	}
 	void DeleteSelected() {
-		for (auto o : SceneObjectSelection::Selected())
+		for (auto o : ObjectSelection::Selected())
 			Delete(const_cast<SceneObject*>(o->GetParent()), o.Get());
 	}
 	void DeleteAll() {

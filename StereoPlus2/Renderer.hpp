@@ -186,7 +186,7 @@ public:
 			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 		}
 		
-		if (SceneObjectSelection::Selected().empty()) {
+		if (ObjectSelection::Selected().empty()) {
 			for (auto o : scene.objects)
 				DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross);
@@ -202,15 +202,15 @@ public:
 			std::set_difference(
 				objectsSorted.begin(),
 				objectsSorted.end(),
-				SceneObjectSelection::Selected().begin(),
-				SceneObjectSelection::Selected().end(),
+				ObjectSelection::Selected().begin(),
+				ObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));
 
 			for (auto o : dimObjects)
 				DrawDim(scene.camera, o.Get());
 			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
-			for (auto o : SceneObjectSelection::Selected())
+			for (auto o : ObjectSelection::Selected())
 				if (o.HasValue())
 					DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross);

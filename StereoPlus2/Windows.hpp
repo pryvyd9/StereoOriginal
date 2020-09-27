@@ -286,13 +286,13 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		if (isCtrlPressed) {
 			if (isSelected)
-				t->CallRecursive([](SceneObject* o) { SceneObjectSelection::Remove(o); });
+				t->CallRecursive([](SceneObject* o) { ObjectSelection::Remove(o); });
 			else
-				t->CallRecursive([](SceneObject* o) { SceneObjectSelection::Add(o); });
+				t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
 		}
 		else {
-			SceneObjectSelection::RemoveAll();
-			t->CallRecursive([](SceneObject* o) { SceneObjectSelection::Add(o); });
+			ObjectSelection::RemoveAll();
+			t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
 		}
 	}
 
@@ -357,7 +357,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
 		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
-		isSelected = exists(SceneObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
+		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
 
 		if (isSelected) {
 			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
@@ -372,7 +372,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return open;
 	}
 	bool Selectable(SceneObject* t, bool& isSelected) {
-		isSelected = exists(SceneObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
+		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
 		//isSelected = exists(SceneObjectSelection::Selected(), t);
 
 		if (isSelected) {
@@ -388,11 +388,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return open;
 	}
 
-	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
-		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
+	DragDropBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
+		return DragDropBuffer::GetDragDropPayload("SceneObjects", target_flags);
 	}
 	void EmplaceDragDropSelected() {
-		SceneObjectBuffer::EmplaceDragDropSelected("SceneObjects");
+		DragDropBuffer::EmplaceDragDropSelected("SceneObjects");
 	}
 
 	bool DesignRootNode(GroupObject* t) {
@@ -638,7 +638,7 @@ class PointPenToolWindow : Window, Attributes {
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			std::vector<PON> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
 					log.Warning("Drawing instrument can't accept multiple scene objects");
@@ -758,7 +758,7 @@ class ExtrusionToolWindow : Window, Attributes {
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			std::vector<PON> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
+			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
 				if (objects.size() > 1)
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				else if (!tool->BindSceneObjects(objects))
@@ -893,7 +893,7 @@ class TransformToolWindow : Window, Attributes {
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
 			std::vector<PON> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
