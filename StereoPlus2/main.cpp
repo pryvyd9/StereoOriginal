@@ -34,7 +34,6 @@ int main(int, char**) {
 	SceneObjectPropertiesWindow cameraPropertiesWindow;
 	SceneObjectPropertiesWindow crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
-
 	AttributesWindow attributesWindow;
 	ToolWindow toolWindow;
 
@@ -84,9 +83,9 @@ int main(int, char**) {
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 
-	ToolPool::Cross() = ReadonlyProperty<Cross*>(&cross);
-	ToolPool::Scene() = ReadonlyProperty<Scene*>(&scene);
-	ToolPool::KeyBinding() = ReadonlyProperty<KeyBinding*>(&gui.keyBinding);
+	ToolPool::Cross() = &cross;
+	ToolPool::Scene() = &scene;
+	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 

@@ -1024,6 +1024,13 @@ public:
 		Scene::CategorizeObjects(StateBuffer::RootObject().Get().Get(), objs, targets);
 
 		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
+		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
+			cross->SetWorldRotation(cross->unitQuat());
+		else if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
+			cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
+
+		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
+		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] { 
 			cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
 			});
@@ -1035,13 +1042,6 @@ public:
 			wasCommitDone = true;
 			//Logger.Information("commit");
 			});
-		if (GlobalToolConfiguration::SpaceMode().Get() == SpaceMode::World)
-			cross->SetWorldRotation(cross->unitQuat());
-		else if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
-			cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
-
-		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
-		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
 		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();

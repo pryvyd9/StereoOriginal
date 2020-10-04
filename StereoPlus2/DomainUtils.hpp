@@ -251,27 +251,11 @@ public:
 			for (auto objectPointer : *objectPointers)
 				outSceneObjects->push_back(objectPointer);
 
-			objectPointers->clear();
-
 			return true;
 		}
 
 		return false;
 	}
-	//static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::set<PON>* outSceneObjects) {
-	//	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
-	//		auto objectPointers = GetBuffer(payload->Data);
-
-	//		for (auto objectPointer : *objectPointers)
-	//			outSceneObjects->emplace(objectPointer);
-
-	//		objectPointers->clear();
-
-	//		return true;
-	//	}
-
-	//	return false;
-	//}
 
 	static void EmplaceDragDropSelected(const char* name) {
 		ImGui::SetDragDropPayload("SceneObjects", ObjectSelection::SelectedP(), sizeof(ObjectSelection::Selection*));

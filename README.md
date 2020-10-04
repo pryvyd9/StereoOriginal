@@ -15,3 +15,6 @@ A 3d modelling and visualisation solution with stereo output (anaglyph) and mult
 - Local, world coordinate systems
 - Hierarchical object structure
 - World transformation preservation
+- Selecting objects
+- Transforming/moving selected objects
+- Change buffer. Ctrl+Z, Ctrl+Y
