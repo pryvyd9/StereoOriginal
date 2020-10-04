@@ -321,13 +321,10 @@ public:
 		if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 			
-			//static glm::vec3 localPos = GetLocalPosition();
-			//static glm::quat localRot = GetLocalRotation();
-
-			if (static glm::vec3 localPos = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&localPos, 0.01, 0, 0, "%.5f"))
-				SetLocalPosition(localPos);
-			if (static glm::quat localRot = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&localRot, 0.01, 0, 1, "%.3f"))
-				SetLocalRotation(localRot);
+			if (auto v = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&v, 0.01, 0, 0, "%.5f"))
+				SetLocalPosition(v);
+			if (auto v = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
+				SetLocalRotation(v);
 			
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();
@@ -338,7 +335,7 @@ public:
 
 			if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 0.01, 0, 0, "%.3f"))
 				SetWorldPosition(v);
-			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&GetWorldRotation(), 0.01, 0, 1, "%.3f"))
+			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
 				SetWorldRotation(v);
 			
 			ImGui::Unindent(propertyIndent);
@@ -824,6 +821,10 @@ public:
 	std::function<void()> keyboardBindingHandler;
 	size_t keyboardBindingHandlerId;
 
+	std::function<void()> GUIPositionEditHandler;
+	size_t GUIPositionEditHandlerId;
+	glm::vec3 GUIPositionEditDifference;
+
 	virtual ObjectType GetType() const {
 		return CrossT;
 	}
@@ -831,12 +832,21 @@ public:
 		if (ImGui::TreeNodeEx("cross", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
-			ImGui::DragFloat("size", &size, 0.01, 0, 0, "%.5f");
+			if (ImGui::DragFloat("size", &size, 0.01, 0, 0, "%.5f"))
+				ForceUpdateCache();
 
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();
 		}
+
+		auto oldPos = GetLocalPosition();
+
 		SceneObject::DesignProperties();
+
+		// Hask to enable cross movement via GUI editing count as input movement.
+		// It enables tools to react to it properly and work correctly.
+		GUIPositionEditDifference = GetLocalPosition() - oldPos;
+		SetLocalPosition(oldPos);
 	}
 
 	virtual void DrawLeft(GLuint shader) {

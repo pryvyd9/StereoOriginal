@@ -1004,18 +1004,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 public:
 	ReadonlyProperty<Cross*> cross;
 
-	const std::multimap<ObjectType, Mode> supportedConfigs{
-		{ Group, Mode::Translate },
-		{ Group, Mode::Scale },
-		{ Group, Mode::Rotate },
-		{ StereoPolyLineT, Mode::Translate },
-		{ StereoPolyLineT, Mode::Scale },
-		{ StereoPolyLineT, Mode::Rotate },
-		{ MeshT, Mode::Translate },
-		{ MeshT, Mode::Scale },
-		{ MeshT, Mode::Rotate },
-	};
-
 	float scale = 1;
 	glm::vec3 angle;
 	glm::vec3 transformPos;
