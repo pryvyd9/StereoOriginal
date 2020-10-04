@@ -10,6 +10,7 @@
 #include <set>
 #include <functional>
 #include <map>
+#include <glm/vec3.hpp>
 
 template<typename T>
 int find(const std::vector<T>& source, const T& item) {
@@ -93,6 +94,11 @@ class Log {
 	static std::string ToString(const T& message) {
 		std::ostringstream ss;
 		ss << message;
+		return ss.str();
+	}
+	static std::string ToString(const glm::vec3& message) {
+		std::ostringstream ss;
+		ss << "(" << message.x << ";" << message.y << ";" << message.z << ")";
 		return ss.str();
 	}
 

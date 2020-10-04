@@ -258,6 +258,21 @@ public:
 
 		return false;
 	}
+	//static bool PopDragDropPayload(const char* name, ImGuiDragDropFlags flags, std::set<PON>* outSceneObjects) {
+	//	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(name, flags)) {
+	//		auto objectPointers = GetBuffer(payload->Data);
+
+	//		for (auto objectPointer : *objectPointers)
+	//			outSceneObjects->emplace(objectPointer);
+
+	//		objectPointers->clear();
+
+	//		return true;
+	//	}
+
+	//	return false;
+	//}
+
 	static void EmplaceDragDropSelected(const char* name) {
 		ImGui::SetDragDropPayload("SceneObjects", ObjectSelection::SelectedP(), sizeof(ObjectSelection::Selection*));
 	}
@@ -372,6 +387,56 @@ public:
 		root = CreateRoot();
 	}
 
+	struct CategorizedObjects {
+		std::list<SceneObject*> parentObjects;
+		std::set<SceneObject*> childObjects;
+		// Items that will not be modified and their new parents in case current parents are removed.
+		// Item, NewParent
+		std::list<std::pair<SceneObject*, SceneObject*>> orphanedObjects;
+	};
+	struct CategorizedPON {
+		std::list<PON> parentObjects;
+		std::set<PON> childObjects;
+		// Items that will not be modified and their new parents in case current parents are removed.
+		// Item, NewParent
+		std::list<std::pair<PON, PON>> orphanedObjects;
+	};
+
+	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedObjects& categorizedObjects) {
+		root->CallRecursive(root, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
+			if (exists(*items, o)) {
+				if (exists(categorizedObjects.childObjects, parent) || exists(categorizedObjects.parentObjects, parent))
+					categorizedObjects.childObjects.emplace(o);
+				else if (auto newParent = FindConnectedParent(parent, categorizedObjects.parentObjects))
+					categorizedObjects.orphanedObjects.push_back({ o, newParent });
+				else
+					categorizedObjects.parentObjects.push_back(o);
+			}
+			else if (exists(*items, parent))
+				categorizedObjects.orphanedObjects.push_back({ o, FindNewParent(parent, items) });
+
+			return o;
+			}));
+	}
+	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedPON& categorizedObjects) {
+		CategorizedObjects co;
+		CategorizeObjects(root, items, co);
+		for (auto o : co.parentObjects)
+			categorizedObjects.parentObjects.push_back(o);
+		for (auto o : co.childObjects)
+			categorizedObjects.childObjects.emplace(o);
+		for (auto [o,np] : co.orphanedObjects)
+			categorizedObjects.orphanedObjects.push_back({ o, np });
+	}
+	static void CategorizeObjects(SceneObject* root, std::vector<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
+
+
 	// Tree structure is preserved even if there is an unselected link.
 	//-----------------------------------------------------------------
 	// * - selected
@@ -382,41 +447,22 @@ public:
 	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
 		auto root = const_cast<SceneObject*>(FindRoot(destination));
 
-		// Will be moved to destination
-		std::list<SceneObject*> disconnectedItemsToBeMoved;
-
-		// Will be ignored during move but will be moved with their parents
-		std::set<SceneObject*> connectedItemsToBeMoved;
-
-		// Items which will not be moved with their parents.
+		// parentObjects will be moved to destination
+		// childObjects will be ignored during move but will be moved with their parents
+		// orphanedObjects will not be moved with their parents.
 		// New parents will be assigned.
-		// Item, NewParent
-		std::list<std::pair<SceneObject*, SceneObject*>> strayItems;
+		CategorizedObjects categorizedObjects;
 
-
-		root->CallRecursive(root, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
-			if (exists(*items, o)) {
-				if (exists(connectedItemsToBeMoved, parent) || exists(disconnectedItemsToBeMoved, parent))
-					connectedItemsToBeMoved.emplace(o);
-				else if (auto newParent = FindConnectedParent(parent, disconnectedItemsToBeMoved))
-					strayItems.push_back({ o, newParent });
-				else
-					disconnectedItemsToBeMoved.push_back(o);
-			}
-			else if (exists(*items, parent))
-				strayItems.push_back({ o, FindNewParent(parent, items) });
-
-			return o;
-			}));
+		CategorizeObjects(root, items, categorizedObjects);
 
 		if ((pos & InsertPosition::Bottom) != 0)
-			for (auto o : disconnectedItemsToBeMoved)
+			for (auto o : categorizedObjects.parentObjects)
 				o->SetParent(destination, destinationPos, pos);
 		else
-			std::for_each(disconnectedItemsToBeMoved.rbegin(), disconnectedItemsToBeMoved.rend(), [&] (auto o){
+			std::for_each(categorizedObjects.parentObjects.rbegin(), categorizedObjects.parentObjects.rend(), [&] (auto o){
 				o->SetParent(destination, destinationPos, pos); });
 
-		for (auto pair : strayItems)
+		for (auto pair : categorizedObjects.orphanedObjects)
 			pair.first->SetParent(pair.second, true);
 
 		return true;

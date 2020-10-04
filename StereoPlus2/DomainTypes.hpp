@@ -71,7 +71,7 @@ protected:
 	void CascadeTransform(std::vector<glm::vec3>& vertices) const {
 		if (GetLocalRotation() == unitQuat())
 			for (size_t i = 0; i < vertices.size(); i++)
-				vertices[i] = vertices[i] + GetLocalPosition();
+				vertices[i] += GetLocalPosition();
 		else
 			for (size_t i = 0; i < vertices.size(); i++)
 				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]) + GetLocalPosition();
@@ -89,13 +89,13 @@ protected:
 			parent->CascadeTransform(v);
 	}
 	void CascadeTransformInverse(glm::vec3& v) const {
+		if (parent)
+			parent->CascadeTransformInverse(v);
+
 		if (GetLocalRotation() == unitQuat())
 			v -= GetLocalPosition();
 		else
 			v = glm::rotate(glm::inverse(GetLocalRotation()), v - GetLocalPosition());
-
-		if (parent)
-			parent->CascadeTransform(v);
 	}
 
 public:
@@ -258,25 +258,20 @@ public:
 	void SetWorldPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 
-		if (parent) {
+		position = parent
 			// Set world position means to set local position
 			// relative to parent.
-			position = parent->ToLocalPosition(v);
-			return;
-		}
-
-		position = v;
+			? parent->ToLocalPosition(v)
+			: v;
 	}
 
 	const glm::quat& GetLocalRotation() const {
 		return rotation;
 	}
 	const glm::quat GetWorldRotation() const {
-		if (parent)
-			//return glm::cross(GetLocalRotation(), parent->GetWorldRotation());
-			return parent->GetWorldRotation() * GetLocalRotation();
-
-		return GetLocalRotation();
+		return parent
+			? parent->GetWorldRotation() * GetLocalRotation()
+			: GetLocalRotation();
 	}
 	void SetLocalRotation(const glm::quat& v) {
 		ForceUpdateCache();
@@ -285,14 +280,11 @@ public:
 	void SetWorldRotation(const glm::quat& v) {
 		ForceUpdateCache();
 
-		if (parent) {
+		rotation = parent
 			// Set world rotation means to set local rotation
 			// relative to parent.
-			rotation = glm::inverse(parent->GetWorldRotation()) * v;
-			return;
-		}
-
-		rotation = v;
+			? glm::inverse(parent->GetWorldRotation()) * v
+			: v;
 	}
 
 	// Forces the object and all children to update cache.

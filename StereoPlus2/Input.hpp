@@ -114,6 +114,31 @@ class Input
 		bool isUp;
 	};
 
+	// Continuous input is a state when there is
+	// input with delay in between.
+	struct ContinuousInput {
+		bool isContinuousInput = false;
+		// seconds
+		float continuousInputAwaitTime;
+		size_t lastPressedTime;
+
+		bool isAnythingPressedLast = false;
+
+		ContinuousInput(float continuousInputAwaitTime) : continuousInputAwaitTime(continuousInputAwaitTime) {}
+
+		void Process(bool isAnythingPressed) {
+			if (isAnythingPressed) {
+				isContinuousInput = true;
+				lastPressedTime = Time::GetTime();
+			}
+			else if (isContinuousInput && (Time::GetTime() - lastPressedTime) > continuousInputAwaitTime * 1e3)
+				isContinuousInput = false;
+		}
+
+		void UpdateOld(bool isAnythingPressed) {
+			isAnythingPressedLast = isAnythingPressed;
+		}
+	};
 
 	glm::vec2 mouseOldPos;
 	glm::vec2 mouseNewPos;
@@ -126,16 +151,10 @@ class Input
 	float mouseSensivity = 1e-2;
 	float mouseMaxMagnitude = 1e4;
 
-	// Continuous input is a state when there is
-	// input with delay in between.
-	bool isContinuousInput = false;
-	bool isContinuousInputExceptFirstFrame = false;
-	// seconds
-	float continuousInputAwaitTime = 1;
-	size_t lastPressedTime;
-
 	bool isAnythingPressed = false;
-	bool isAnythingPressedLast = false;
+
+	ContinuousInput continuousInputOneSecondDelay = ContinuousInput(1);
+	ContinuousInput continuousInputNoDelay = ContinuousInput(0);
 
 	void UpdateStatus(Key::KeyPair key, KeyStatus* status) {
 		bool isPressed = 
@@ -197,11 +216,11 @@ public:
 		return glm::length(mouseNewPos - mouseOldPos) == 0 ? glm::vec2(0) : glm::normalize(mouseNewPos - mouseOldPos);
 	}
 
-	bool IsContinuousInput() {
-		return isContinuousInput;
+	bool IsContinuousInputOneSecondDelay() {
+		return continuousInputOneSecondDelay.isContinuousInput;
 	}
-	bool IsContinuousInputExceptFirstFrame() {
-		return isContinuousInputExceptFirstFrame;
+	bool IsContinuousInputNoDelay() {
+		return continuousInputNoDelay.isContinuousInput;
 	}
 
 	bool MouseMoved() {
@@ -245,25 +264,15 @@ public:
 		for (auto node : keyStatuses)
 			UpdateStatus(node.first, node.second);
 
-		if (isAnythingPressed) {
-			isContinuousInput = true;
-			lastPressedTime = Time::GetTime();
-			if (isAnythingPressedLast)
-				isContinuousInputExceptFirstFrame = true;
-		}
-		else if (isContinuousInput && (Time::GetTime() - lastPressedTime) > continuousInputAwaitTime * 1e3) {
-			isContinuousInput = false;
-			isContinuousInputExceptFirstFrame = false;
-		}
-		else if (isAnythingPressedLast)
-			isContinuousInputExceptFirstFrame = true;
-
+		continuousInputOneSecondDelay.Process(isAnythingPressed);
+		continuousInputNoDelay.Process(isAnythingPressed);
 
 		// Handle OnInput actions
 		for (auto [id,handler] : handlers)
 			handler();
 
-		isAnythingPressedLast = isAnythingPressed;
+		continuousInputOneSecondDelay.UpdateOld(isAnythingPressed);
+		continuousInputNoDelay.UpdateOld(isAnythingPressed);
 		isAnythingPressed = false;
 	}
 

@@ -410,7 +410,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		!TryDragDropTarget(t, 0, Center) && !TryDragDropSource(t, isSelected) && TrySelect(t, isSelected);
 
-		for (size_t i = 0; i < t->children.size(); i++)
+		for (int i = 0; i < t->children.size(); i++)
 			if (!DesignTreeNode(t->children[i], t->children, i)) {
 				ImGui::TreePop();
 				ImGui::PopID();
@@ -454,7 +454,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		!TryDragDropTarget(t, pos, Any) && !TryDragDropSource(t, isSelected, src_flags) && TrySelect(t, isSelected);
 
 		if (open) {
-			for (size_t i = 0; i < t->children.size(); i++)
+			for (int i = 0; i < t->children.size(); i++)
 				if (!DesignTreeNode(t->children[i], t->children, i)) {
 					ImGui::TreePop();
 					ImGui::PopID();
@@ -849,7 +849,6 @@ public:
 
 class TransformToolWindow : Window, Attributes {
 	int maxPrecision = 5;
-	int transformToolMode;
 
 	std::string GetName(SceneObject* obj) {
 		return
@@ -860,7 +859,7 @@ class TransformToolWindow : Window, Attributes {
 
 	int getPrecision(float v) {
 		int precision = 0;
-		for (size_t i = 0; i < maxPrecision; i++) {
+		for (int i = 0; i < maxPrecision; i++) {
 			v *= 10;
 			if ((int)v % 10 != 0)
 				precision = i + 1;
@@ -879,10 +878,10 @@ class TransformToolWindow : Window, Attributes {
 		ss << "%." << getPrecision(v.z) << "f";
 		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
 	}
-	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, std::string f, float speed) {
-		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, f.c_str());
-		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, f.c_str());
-		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, f.c_str());
+	bool DragVector(glm::vec3& v, const char* s1, const char* s2, const char* s3, const char* f, float speed) {
+		return ImGui::DragFloat(s1, &v.x, speed, 0, 0, f)
+			| ImGui::DragFloat(s2, &v.y, speed, 0, 0, f)
+			| ImGui::DragFloat(s3, &v.z, speed, 0, 0, f);
 	}
 
 	bool DesignInternal() {
@@ -895,13 +894,8 @@ class TransformToolWindow : Window, Attributes {
 			std::vector<PON> objects;
 			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
-				if (objects.size() > 1) {
-					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
-				}
-				else {
-					if (!tool->BindSceneObjects(objects))
-						return false;
-				}
+				if (!tool->BindSceneObjects(objects))
+					return false;
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -909,33 +903,43 @@ class TransformToolWindow : Window, Attributes {
 		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
 			if (ImGui::Button("Release"))
 				tool->UnbindSceneObjects();
-			if (ImGui::Button("Cancel"))
-				tool->Cancel();
 
 			ImGui::Extensions::PopActive();
 		}
 
-		transformToolMode = (int)tool->GetMode();
+		auto transformToolModeCopy = tool->GetMode();
 		{
-			if (ImGui::RadioButton("Move", &transformToolMode, (int)TransformToolMode::Translate))
+			if (ImGui::RadioButton("Move", (int*)&transformToolModeCopy, (int)TransformToolMode::Translate))
 				tool->SetMode(TransformToolMode::Translate);
-			if (ImGui::RadioButton("Scale", &transformToolMode, (int)TransformToolMode::Scale))
+			if (ImGui::RadioButton("Scale", (int*)&transformToolModeCopy, (int)TransformToolMode::Scale))
 				tool->SetMode(TransformToolMode::Scale);
-			if (ImGui::RadioButton("Rotate", &transformToolMode, (int)TransformToolMode::Rotate))
+			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate))
 				tool->SetMode(TransformToolMode::Rotate);
 		}
 
-		if (transformToolMode == (int)TransformToolMode::Translate) {
+		switch (transformToolModeCopy) {
+		case TransformToolMode::Translate:
 			ImGui::Separator();
-			DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01);
-		}
-		else if (transformToolMode == (int)TransformToolMode::Scale) {
+			ImGui::Checkbox("Relative", &tool->isRelativeMode);
+
+			if (tool->isRelativeMode)
+				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01f);
+			else {
+				auto crossPosCopy = tool->cross->GetLocalPosition();
+				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 0.01f))
+					tool->transformPos += crossPosCopy - tool->cross->GetLocalPosition();
+			}
+			break;
+		case TransformToolMode::Scale:
 			ImGui::Separator();
-			ImGui::DragFloat("scale", &tool->scale, 0.01, 0, 0, "%.2f");
-		}
-		else if (transformToolMode == (int)TransformToolMode::Rotate) {
+			ImGui::DragFloat("scale", &tool->scale, 0.01f, 0, 0, "%.2f");
+			break;
+		case TransformToolMode::Rotate:
 			ImGui::Separator();
 			DragVector(tool->angle, "X", "Y", "Z", 1);
+			break;
+		default:
+			break;
 		}
 
 		return true;
