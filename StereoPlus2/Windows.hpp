@@ -2,7 +2,7 @@
 #include "GLLoader.hpp"
 #include "Window.hpp"
 #include <functional>
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "Commands.hpp"
 #include "Tools.hpp"
 #include "ToolPool.hpp"
@@ -253,6 +253,12 @@ public:
 
 class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	const Log log = Log::For<SceneObjectInspectorWindow>();
+	const glm::vec4 selectedColor = glm::vec4(0, 0.2, 0.4, 1);
+	const glm::vec4 selectedHoveredColor = glm::vec4(0, 0.4, 1, 1);
+	const glm::vec4 selectedActiveColor = glm::vec4(0, 0, 0.8, 1);
+	const glm::vec4 unselectedColor = glm::vec4(0, 0, 0, 0);
+
+	bool hasMovementOccured;
 
 	MoveCommand* moveCommand;
 
@@ -261,11 +267,132 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return val;
 	}
 
-	SceneObjectBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
-		return SceneObjectBuffer::GetDragDropPayload("SceneObjects", target_flags);
+	bool IsMovedToItself(const SceneObject* target, std::set<PON>& buffer) {
+		for (auto o : buffer) {
+			if (o.Get() == target)
+				return true;
+			else if (auto parent = target->GetParent();
+				parent != nullptr && (parent == o.Get() || IsMovedToItself(parent, buffer)))
+				return true;
+		}
+
+		return false;
 	}
-	void EmplaceDragDropObject(SceneObject* objectPointer) {
-		SceneObjectBuffer::EmplaceDragDropSceneObject("SceneObjects", objectPointer, &selectedObjectsBuffer);
+
+	void Select(SceneObject* t, bool isSelected = false, bool ignoreCtrl = false) {
+		auto isCtrlPressed = ignoreCtrl
+			? false
+			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
+
+		if (isCtrlPressed) {
+			if (isSelected)
+				t->CallRecursive([](SceneObject* o) { ObjectSelection::Remove(o); });
+			else
+				t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
+		}
+		else {
+			ObjectSelection::RemoveAll();
+			t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
+		}
+	}
+
+	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
+		static SceneObject* clickedItem;
+		
+		if (hasMovementOccured)
+			clickedItem = nullptr;
+		else if (ImGui::IsItemClicked())
+			clickedItem = t;
+
+		if (!input->IsUp(Key::MouseLeft) || !ImGui::IsItemHovered() || clickedItem != t)
+			return false;
+
+		if (!isFullySelectable && GetSelectPosition() != Rest)
+			return false;
+
+		Select(t, isSelected);
+
+		return true;
+	}
+	bool TryDragDropSource(SceneObject* o, bool isSelected, ImGuiDragDropFlags flags = 0) {
+		if (!ImGui::BeginDragDropSource(flags))
+			return false;
+
+		if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
+			ImGui::Text("Moving \"%s\"", o->Name.c_str());
+
+		if (!isSelected)
+			Select(o);
+
+		EmplaceDragDropSelected();
+
+		ImGui::EndDragDropSource();
+
+		return true;
+	}
+	bool TryDragDropTarget(SceneObject* o, int pos, int positionMask, ImGuiDragDropFlags flags = 0) {
+		if (!ImGui::BeginDragDropTarget())
+			return false;
+
+		//flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		if (auto buffer = GetDragDropBuffer(flags)) {
+			// We can't move object into itself
+			if (IsMovedToItself(o, *buffer)) {
+				ImGui::EndDragDropTarget();
+				buffer->clear();
+				return true;
+			}
+
+			InsertPosition relativePosition = GetPosition(positionMask);
+			if (relativePosition == Center)
+				ScheduleMove(o, 0, buffer, Center);
+			else
+				ScheduleMove(const_cast<SceneObject*>(o->GetParent()), pos, buffer, relativePosition);
+		}
+		ImGui::EndDragDropTarget();
+
+		return true;
+	}
+
+	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
+		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
+		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
+
+		if (isSelected) {
+			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
+		}
+
+		bool open = ImGui::TreeNodeEx(t->Name.c_str(), _flags);
+
+		if (isSelected) ImGui::PopStyleColor(3);
+
+		return open;
+	}
+	bool Selectable(SceneObject* t, bool& isSelected) {
+		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
+		//isSelected = exists(SceneObjectSelection::Selected(), t);
+
+		if (isSelected) {
+			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
+		}
+
+		bool open = ImGui::Selectable(t->Name.c_str(), isSelected);
+
+		if (isSelected) ImGui::PopStyleColor(3);
+
+		return open;
+	}
+
+	DragDropBuffer::Buffer GetDragDropBuffer(ImGuiDragDropFlags target_flags) {
+		return DragDropBuffer::GetDragDropPayload("SceneObjects", target_flags);
+	}
+	void EmplaceDragDropSelected() {
+		DragDropBuffer::EmplaceDragDropSelected("SceneObjects");
 	}
 
 	bool DesignRootNode(GroupObject* t) {
@@ -276,24 +403,15 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::PushID(GetID()++);
 
+		ImGui::PushStyleColor(ImGuiCol_Header, unselectedColor);
 		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
-		bool open = ImGui::TreeNodeEx(t->Name.c_str(), target_flags);
+		bool isSelected;
+		bool open = TreeNode(t, isSelected, target_flags);
 
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (auto buffer = GetDragDropBuffer(target_flags))
-			{
-				ScheduleMove(t, 0, buffer, GetPosition(Center));
-			}
-			ImGui::EndDragDropTarget();
-		}
+		!TryDragDropTarget(t, 0, Center) && !TryDragDropSource(t, isSelected) && TrySelect(t, isSelected);
 
-		for (size_t i = 0; i < t->children.size(); i++)
-			if (!DesignTreeNode(t->children[i], t->children, i))
-			{
+		for (int i = 0; i < t->children.size(); i++)
+			if (!DesignTreeNode(t->children[i], t->children, i)) {
 				ImGui::TreePop();
 				ImGui::PopID();
 
@@ -301,6 +419,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			}
 
 		ImGui::TreePop();
+		ImGui::PopStyleColor();
 		ImGui::PopID();
 
 		return true;
@@ -314,54 +433,29 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			return DesignTreeLeaf((LeafObject*)t, source, pos);
 		case CrossT:
 			return true;
+		default:
+			log.Error("Invalid SceneObject type passed: ", t->GetType());
+			return false;
 		}
-
-		log.Error("Invalid SceneObject type passed: ", t->GetType());
-		//std::cout << "[" << "Error" << "]" << "(" << class SceneObjectInspectorWindow 
-		// << ")" << "Invalid SceneObject type passed: " << t->GetType() << std::endl;
-		return false;
 	}
 	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
 		ImGui::PushID(GetID()++);
 
 		ImGui::Indent(indent);
-		bool open = ImGui::TreeNode(t->Name.c_str());
+		
+		bool isSelected;
+		bool open = TreeNode(t, isSelected);
 
 		ImGuiDragDropFlags src_flags = 0;
 		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
 		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
 		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-		if (ImGui::BeginDragDropSource(src_flags))
-		{
-			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
-				ImGui::Text("Moving \"%s\"", t->Name.c_str());
 
-			EmplaceDragDropObject(t);
+		!TryDragDropTarget(t, pos, Any) && !TryDragDropSource(t, isSelected, src_flags) && TrySelect(t, isSelected);
 
-			ImGui::EndDragDropSource();
-		}
-
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (auto buffer = GetDragDropBuffer(target_flags))
-			{
-				InsertPosition relativePosition = GetPosition(Any);
-				if (relativePosition == Center)
-					ScheduleMove(t, 0, buffer, relativePosition);
-				else
-					ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, relativePosition);
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (open)
-		{
-			for (size_t i = 0; i < t->children.size(); i++)
-				if (!DesignTreeNode(t->children[i], t->children, i))
-				{
+		if (open) {
+			for (int i = 0; i < t->children.size(); i++)
+				if (!DesignTreeNode(t->children[i], t->children, i)) {
 					ImGui::TreePop();
 					ImGui::PopID();
 
@@ -370,7 +464,6 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 			ImGui::TreePop();
 		}
-
 
 		ImGui::Unindent(indent);
 		ImGui::PopID();
@@ -382,34 +475,15 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::Indent(indent);
 
-		ImGui::Selectable(t->Name.c_str());
+		bool isSelected;
+		Selectable(t, isSelected);
 
 		ImGuiDragDropFlags src_flags = 0;
 		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
 		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
 		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-		if (ImGui::BeginDragDropSource(src_flags))
-		{
-			if (!(src_flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
-				ImGui::Text("Moving \"%s\"", t->Name.c_str());
-			
-			EmplaceDragDropObject(t);
-			
-			ImGui::EndDragDropSource();
-		}
 
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			if (auto buffer = GetDragDropBuffer(target_flags))
-			{
-				ScheduleMove(const_cast<SceneObject*>(t->GetParent()), pos, buffer, GetPosition(Top | Bottom));
-			}
-			ImGui::EndDragDropTarget();
-		}
-
+		!TryDragDropTarget(t, pos, Top | Bottom) && !TryDragDropSource(t, isSelected, src_flags) && TrySelect(t, isSelected);
 
 		ImGui::Unindent(indent);
 		ImGui::PopID();
@@ -447,10 +521,20 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		return Center;
 	}
+	SelectPosition GetSelectPosition() {
+		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
+		glm::vec2 mouseScreenPos = ImGui::GetMousePos();
 
-	void ScheduleMove(SceneObject* target, int targetPos, std::set<SceneObject*> * items, InsertPosition pos) {
-		if (isCommandEmpty)
-		{
+		float horPos = mouseScreenPos.x - nodeScreenPos.x;
+
+		if (horPos < 16)
+			return Anchor;
+
+		return Rest;
+	}
+
+	void ScheduleMove(SceneObject* target, int targetPos, std::set<PON>* items, InsertPosition pos) {
+		if (isCommandEmpty) {
 			moveCommand = new MoveCommand();
 			isCommandEmpty = false;
 		}
@@ -461,12 +545,14 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		moveCommand->items = items;
 		moveCommand->pos = pos;
 		moveCommand->caller = (IHolder*)this;
+		moveCommand->callback = [&] {
+			hasMovementOccured = true;
+		};
 	}
 
 public:
-	std::set<SceneObject*>* selectedObjectsBuffer;
-
-	GroupObject** rootObject;
+	ReadonlyProperty<PON> rootObject;
+	Input* input;
 	float indent = 1;
 	float centerSizeHalf = 3;
 
@@ -477,20 +563,19 @@ public:
 	virtual bool Init() {
 		return true;
 	}
-	virtual bool Design()
-	{
+	virtual bool Design() {
 		ImGui::Begin("Object inspector");                         
 
 		// Reset elements' IDs.
 		GetID() = 0;
 
-		DesignRootNode(*rootObject);
+		DesignRootNode((GroupObject*)rootObject.Get().Get());
+		hasMovementOccured = false;
 
 		ImGui::End();
 		return true;
 	}
-	virtual bool OnExit()
-	{
+	virtual bool OnExit() {
 		return true;
 	}
 };
@@ -552,8 +637,8 @@ class PointPenToolWindow : Window, Attributes {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<SceneObject*> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			std::vector<PON> objects;
+			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
 				if (objects.size() > 1) {
 					log.Warning("Drawing instrument can't accept multiple scene objects");
@@ -672,8 +757,8 @@ class ExtrusionToolWindow : Window, Attributes {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<SceneObject*> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
+			std::vector<PON> objects;
+			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
 				if (objects.size() > 1)
 					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
 				else if (!tool->BindSceneObjects(objects))
@@ -764,7 +849,6 @@ public:
 
 class TransformToolWindow : Window, Attributes {
 	int maxPrecision = 5;
-	int transformToolMode;
 
 	std::string GetName(SceneObject* obj) {
 		return
@@ -775,7 +859,7 @@ class TransformToolWindow : Window, Attributes {
 
 	int getPrecision(float v) {
 		int precision = 0;
-		for (size_t i = 0; i < maxPrecision; i++) {
+		for (int i = 0; i < maxPrecision; i++) {
 			v *= 10;
 			if ((int)v % 10 != 0)
 				precision = i + 1;
@@ -794,65 +878,68 @@ class TransformToolWindow : Window, Attributes {
 		ss << "%." << getPrecision(v.z) << "f";
 		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
 	}
-	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, std::string f, float speed) {
-		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, f.c_str());
-		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, f.c_str());
-		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, f.c_str());
+	bool DragVector(glm::vec3& v, const char* s1, const char* s2, const char* s3, const char* f, float speed) {
+		return ImGui::DragFloat(s1, &v.x, speed, 0, 0, f)
+			| ImGui::DragFloat(s2, &v.y, speed, 0, 0, f)
+			| ImGui::DragFloat(s3, &v.z, speed, 0, 0, f);
 	}
 
 	bool DesignInternal() {
 		ImGui::Text(GetName(GetTarget()).c_str());
 
-		if (ImGui::BeginDragDropTarget())
-		{
+		if (ImGui::BeginDragDropTarget()) {
 			ImGuiDragDropFlags target_flags = 0;
 			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
 			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<SceneObject*> objects;
-			if (SceneObjectBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+			std::vector<PON> objects;
+			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
 			{
-				if (objects.size() > 1) {
-					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
-				}
-				else {
-					if (!tool->BindSceneObjects(objects))
-						return false;
-				}
+				if (!tool->BindSceneObjects(objects))
+					return false;
 			}
 			ImGui::EndDragDropTarget();
 		}
 
-		if (ImGui::Extensions::PushActive(GetTarget() != nullptr))
-		{
+		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
 			if (ImGui::Button("Release"))
 				tool->UnbindSceneObjects();
-			if (ImGui::Button("Cancel"))
-				tool->Cancel();
 
 			ImGui::Extensions::PopActive();
 		}
 
-		transformToolMode = (int)tool->GetMode();
+		auto transformToolModeCopy = tool->GetMode();
 		{
-			if (ImGui::RadioButton("Move", &transformToolMode, (int)TransformToolMode::Translate))
+			if (ImGui::RadioButton("Move", (int*)&transformToolModeCopy, (int)TransformToolMode::Translate))
 				tool->SetMode(TransformToolMode::Translate);
-			if (ImGui::RadioButton("Scale", &transformToolMode, (int)TransformToolMode::Scale))
+			if (ImGui::RadioButton("Scale", (int*)&transformToolModeCopy, (int)TransformToolMode::Scale))
 				tool->SetMode(TransformToolMode::Scale);
-			if (ImGui::RadioButton("Rotate", &transformToolMode, (int)TransformToolMode::Rotate))
+			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate))
 				tool->SetMode(TransformToolMode::Rotate);
 		}
 
-		if (transformToolMode == (int)TransformToolMode::Translate) {
+		switch (transformToolModeCopy) {
+		case TransformToolMode::Translate:
 			ImGui::Separator();
-			DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01);
-		}
-		else if (transformToolMode == (int)TransformToolMode::Scale) {
+			ImGui::Checkbox("Relative", &tool->isRelativeMode);
+
+			if (tool->isRelativeMode)
+				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01f);
+			else {
+				auto crossPosCopy = tool->cross->GetLocalPosition();
+				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 0.01f))
+					tool->transformPos += crossPosCopy - tool->cross->GetLocalPosition();
+			}
+			break;
+		case TransformToolMode::Scale:
 			ImGui::Separator();
-			ImGui::DragFloat("scale", &tool->scale, 0.01, 0, 0, "%.2f");
-		}
-		else if (transformToolMode == (int)TransformToolMode::Rotate) {
+			ImGui::DragFloat("scale", &tool->scale, 0.01f, 0, 0, "%.2f");
+			break;
+		case TransformToolMode::Rotate:
 			ImGui::Separator();
 			DragVector(tool->angle, "X", "Y", "Z", 1);
+			break;
+		default:
+			break;
 		}
 
 		return true;
@@ -1012,13 +1099,13 @@ class ToolWindow : Window {
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene->OnDeleteAll().AddHandler([t = tool] {
+		auto deleteAllhandlerId = scene.Get()->OnDeleteAll().AddHandler([t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindSceneObjects();
 		});
 		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
 			t->tool->UnbindSceneObjects();
-			s->OnDeleteAll().RemoveHandler(d);
+			s.Get()->OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
 			delete t;
 		};
@@ -1027,14 +1114,14 @@ class ToolWindow : Window {
 
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
-		creatingTool.BindScene(scene);
-		creatingTool.BindDestination(&scene->root);
+		creatingTool.scene.BindAndApply(scene);
+		creatingTool.destination.BindAndApply(scene.Get()->root);
 		creatingTool.func = initFunc;
 	}
 
 public:
 	AttributesWindow* attributesWindow;
-	Scene* scene = nullptr;
+	ReadonlyProperty<Scene*> scene;
 
 	virtual bool Init() {
 		if (attributesWindow == nullptr)
@@ -1043,7 +1130,7 @@ public:
 			return false;
 		}
 
-		if (scene == nullptr)
+		if (scene.Get() == nullptr)
 		{
 			log.Error("Scene wasn't assigned");
 			return false;
@@ -1216,7 +1303,6 @@ private:
 		}
 	}
 
-
 	void ShowPath() {
 		ImGui::InputText("Path", &path.getBuffer());
 
@@ -1234,87 +1320,6 @@ private:
 		}
 	}
 
-	template<Mode mode>
-	bool Design() {
-		log.Error("Unsupported mode given");
-		return false;
-	}
-
-	template<>
-	bool Design<Load>() {
-		ImGui::Begin("Open File");
-
-		ShowPath();
-
-		ListFiles();
-
-		ImGui::InputText("File", &selectedFile.getBuffer());
-
-		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
-			if (ImGui::Button("Open")) {
-				try
-				{
-					if (selectedFile.get().is_absolute())
-						FileManager::Load(selectedFile.getBuffer(), scene);
-					else
-						FileManager::Load(path.join(selectedFile), scene);
-
-					shouldClose = true;
-				}
-				catch (const FileException& e)
-				{
-					// TODO: Show error message to user
-				}
-			}
-
-			ImGui::Extensions::PopActive();
-		}
-
-		CloseButton();
-
-		ImGui::End();
-
-		return true;
-	}
-
-
-	template<>
-	bool Design<Save>() {
-		ImGui::Begin("Save File");
-
-		ShowPath();
-
-		ListFiles();
-
-		ImGui::InputText("File", &selectedFile.getBuffer());
-
-		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
-			if (ImGui::Button("Save")) {
-				try
-				{
-					if (selectedFile.get().is_absolute())
-						FileManager::Save(selectedFile.getBuffer(), scene);
-					else
-						FileManager::Save(path.join(selectedFile), scene);
-					
-					shouldClose = true;
-				}
-				catch (const FileException & e)
-				{
-					log.Error("Failed to save file");
-				}
-			}
-
-			ImGui::Extensions::PopActive();
-		}
-
-		CloseButton();
-
-		ImGui::End();
-
-		return true;
-	}
-
 public:
 
 	Mode mode;
@@ -1330,18 +1335,47 @@ public:
 		return true;
 	}
 
-
 	virtual bool Design() {
-		switch (mode)
-		{
-		case FileWindow::Load:
-			return Design<Load>();
-		case FileWindow::Save:
-			return Design<Save>();
-		default:
-			log.Error("Unsupported mode given");
-			return false;
+		ImGui::Begin(mode == FileWindow::Load ? "Open File" : "Save File");
+
+		ShowPath();
+		ListFiles();
+
+		ImGui::InputText("File", &selectedFile.getBuffer());
+
+		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
+			if (ImGui::Button(mode == FileWindow::Load ? "Open" : "Save")) {
+				try {
+					auto fileName = selectedFile.get().is_absolute() 
+						? selectedFile.getBuffer() 
+						: path.join(selectedFile);
+
+					auto action = mode == FileWindow::Load 
+						? FileManager::Load 
+						: FileManager::Save;
+
+					if (mode == FileWindow::Load) {
+						StateBuffer::Commit();
+						scene->DeleteAll();
+					}
+
+					action(fileName, scene);
+
+					shouldClose = true;
+				}
+				catch (const FileException & e) {
+					// TODO: Show error message to user
+				}
+			}
+
+			ImGui::Extensions::PopActive();
 		}
+
+		CloseButton();
+
+		ImGui::End();
+
+		return true;
 	}
 
 	bool BindScene(Scene* scene) {

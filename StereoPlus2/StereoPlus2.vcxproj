@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="Commands.hpp" />
     <ClInclude Include="DomainTypes.hpp" />
+    <ClInclude Include="DomainUtils.hpp" />
     <ClInclude Include="FileManager.hpp" />
     <ClInclude Include="GLLoader.hpp" />
     <ClInclude Include="GUI.hpp" />

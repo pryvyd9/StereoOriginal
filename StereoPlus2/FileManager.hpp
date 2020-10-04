@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include <string>
 #include <iostream>
 
@@ -89,6 +89,7 @@ public:
 };
 
 class ibstream {
+	bool isRoot = true;
 	const Log log = Log::For<ibstream>();
 	char* buffer = nullptr;
 	size_t pos = 0;
@@ -121,11 +122,14 @@ class ibstream {
 	template<typename T>
 	T* start() {
 		auto o = new T();
-		scene->Insert((SceneObject*)o);
+		if (isRoot)
+			isRoot = false;
+		else
+			objects.push_back(o);
 		return o;
 	}
 public:
-	Scene* scene;
+	std::vector<SceneObject*> objects;
 
 	template<typename T>
 	T get(size_t size = sizeof(T)) {
@@ -412,6 +416,8 @@ public:
 };
 
 class ijstream {
+	bool isRoot = true;
+
 	std::istringstream buffer;
 
 	void skipName() {
@@ -532,7 +538,10 @@ class ijstream {
 	template<typename T>
 	T* start() {
 		auto t = new T();
-		scene->Insert(t);
+		if (isRoot)
+			isRoot = false;
+		else
+			objects.push_back(t);
 		return t;
 	}
 
@@ -564,7 +573,7 @@ class ijstream {
 			}));
 	}
 public:
-	Scene* scene;
+	std::vector<SceneObject*> objects;
 
 	template<typename T>
 	T get(std::string str) {
@@ -728,14 +737,14 @@ class FileManager {
 	static void SaveJson(std::string filename, Scene* inScene) {
 		if (inScene == nullptr)
 			Fail("InScene was null");
-		if (inScene->root == nullptr)
+		if (inScene->root.Get().Get() == nullptr)
 			Fail("InScene Root was null");
 
 		std::ofstream out(filename);
 
 		ojstream bs;
 
-		bs.put(*inScene->root);
+		bs.put(*inScene->root.Get().Get());
 
 		out << bs.getBuffer();
 
@@ -751,13 +760,21 @@ class FileManager {
 
 		ijstream str;
 		str.setBuffer(buffer);
-		str.scene = inScene;
 
 		auto o = str.read();
 		inScene->root = o;
-		o->SetParent(nullptr);
 
-		delete buffer;
+		std::vector<PON> newObjects;
+		for (auto o : str.objects)
+			newObjects.push_back(o);
+
+		//std::vector<PON> newObjects(str.objects.size());
+		//for (size_t i = 0; i < str.objects.size(); i++)
+		//	newObjects[i] = PON(str.objects[i]);
+		
+		inScene->objects = newObjects;
+		
+		delete[] buffer;
 		file.close();
 	}
 
@@ -765,7 +782,7 @@ class FileManager {
 		std::ofstream file(filename, std::ios::binary | std::ios::out);
 
 		auto bs = obstream();
-		bs.put(*(SceneObject*)inScene->root);
+		bs.put(*inScene->root.Get().Get());
 
 		file.write(bs.getBuffer(), bs.getSize());
 
@@ -781,13 +798,21 @@ class FileManager {
 
 		ibstream str;
 		str.setBuffer(buffer);
-		str.scene = inScene;
 
 		auto o = str.get<SceneObject*>();
 		inScene->root = o;
-		o->SetParent(nullptr);
 
-		delete buffer;
+		//std::vector<PON> newObjects(str.objects.size());
+		//for (size_t i = 0; i < str.objects.size(); i++)
+		//	newObjects[i] = PON(str.objects[i]);
+
+		std::vector<PON> newObjects;
+		for (auto o : str.objects)
+			newObjects.push_back(o);
+
+		inScene->objects = newObjects;
+
+		delete[] buffer;
 		file.close();
 	}
 

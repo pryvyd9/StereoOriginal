@@ -7,8 +7,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <set>
 #include <functional>
 #include <map>
+#include <glm/vec3.hpp>
 
 template<typename T>
 int find(const std::vector<T>& source, const T& item) {
@@ -44,6 +46,36 @@ std::vector<int> findAllBack(const std::vector<T>& source, std::function<bool(co
 
 	return indices;
 }
+template<typename T>
+bool exists(const std::set<T>& source, const T& item) {
+	return source.find(item) != source.end();
+}
+template<typename T>
+bool exists(const std::set<const T>& source, const T& item) {
+	return source.find(item) != source.end();
+}
+template<typename K, typename T>
+bool exists(const std::set<K>& source, const T& item, std::function<T(const K&)> selector) {
+	for (auto o : source)
+		if (selector(o) == item)
+			return true;
+
+	return false;
+}
+
+template<typename T>
+bool exists(const std::vector<T>& source, const T& item) {
+	return std::find(source.begin(), source.end(), item) != source.end();
+}
+template<typename T>
+bool exists(const std::list<T>& source, const T& item) {
+	return std::find(source.begin(), source.end(), item) != source.end();
+}
+template<typename K, typename V>
+bool keyExists(const std::set<K,V>& source, const K& item) {
+	return source.find(item) != source.end();
+}
+
 
 
 class Log {
@@ -62,6 +94,11 @@ class Log {
 	static std::string ToString(const T& message) {
 		std::ostringstream ss;
 		ss << message;
+		return ss.str();
+	}
+	static std::string ToString(const glm::vec3& message) {
+		std::ostringstream ss;
+		ss << "(" << message.x << ";" << message.y << ";" << message.z << ")";
 		return ss.str();
 	}
 
@@ -94,7 +131,7 @@ public:
 		Line("[Warning](" + contextName + ") " + message);
 	}
 	void Information(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message);
+		Line("[Information](" + contextName + ") " + message);
 	}
 };
 
@@ -112,12 +149,15 @@ public:
 		auto end = std::chrono::steady_clock::now();
 		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
 		*GetBegin() = end;
-	};
+	}
 	static float GetFrameRate() {
 		return 1 / GetDeltaTime();
 	}
 	static float GetDeltaTime() {
 		return (float)*GetDeltaTimeMicroseconds() / 1e6;
+	}
+	static size_t GetTime() {
+		return std::chrono::time_point_cast<std::chrono::milliseconds>(*GetBegin()).time_since_epoch().count();
 	}
 };
 
@@ -197,23 +237,232 @@ public:
 	}
 };
 
+
+//template<typename T>
+//class AbstractProperty {
+//protected:
+//	template<typename T>
+//	class Node {
+//		T value;
+//		Event<T> changed;
+//	public:
+//		const T& Get() const {
+//			return value;
+//		}
+//		T& Get() {
+//			return value;
+//		}
+//		void Set(const T& v) {
+//			auto& old = value;
+//			value = v;
+//			if (old != v)
+//				changed.Invoke(v);
+//		}
+//		IEvent<T>& OnChanged() const {
+//			return *(IEvent<T>*) & changed;
+//		}
+//	};
+//
+//	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
+//	T& Get() {
+//		return node->Get();
+//	}
+//	void Set(const T& v) {
+//		node->Set(v);
+//	}
+//	AbstractProperty<T>& operator=(const T& v) {
+//		Set(v);
+//		return *this;
+//	}
+//	void Bind(const AbstractProperty<T>& p) {
+//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+//	}
+//	void BindAndApply(const AbstractProperty<T>& p) {
+//		Set(p.Get());
+//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+//	}
+//	void BindTwoWay(const AbstractProperty<T>& p) {
+//		node = p.node;
+//	}
+//public:
+//	IEvent<T>& OnChanged() const {
+//		return node->OnChanged();
+//	}
+//};
+//
+//template<typename T>
+//class Property : public AbstractProperty<T> {
+//public:
+//	T& Get() const {
+//		return AbstractProperty<T>::Get();
+//	}
+//	void Set(const T& v) {
+//		AbstractProperty<T>::Set(v);
+//	}
+//	Property<T>& operator=(const T& v) {
+//		Set(v);
+//		return *this;
+//	}
+//	void Bind(const Property<T>& p) {
+//		AbstractProperty<T>::Bind(p);
+//	}
+//	void BindAndApply(const Property<T>& p) {
+//		AbstractProperty<T>::BindAndApply(p);
+//	}
+//	void BindTwoWay(const Property<T>& p) {
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//};
+////template<typename T>
+////class AbstractReadonlyProperty : public AbstractProperty<T> {
+////protected:
+////	T& Get() const {
+////		return AbstractProperty<T>::Get();
+////	}
+////	void BindAndApply(const AbstractReadonlyProperty<T>& p) {
+////		// Since it's readonly it doesn't matter if it's the same node.
+////		AbstractProperty<T>::BindTwoWay(p);
+////	}
+////	T& operator->() const {
+////		return Get();
+////	}
+////};
+//
+//template<typename T>
+//class ReadonlyProperty : public AbstractProperty<T> {
+//public:
+//	ReadonlyProperty() {}
+//	ReadonlyProperty(const T& o) {
+//		AbstractProperty<T>::Set(o);
+//	}
+//	T& Get() const {
+//		return AbstractProperty<T>::Get();
+//	}
+//	void BindAndApply(const ReadonlyProperty<T>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//	void BindAndApply(const Property<T>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//	T& operator->() const {
+//		return Get();
+//	}
+//};
+//
+//template<typename T>
+//class ReadonlyProperty<T*> : public AbstractProperty<T*> {
+//public:
+//	ReadonlyProperty() {}
+//	ReadonlyProperty(const T* o) {
+//		AbstractProperty<T*>::node->Set(*o);
+//	}
+//	T* Get() const {
+//		return AbstractProperty<T*>::node->Get();
+//		//return &AbstractProperty<T*>::Get();
+//	}
+//	void BindAndApply(const ReadonlyProperty<T*>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T*>::BindTwoWay(p);
+//	}
+//	void BindAndApply(const Property<T*>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T*>::BindTwoWay(p);
+//	}
+//	T* operator->() const {
+//		return Get();
+//	}
+//};
+
 template<typename T>
 class Property {
-	T value;
-	Event<T> changed;
+	template<typename T>
+	class Node {
+		T value;
+		Event<T> changed;
+	public:
+		const T& Get() const {
+			return value;
+		}
+		T& Get() {
+			return value;
+		}
+		void Set(const T& v) {
+			auto old = value;
+			value = v;
+			if (old != v)
+				changed.Invoke(v);
+		}
+		IEvent<T>& OnChanged() const {
+			return *(IEvent<T>*) & changed;
+		}
+	};
+
+	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
 public:
 	const T& Get() const {
-		return value;
+		return node->Get();
+	}
+	T& Get() {
+		return node->Get();
 	}
 	void Set(const T& v) {
-		auto old = value;
-		value = v;
-		if (old != v)
-			changed.Invoke(v);
+		node->Set(v);
 	}
-	IEvent<T>& OnChanged() {
-		return changed;
+	IEvent<T>& OnChanged() const {
+		return node->OnChanged();
+	}
+	void Bind(const Property<T>& p) {
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+	}
+	void BindAndApply(const Property<T>& p) {
+		Set(p.Get());
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+	}
+	void BindTwoWay(const Property<T>& p) {
+		node = p.node;
+	}
+
+	Property<T>& operator=(const T& v) {
+		Set(v);
+		return *this;
+	}
+	T* operator->() const {
+		return &Get();
 	}
 };
 
+template<typename T>
+class ReadonlyProperty : Property<T> {
+public:
+	ReadonlyProperty() {}
+	ReadonlyProperty(T o) {
+		Property<T>::Set(o);
+	}
+	void BindAndApply(const Property<T>& p) {
+		Property<T>::BindAndApply(p);
+	}
+	void BindAndApply(const ReadonlyProperty<T>& p) {
+		Property<T>::BindAndApply(p);
+	}
+	void Bind(const Property<T>& p) {
+		Property<T>::Bind(p);
+	}
+	const T& Get() const {
+		return Property<T>::Get();
+	}
+	T& Get() {
+		return Property<T>::Get();
+	}
+	T operator->() const {
+		return Get();
+	}
+};
+
+#define StaticProperty(type,name) \
+static Property<type>& name() {\
+	static Property<type> v;\
+	return v;\
+}
 

@@ -11,7 +11,22 @@
 
 using namespace std;
 
+// GL4.1 required
 class Renderer {
+	const int stencilBufferMaskBright1 = 0x1;
+	const int stencilBufferMaskBright2 = 0x2;
+	const int stencilBufferMaskDim1 = 0x4;
+	const int stencilBufferMaskDim2 = 0x8;
+
+	glm::vec4 defaultColorLeft = glm::vec4(0, 1, 1, 1);
+	glm::vec4 defaultColorRight = glm::vec4(1, 0, 0, 1);
+	glm::vec4 dimmedColorLeft = glm::vec4(0, 1, 1, 0.5);
+	glm::vec4 dimmedColorRight = glm::vec4(1, 0, 0, 0.5);
+
+	glm::vec4 whiteColorBright = glm::vec4(1, 1, 1, 1);
+	glm::vec4 whiteColorDim = glm::vec4(1, 1, 1, 0.5);
+
+
 	GLuint ShaderLeft, ShaderRight;
 
 	static void glfw_error_callback(int error, const char* description)
@@ -71,8 +86,8 @@ class Renderer {
 
 	void CreateShaders()
 	{
-		std::string vertexShaderSource1		  = GLLoader::ReadShader("shaders/.vert");
-		std::string fragmentShaderSourceLeft1 = GLLoader::ReadShader("shaders/Left.frag");
+		std::string vertexShaderSource1		   = GLLoader::ReadShader("shaders/.vert");
+		std::string fragmentShaderSourceLeft1  = GLLoader::ReadShader("shaders/Left.frag");
 		std::string fragmentShaderSourceRight1 = GLLoader::ReadShader("shaders/Right.frag");
 
 		const char* vertexShaderSource = vertexShaderSource1.c_str();
@@ -81,9 +96,23 @@ class Renderer {
 
 		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
 		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
+
+		UpdateShaderColor(defaultColorLeft, defaultColorRight);
+
+		UpdateShaderColor(whiteSquare.ShaderProgram, whiteColorBright, "myColor");
+		UpdateShaderColor(whiteSquareDim.ShaderProgram, whiteColorDim, "myColor");
+	}
+	void UpdateShaderColor(glm::vec4 colorLeft, glm::vec4 colorRight) {
+		// Available since GL4.1
+		UpdateShaderColor(ShaderLeft, colorLeft, "myColor");
+		UpdateShaderColor(ShaderRight, colorRight, "myColor");
+	}
+	void UpdateShaderColor(GLuint shader, glm::vec4 color, const char* name) {
+		// Available since GL4.1
+		glProgramUniform4f(shader, glGetUniformLocation(shader, name), color.r, color.g, color.b, color.a);
 	}
 
-	void DrawSquare(WhiteSquare& square) {
+	void DrawSquare(const WhiteSquare& square) {
 		glBindVertexArray(square.VAOLeftTop);
 		glBindBuffer(GL_ARRAY_BUFFER, square.VBOLeftTop);
 		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.vertices, GL_STREAM_DRAW);
@@ -93,16 +122,37 @@ class Renderer {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		// Apply shader
-		glUseProgram(square.ShaderProgramLeftTop);
+		glUseProgram(square.ShaderProgram);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
 
-	void DrawObject(StereoCamera* camera, SceneObject* o) {
+	void DrawBright(StereoCamera* camera, SceneObject* o) {
+		UpdateShaderColor(defaultColorLeft, defaultColorRight);
 		o->Draw(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
 			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
 			ShaderLeft,
-			ShaderRight);
+			ShaderRight,
+			stencilBufferMaskBright1,
+			stencilBufferMaskBright2);
+	}
+	void DrawDim(StereoCamera* camera, SceneObject* o) {
+		UpdateShaderColor(dimmedColorLeft, dimmedColorRight);
+		o->Draw(
+			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
+			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
+			ShaderLeft,
+			ShaderRight,
+			stencilBufferMaskDim1,
+			stencilBufferMaskDim2);
+	}
+
+	void DrawIntersection(const WhiteSquare& square, GLuint stencilMask) {
+		glStencilMask(0x00);
+
+		glStencilFunc(GL_EQUAL, stencilMask, stencilMask);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+		DrawSquare(square);
 	}
 
 public:
@@ -112,8 +162,9 @@ public:
 	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 1);
 
 	WhiteSquare whiteSquare;
+	WhiteSquare whiteSquareDim;
 
-	void Pipeline(const Scene& scene) {
+	void Pipeline(Scene& scene) {
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 
@@ -134,16 +185,37 @@ public:
 			//glEnable(GL_BLEND);
 			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 		}
-
-		for (auto o : scene.objects)
-			DrawObject(scene.camera, o);
-
-		DrawObject(scene.camera, scene.cross);
 		
-		glStencilMask(0x00);
-		glStencilFunc(GL_EQUAL, 0x1 | 0x2, 0xFF);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-		DrawSquare(whiteSquare);
+		if (ObjectSelection::Selected().empty()) {
+			for (auto o : scene.objects)
+				DrawBright(scene.camera, o.Get());
+			DrawBright(scene.camera, scene.cross);
+			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
+		}
+		else {
+			std::set<PON> objectsSorted;
+			for (auto o : scene.objects)
+				objectsSorted.emplace(o);
+
+			std::vector<PON> dimObjects;
+
+			std::set_difference(
+				objectsSorted.begin(),
+				objectsSorted.end(),
+				ObjectSelection::Selected().begin(),
+				ObjectSelection::Selected().end(),
+				std::inserter(dimObjects, dimObjects.begin()));
+
+			for (auto o : dimObjects)
+				DrawDim(scene.camera, o.Get());
+			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
+
+			for (auto o : ObjectSelection::Selected())
+				if (o.HasValue())
+					DrawBright(scene.camera, o.Get());
+			DrawBright(scene.camera, scene.cross);
+			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
+		}
 
 		// Anti aliasing
 		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
@@ -154,7 +226,8 @@ public:
 
 	bool Init() {
 		if (!InitGL()
-			|| !whiteSquare.Init())
+			|| !whiteSquare.Init()
+			|| !whiteSquareDim.Init())
 			return false;
 
 		CreateShaders();
