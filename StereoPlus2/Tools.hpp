@@ -327,21 +327,21 @@ public:
 					cross->SetWorldPosition(target->GetWorldPosition());
 			}
 			};
-		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
+		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
 			cross->SetParent(target.Get(), false, true, true, false);
 			if (!target.HasValue() || target->GetVertices().empty())
 				cross->SetLocalPosition(glm::vec3());
 			else
 				cross->SetLocalPosition(target->GetVertices().back());
-			});
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
+			};
+		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
 			if (wasCommitDone)
 				return;
 
 			StateBuffer::Commit();
 			wasCommitDone = true;
 			Logger.Information("commit");
-			});
+			};
 
 		return true;
 	}
@@ -357,9 +357,9 @@ public:
 		cross->SetParent(crossOriginalParent, false, true, true, false);
 		cross->SetLocalPosition(crossOriginalPosition);
 		keyBinding->RemoveHandler(inutHandlerId);
-		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
-		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
-		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
+		StateBuffer::OnStateChange() -= stateChangedHandlerId;
+		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
 
 		DeleteConfig();
 

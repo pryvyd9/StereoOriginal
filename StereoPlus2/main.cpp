@@ -106,6 +106,10 @@ int main(int, char**) {
 	if (!StateBuffer::Init())
 		return false;
 
+	LocaleProvider::Language().Set(Locale::UA);
+	if (!LocaleProvider::Init())
+		return false;
+
 	// Position detector doesn't initialize itself
 	// so we need to help it.
 	positionDetector.onStartProcess = [&positionDetector] {

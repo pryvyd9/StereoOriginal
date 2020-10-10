@@ -473,4 +473,3 @@ static Property<type>& name() {\
 	static Property<type> v;\
 	return v;\
 }
-

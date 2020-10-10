@@ -13,7 +13,6 @@
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
-//#include <experimental/type_traits>
 #include "TemplateExtensions.hpp"
 #include "InfrastructureTypes.hpp"
 
@@ -47,6 +46,100 @@ namespace ImGui::Extensions {
 }
 
 namespace fs = std::filesystem;
+namespace Locale {
+	const std::string UA = "ua";
+	const std::string EN = "en";
+};
+static class LocaleProvider {
+	// Convert a wide Unicode string to an UTF8 string
+	// Windows specific
+	static std::string utf8_encode(const std::wstring& wstr) {
+		if (wstr.empty()) return std::string();
+		int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+		std::string strTo(size_needed, 0);
+		WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+		return strTo;
+	}
+
+	// Convert an UTF8 string to a wide Unicode String
+	// Windows specific
+	static std::wstring utf8_decode(const std::string& str) {
+		if (str.empty()) return std::wstring();
+		int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+		std::wstring wstrTo(size_needed, 0);
+		MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+		return wstrTo;
+	}
+
+	static std::map<std::string, std::string>& localizations() {
+		static std::map<std::string, std::string> v;
+		return v;
+	}
+
+	static void LoadJson(const std::string& key, Jw::ObjectAbstract* joa) {
+		switch (joa->GetType()) {
+		case Jw::JPrimitiveString:
+		{
+			auto v = (Jw::PrimitiveString*)joa;
+
+			localizations()[key] = utf8_encode(v->value);
+			break;
+		}
+		case Jw::JObject:
+		{
+			for (auto [k, v] : ((Jw::Object*)joa)->objects)
+				LoadJson(key + ":" + utf8_encode(k), v);
+
+			break;
+		}
+		default:
+			Log::For<LocaleProvider>().Error("Unsupported Json object was passed.");
+			break;
+		}
+	}
+
+	static void LoadLanguage(std::string name) {
+		try {
+			auto json = (Jw::Object*)FileManager::LoadLocaleFile("locale." + name + ".json");
+
+			for (auto [k, v] : json->objects)
+				LoadJson(utf8_encode(k), v);
+		}
+		catch (std::exception & e) {
+			Log::For<LocaleProvider>().Error("Language could not be loaded.");
+			throw;
+		}
+	}
+
+public:
+
+	StaticProperty(std::string, Language)
+
+	static const std::string& Get(const std::string& name) {
+		if (auto v = localizations().find(name); v != localizations().end())
+			return v._Ptr->_Myval.second;
+
+		Log::For<LocaleProvider>().Warning("Localization for ", name, " was not found.");
+		return name;
+	}
+	static const char* GetC(const std::string& name) {
+		return Get(name).c_str();
+	}
+
+
+	static bool Init() {
+		if (Language().Get().empty()) {
+			Log::For<LocaleProvider>().Error("Language not asigned.");
+			return false;
+		}
+
+		Language().OnChanged().AddHandler([](std::string name) { LoadLanguage(name); });
+
+		LoadLanguage(Language().Get());
+
+		return true;
+	}
+};
 
 class CustomRenderWindow : Window
 {
@@ -127,9 +220,8 @@ public:
 	std::function<bool()> customRenderFunc;
 	glm::vec2 renderSize = glm::vec3(1);
 
-	virtual bool Init()
-	{
-
+	virtual bool Init() {
+		Window::name = "renderWindow";
 		fbo = createFrameBuffer();
 		texture = createTextureAttachment(renderSize.x, renderSize.y);
 		depthBuffer = createDepthBufferAttachment(renderSize.x, renderSize.y);
@@ -138,8 +230,7 @@ public:
 		return true;
 	}
 
-	void HandleResize()
-	{
+	void HandleResize() {
 		// handle custom render window resize
 		glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
 		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
@@ -152,9 +243,9 @@ public:
 		}
 	}
 
-	virtual bool Design()
-	{
-		ImGui::Begin("Scene");
+	virtual bool Design() {
+		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(name.c_str());
 
 
 		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
@@ -174,8 +265,7 @@ public:
 		return true;
 	}
 
-	virtual bool OnExit()
-	{
+	virtual bool OnExit() {
 		glDeleteFramebuffers(1, &fbo);
 		glDeleteTextures(1, &texture);
 
@@ -198,17 +288,20 @@ public:
 	}
 
 	virtual bool Init() {
+		Window::name = "propertiesWindow";
 		return true;
 	}
 
 	virtual bool Window::Design() {
 		if (Object == nullptr) {
-			ImGui::Begin("Properties empty");
+			auto name = LocaleProvider::Get(Window::name);
+			ImGui::Begin(name.c_str());
 			ImGui::End();
 			return true;
 		}
 
-		ImGui::Begin(("Properties " + GetName(Object)).c_str());
+		auto name = LocaleProvider::Get(Window::name) + " " + GetName(Object);
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -222,7 +315,8 @@ public:
 			return true;
 		}
 
-		if (ImGui::BeginTabItem(("Properties " + GetName(Object)).c_str())) {
+		auto name = LocaleProvider::Get(Window::name) + " " + GetName(Object);
+		if (ImGui::BeginTabItem(name.c_str())) {
 			if (!DesignInternal())
 				return false;
 
@@ -561,10 +655,12 @@ public:
 	const float magicNumber = 1.25;
 
 	virtual bool Init() {
+		Window::name = "objectInspectorWindow";
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin("Object inspector");                         
+		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(name.c_str());
 
 		// Reset elements' IDs.
 		GetID() = 0;
@@ -695,13 +791,14 @@ public:
 		}
 		
 		//target = tool->GetTarget();
-		Window::name = Attributes::name = "PointPen " + GetName(type);
+		Window::name = Attributes::name = "pen";
 		Attributes::isInitialized = true;
 
 		return true;
 	}
 	virtual bool Window::Design() {
-		ImGui::Begin(Window::name.c_str());
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -711,7 +808,8 @@ public:
 		return true;
 	}
 	virtual bool Attributes::Design() {
-		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
 		{
 			if (!DesignInternal())
 				return false;
@@ -809,14 +907,14 @@ public:
 			return false;
 		}
 		
-		//target = tool->GetTarget();
-		Window::name = Attributes::name = "Extrusion " + GetName(type);
+		Window::name = Attributes::name = "extrusion";
 		Attributes::isInitialized = true;
 		
 		return true;
 	}
 	virtual bool Window::Design() {
-		ImGui::Begin(Window::name.c_str());
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -826,7 +924,8 @@ public:
 		return true;
 	}
 	virtual bool Attributes::Design() {
-		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
 		{
 			if (!DesignInternal())
 				return false;
@@ -957,20 +1056,19 @@ public:
 	}
 
 	virtual bool Init() {
-		if (tool == nullptr)
-		{
+		if (tool == nullptr) {
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
 		
-		//target = tool->GetTarget();
-		Window::name = Attributes::name = "Transformation";
+		Window::name = Attributes::name = "transformation";
 		Attributes::isInitialized = true;
 		
 		return true;
 	}
 	virtual bool Window::Design() {
-		ImGui::Begin(Window::name.c_str());
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -980,7 +1078,8 @@ public:
 		return true;
 	}
 	virtual bool Attributes::Design() {
-		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
 		{
 			if (!DesignInternal())
 				return false;
@@ -1010,10 +1109,12 @@ public:
 	std::function<void()> onUnbindTool;
 
 	virtual bool Init() {
+		Window::name = "attributesWindow";
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin("Attributes");
+		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(name.c_str());
 
 		ImGui::BeginTabBar("#attributes window tab bar");
 
@@ -1077,6 +1178,7 @@ public:
 
 class ToolWindow : Window {
 	const Log log = Log::For<ToolWindow>();
+	const std::string name = "toolWindow";
 
 	CreatingTool<StereoPolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
@@ -1152,20 +1254,21 @@ public:
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin("Toolbar");
+		auto windowName = LocaleProvider::Get("toolWindow:windowName") + "###" + name;
+		ImGui::Begin(windowName.c_str());
 
-		if (ImGui::Button("PolyLine"))
+		if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
 			polyLineTool.Create();
-		if (ImGui::Button("Group"))
+		if (ImGui::Button(LocaleProvider::GetC("object:group")))
 			groupObjectTool.Create();
 
 		ImGui::Separator();
 
-		if (ImGui::Button("extrusion")) 
+		if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("pen")) 
+		if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("transform"))
+		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
 		//{
@@ -1336,7 +1439,9 @@ public:
 	}
 
 	virtual bool Design() {
-		ImGui::Begin(mode == FileWindow::Load ? "Open File" : "Save File");
+		auto windowName = mode == FileWindow::Load ? "openFileWindow" : "saveFileWindow";
+		auto name = LocaleProvider::Get(windowName) + "###" + "fileManagerWindow";
+		ImGui::Begin(name.c_str());
 
 		ShowPath();
 		ListFiles();
