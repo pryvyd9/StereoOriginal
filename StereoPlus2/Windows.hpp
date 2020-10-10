@@ -1275,18 +1275,18 @@ public:
 		{
 			ImGui::Separator();
 			static int v = (int)GlobalToolConfiguration::SpaceMode().Get();
-			if (ImGui::RadioButton("World", &v, (int)SpaceMode::World))
+			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
 				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::World);
-			if (ImGui::RadioButton("Local", &v, (int)SpaceMode::Local))
+			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
 				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::Local);
 		}
 		{
 			ImGui::Separator();
-			ImGui::Text("Action on parent change:");
+			ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
 			static int v = (int)GlobalToolConfiguration::MoveCoordinateAction().Get();
-			if (ImGui::RadioButton("Adapt Coordinates", &v, (int)MoveCoordinateAction::Adapt))
+			if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
 				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
-			if (ImGui::RadioButton("None", &v, (int)MoveCoordinateAction::None))
+			if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
 				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::None);
 		}
 
