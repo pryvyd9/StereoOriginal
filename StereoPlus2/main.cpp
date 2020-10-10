@@ -1,5 +1,5 @@
 #include "GLLoader.hpp"
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "ToolPool.hpp"
 #include "GUI.hpp"
 #include "Windows.hpp"
@@ -34,7 +34,6 @@ int main(int, char**) {
 	SceneObjectPropertiesWindow cameraPropertiesWindow;
 	SceneObjectPropertiesWindow crossPropertiesWindow;
 	SceneObjectInspectorWindow inspectorWindow;
-
 	AttributesWindow attributesWindow;
 	ToolWindow toolWindow;
 
@@ -52,13 +51,16 @@ int main(int, char**) {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject = (GroupObject**)&scene.root;
-	inspectorWindow.selectedObjectsBuffer = &scene.selectedObjects;
+	inspectorWindow.rootObject.BindAndApply(scene.root);
+	inspectorWindow.input = &gui.input;
+
+	cameraPropertiesWindow.Object = &camera;
+	crossPropertiesWindow.Object = &cross;
 
 	scene.camera = &camera;
-	cameraPropertiesWindow.Object = (SceneObject*)scene.camera;
-
-	
+	scene.glWindow = renderPipeline.glWindow;
+	scene.camera->viewSize = &customRenderWindow.renderSize;
+	scene.cross = &cross;
 
 	gui.windows = {
 		(Window*)&customRenderWindow,
@@ -68,25 +70,16 @@ int main(int, char**) {
 		(Window*)&attributesWindow,
 		(Window*)&toolWindow,
 	};
-
 	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
-
-	scene.glWindow = gui.glWindow;
-	scene.camera->viewSize = &customRenderWindow.renderSize;
-	scene.cross = &cross;
-
 	gui.scene = &scene;
-
-	cross.Name = "Cross";
-	if (!cross.Init())
-		return false;
-
-	crossPropertiesWindow.Object = (SceneObject*)scene.cross;
 	gui.keyBinding.cross = &cross;
 	if (!gui.Init())
 		return false;
 
+	cross.Name = "Cross";
+	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
+	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	// Cross handlers
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
@@ -101,11 +94,16 @@ int main(int, char**) {
 		}
 	});
 
-	* ToolPool::GetCross() = &cross;
-	* ToolPool::GetScene() = &scene;
-	* ToolPool::GetKeyBinding() = &gui.keyBinding;
-
+	ToolPool::Cross() = &cross;
+	ToolPool::Scene() = &scene;
+	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
+		return false;
+
+	StateBuffer::BufferSize() = 30;
+	StateBuffer::RootObject().BindTwoWay(scene.root);
+	StateBuffer::Objects() = &scene.objects;
+	if (!StateBuffer::Init())
 		return false;
 
 	// Position detector doesn't initialize itself
@@ -127,6 +125,14 @@ int main(int, char**) {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 
+	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
+		if (i->IsDown(Key::Delete)) {
+			StateBuffer::Commit();
+			s->DeleteSelected();
+			}
+		});
+
+
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |
 		!gui.OnExit()) {
@@ -136,5 +142,6 @@ int main(int, char**) {
 
 	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
+	StateBuffer::Clear();
     return true;
 }

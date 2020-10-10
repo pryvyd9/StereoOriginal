@@ -5,55 +5,52 @@
 #include <sstream>
 
 class ToolPool {
-	static bool Init(PointPenEditingTool<StereoPolyLineT>* tool) {
-		return 
-			tool->BindInput(*GetKeyBinding()) &&
-			tool->BindCross(*GetCross());
+	static void Init(PointPenEditingTool<StereoPolyLineT>* tool) {
+		tool->cross.BindAndApply(Cross());
+		tool->keyBinding.BindAndApply(KeyBinding());
 	}
 
-	static bool Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
-		return 
-			tool->BindInput(*GetKeyBinding()) &&
-			tool->BindCross(*GetCross()) &&
-			tool->BindScene(*GetScene()) &&
-			tool->BindDestination(&(*GetScene())->root);
+	static void Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
+		tool->destination.BindAndApply(Scene().Get()->root);
+		tool->scene.BindAndApply(Scene());
+		tool->cross.BindAndApply(Cross());
+		tool->keyBinding.BindAndApply(KeyBinding());
 	}
 
-	static bool Init(TransformTool* tool) {
-		return
-			tool->BindInput(*GetKeyBinding()) &&
-			tool->BindCross(*GetCross());
+	static void Init(TransformTool* tool) {
+		tool->cross.BindAndApply(Cross());
+		tool->keyBinding.BindAndApply(KeyBinding());
 	}
 
 public:
-	static KeyBinding** GetKeyBinding() {
-		static KeyBinding* val = nullptr;
-		return &val;
+	static ReadonlyProperty<::Scene*>& Scene() {
+		static ReadonlyProperty<::Scene*> v;
+		return v;
 	}
-	static Scene** GetScene() {
-		static Scene* val = nullptr;
-		return &val;
+	static ReadonlyProperty<::Cross*>& Cross() {
+		static ReadonlyProperty<::Cross*> v;
+		return v;
 	}
-	static Cross** GetCross() {
-		static Cross* val = nullptr;
-		return &val;
+	static ReadonlyProperty<::KeyBinding*>& KeyBinding() {
+		static ReadonlyProperty<::KeyBinding*> v;
+		return v;
 	}
-
 
 	template<typename T>
 	static T* GetTool() {
 		static T tool;
 		static bool isInitialized = false;
 
-		if (isInitialized || (isInitialized = Init(&tool)))
-			return &tool;
-
-		std::cout << "Tool could not be initialized because some fields were null" << std::endl;
-		return nullptr;
+		if (!isInitialized) {
+			Init(&tool);
+			isInitialized = true;
+		}
+		
+		return &tool;
 	}
 
 	static bool Init() {
-		if (*GetKeyBinding() && *GetScene() && *GetCross())
+		if (KeyBinding().Get() && Scene().Get() && Cross().Get())
 			return true;
 
 		std::cout << "ToolPool could not be initialized because some fields were null" << std::endl;
