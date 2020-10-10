@@ -168,6 +168,8 @@
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="Input.hpp" />
+    <ClInclude Include="Json.hpp" />
+    <ClInclude Include="Localization.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
     <ClInclude Include="ToolConfiguration.hpp" />

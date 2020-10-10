@@ -15,7 +15,7 @@
 #include "FileManager.hpp"
 #include "TemplateExtensions.hpp"
 #include "InfrastructureTypes.hpp"
-
+#include "Localization.hpp"
 
 namespace ImGui::Extensions {
 	#include <stack>
@@ -46,100 +46,6 @@ namespace ImGui::Extensions {
 }
 
 namespace fs = std::filesystem;
-namespace Locale {
-	const std::string UA = "ua";
-	const std::string EN = "en";
-};
-static class LocaleProvider {
-	// Convert a wide Unicode string to an UTF8 string
-	// Windows specific
-	static std::string utf8_encode(const std::wstring& wstr) {
-		if (wstr.empty()) return std::string();
-		int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
-		std::string strTo(size_needed, 0);
-		WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
-		return strTo;
-	}
-
-	// Convert an UTF8 string to a wide Unicode String
-	// Windows specific
-	static std::wstring utf8_decode(const std::string& str) {
-		if (str.empty()) return std::wstring();
-		int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
-		std::wstring wstrTo(size_needed, 0);
-		MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
-		return wstrTo;
-	}
-
-	static std::map<std::string, std::string>& localizations() {
-		static std::map<std::string, std::string> v;
-		return v;
-	}
-
-	static void LoadJson(const std::string& key, Jw::ObjectAbstract* joa) {
-		switch (joa->GetType()) {
-		case Jw::JPrimitiveString:
-		{
-			auto v = (Jw::PrimitiveString*)joa;
-
-			localizations()[key] = utf8_encode(v->value);
-			break;
-		}
-		case Jw::JObject:
-		{
-			for (auto [k, v] : ((Jw::Object*)joa)->objects)
-				LoadJson(key + ":" + utf8_encode(k), v);
-
-			break;
-		}
-		default:
-			Log::For<LocaleProvider>().Error("Unsupported Json object was passed.");
-			break;
-		}
-	}
-
-	static void LoadLanguage(std::string name) {
-		try {
-			auto json = (Jw::Object*)FileManager::LoadLocaleFile("locales/" + name + ".json");
-
-			for (auto [k, v] : json->objects)
-				LoadJson(utf8_encode(k), v);
-		}
-		catch (std::exception & e) {
-			Log::For<LocaleProvider>().Error("Locale could not be loaded.");
-			throw;
-		}
-	}
-
-public:
-
-	StaticProperty(std::string, Language)
-
-	static const std::string& Get(const std::string& name) {
-		if (auto v = localizations().find(name); v != localizations().end())
-			return v._Ptr->_Myval.second;
-
-		Log::For<LocaleProvider>().Warning("Localization for ", name, " was not found.");
-		return name;
-	}
-	static const char* GetC(const std::string& name) {
-		return Get(name).c_str();
-	}
-
-
-	static bool Init() {
-		if (Language().Get().empty()) {
-			Log::For<LocaleProvider>().Error("Language not asigned.");
-			return false;
-		}
-
-		Language().OnChanged().AddHandler([](std::string name) { LoadLanguage(name); });
-
-		LoadLanguage(Language().Get());
-
-		return true;
-	}
-};
 
 class CustomRenderWindow : Window
 {
@@ -1307,16 +1213,6 @@ public:
 		Save,
 	};
 private:
-	bool iequals(const std::string& a, const std::string& b)
-	{
-		return std::equal(a.begin(), a.end(),
-			b.begin(), b.end(),
-			[](char a, char b) {
-				return tolower(a) == tolower(b);
-			});
-	}
-	const Log log = Log::For<FileWindow>();
-
 	class Path {
 		fs::path path;
 		std::string pathBuffer;
@@ -1324,7 +1220,6 @@ private:
 		const fs::path& get() {
 			return path;
 		}
-
 		std::string& getBuffer() {
 			return pathBuffer;
 		}
@@ -1332,7 +1227,6 @@ private:
 		void apply() {
 			apply(pathBuffer);
 		}
-
 		void apply(fs::path n) {
 			path = fs::absolute(n);
 			pathBuffer = path.u8string();
@@ -1352,13 +1246,20 @@ private:
 		}
 	};
 
-
+	const Log log = Log::For<FileWindow>();
 
 	Path path;
 	Path selectedFile;
 	Scene* scene;
-	
 
+	//bool iequals(const std::string& a, const std::string& b)
+	//{
+	//	return std::equal(a.begin(), a.end(),
+	//		b.begin(), b.end(),
+	//		[](char a, char b) {
+	//			return tolower(a) == tolower(b);
+	//		});
+	//}
 
 	void ListFiles() {
 		if (ImGui::ListBoxHeader("")) {
@@ -1397,7 +1298,6 @@ private:
 			ImGui::ListBoxFooter();
 		}
 	}
-
 	void ShowPath() {
 		ImGui::InputText(LocaleProvider::GetC("path"), &path.getBuffer());
 
@@ -1408,7 +1308,6 @@ private:
 			ImGui::Extensions::PopActive();
 		}
 	}
-
 	void CloseButton() {
 		if (ImGui::Button(LocaleProvider::GetC("cancel"))) {
 			shouldClose = true;
@@ -1416,7 +1315,6 @@ private:
 	}
 
 public:
-
 	Mode mode;
 
 	virtual bool Init() {
@@ -1429,7 +1327,6 @@ public:
 
 		return true;
 	}
-
 	virtual bool Design() {
 		auto windowName = mode == FileWindow::Load ? "openFileWindow" : "saveFileWindow";
 		auto name = LocaleProvider::Get(windowName) + "###" + "fileManagerWindow";
@@ -1474,7 +1371,6 @@ public:
 
 		return true;
 	}
-
 	bool BindScene(Scene* scene) {
 		if (this->scene = scene)
 			return true;
@@ -1482,5 +1378,4 @@ public:
 		log.Error("Scene was null");
 		return false;
 	}
-
 };
