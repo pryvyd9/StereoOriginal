@@ -151,7 +151,7 @@
     <None Include="shaders\zero.frag">
       <Filter>shaders</Filter>
     </None>
-    <None Include="locales\locale.en.json" />
-    <None Include="locales\locale.ua.json" />
+    <None Include="locales\en.json" />
+    <None Include="locales\ua.json" />
   </ItemGroup>
 </Project>

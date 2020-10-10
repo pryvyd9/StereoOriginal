@@ -199,6 +199,7 @@ public:
 	}
 };
 
+// Json
 template<typename T>
 struct J {
 	enum JType {
@@ -249,7 +250,6 @@ struct J {
 			return JPrimitiveString;
 		}
 	};
-
 };
 
 struct Js : J<std::string> {};
@@ -1582,8 +1582,7 @@ public:
 			Fail("File extension not supported");
 	}
 
-	static Jw::ObjectAbstract* LoadLocaleFile(std::string name) {
-		auto filename = "locales/" + name;
+	static Jw::ObjectAbstract* LoadLocaleFile(const std::string& filename) {
 		std::wifstream file(filename, std::ios::binary | std::ios::in);
 		
 		auto bufferSize = GetFileSizeW(filename);

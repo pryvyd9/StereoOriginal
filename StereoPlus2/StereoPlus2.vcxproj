@@ -176,8 +176,8 @@
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="locales\locale.en.json" />
-    <None Include="locales\locale.ua.json" />
+    <None Include="locales\en.json" />
+    <None Include="locales\ua.json" />
     <None Include="shaders\.vert" />
     <None Include="shaders\Left.frag" />
     <None Include="shaders\Right.frag" />

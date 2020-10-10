@@ -100,13 +100,13 @@ static class LocaleProvider {
 
 	static void LoadLanguage(std::string name) {
 		try {
-			auto json = (Jw::Object*)FileManager::LoadLocaleFile("locale." + name + ".json");
+			auto json = (Jw::Object*)FileManager::LoadLocaleFile("locales/" + name + ".json");
 
 			for (auto [k, v] : json->objects)
 				LoadJson(utf8_encode(k), v);
 		}
 		catch (std::exception & e) {
-			Log::For<LocaleProvider>().Error("Language could not be loaded.");
+			Log::For<LocaleProvider>().Error("Locale could not be loaded.");
 			throw;
 		}
 	}
@@ -1178,7 +1178,6 @@ public:
 
 class ToolWindow : Window {
 	const Log log = Log::For<ToolWindow>();
-	const std::string name = "toolWindow";
 
 	CreatingTool<StereoPolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
@@ -1251,10 +1250,12 @@ public:
 			o->Name = ss.str();
 		});
 
+		Window::name = "toolWindow";
+
 		return true;
 	}
 	virtual bool Design() {
-		auto windowName = LocaleProvider::Get("toolWindow:windowName") + "###" + name;
+		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
 		ImGui::Begin(windowName.c_str());
 
 		if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
@@ -1271,14 +1272,6 @@ public:
 		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
-		//{
-		//	ImGui::Separator();
-		//	static int v = (int)GlobalToolConfiguration::GetCoordinateMode();
-		//	if (ImGui::RadioButton("Object", &v, (int)CoordinateMode::Object))
-		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Object);
-		//	if (ImGui::RadioButton("Vertex", &v, (int)CoordinateMode::Vertex))
-		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Vertex);
-		//}
 		{
 			ImGui::Separator();
 			static int v = (int)GlobalToolConfiguration::SpaceMode().Get();
@@ -1296,7 +1289,6 @@ public:
 			if (ImGui::RadioButton("None", &v, (int)MoveCoordinateAction::None))
 				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::None);
 		}
-
 
 		ImGui::End();
 
@@ -1407,10 +1399,10 @@ private:
 	}
 
 	void ShowPath() {
-		ImGui::InputText("Path", &path.getBuffer());
+		ImGui::InputText(LocaleProvider::GetC("path"), &path.getBuffer());
 
 		if (ImGui::Extensions::PushActive(path.isSome())) {
-			if (ImGui::Button("Submit"))
+			if (ImGui::Button(LocaleProvider::GetC("submit")))
 				path.apply();
 
 			ImGui::Extensions::PopActive();
@@ -1418,7 +1410,7 @@ private:
 	}
 
 	void CloseButton() {
-		if (ImGui::Button("Cancel")) {
+		if (ImGui::Button(LocaleProvider::GetC("cancel"))) {
 			shouldClose = true;
 		}
 	}
@@ -1446,10 +1438,10 @@ public:
 		ShowPath();
 		ListFiles();
 
-		ImGui::InputText("File", &selectedFile.getBuffer());
+		ImGui::InputText(LocaleProvider::GetC("file"), &selectedFile.getBuffer());
 
 		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
-			if (ImGui::Button(mode == FileWindow::Load ? "Open" : "Save")) {
+			if (ImGui::Button(mode == FileWindow::Load ? LocaleProvider::GetC("open") : LocaleProvider::GetC("save"))) {
 				try {
 					auto fileName = selectedFile.get().is_absolute() 
 						? selectedFile.getBuffer() 
