@@ -1099,7 +1099,7 @@ class ToolWindow : Window {
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene.Get()->OnDeleteAll().AddHandler([t = tool] {
+		auto deleteAllhandlerId = scene.Get()->OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindSceneObjects();
 		};

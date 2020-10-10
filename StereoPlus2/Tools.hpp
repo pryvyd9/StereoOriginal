@@ -326,7 +326,7 @@ public:
 				else
 					cross->SetWorldPosition(target->GetWorldPosition());
 			}
-			});
+			};
 		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
 			cross->SetParent(target.Get(), false, true, true, false);
 			if (!target.HasValue() || target->GetVertices().empty())
@@ -720,7 +720,7 @@ public:
 		
 
 		inputHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (!mesh.HasValue())
 				return;
 
@@ -1042,7 +1042,7 @@ public:
 			wasCommitDone = true;
 			//Logger.Information("commit");
 			});
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
 
