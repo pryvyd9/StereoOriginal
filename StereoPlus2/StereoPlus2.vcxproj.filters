@@ -134,6 +134,12 @@
     <ClInclude Include="DomainUtils.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Json.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Localization.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">
@@ -151,5 +157,7 @@
     <None Include="shaders\zero.frag">
       <Filter>shaders</Filter>
     </None>
+    <None Include="locales\en.json" />
+    <None Include="locales\ua.json" />
   </ItemGroup>
 </Project>

@@ -80,8 +80,19 @@ int main(int, char**) {
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
+	// Cross handlers
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
+	
+	// Return cursor
+	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
+		if (i->IsDown(Key::N5)) {
+			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight))
+				cross.SetLocalPosition(glm::vec3());
+			else
+				cross.SetWorldPosition(glm::vec3());
+		}
+	});
 
 	ToolPool::Cross() = &cross;
 	ToolPool::Scene() = &scene;
@@ -93,6 +104,10 @@ int main(int, char**) {
 	StateBuffer::RootObject().BindTwoWay(scene.root);
 	StateBuffer::Objects() = &scene.objects;
 	if (!StateBuffer::Init())
+		return false;
+
+	LocaleProvider::Language().Set(Locale::UA);
+	if (!LocaleProvider::Init())
 		return false;
 
 	// Position detector doesn't initialize itself
@@ -115,8 +130,6 @@ int main(int, char**) {
 	};
 
 	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
-	//gui.keyBinding.AddHandler([i = &gui.input, k = &gui.keyBinding, s = &scene]{
-		//k->OnBeforeDeleteObject.Invoke(&SceneObjectSelection::Selected());
 		if (i->IsDown(Key::Delete)) {
 			StateBuffer::Commit();
 			s->DeleteSelected();

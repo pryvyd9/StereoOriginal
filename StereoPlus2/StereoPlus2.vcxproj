@@ -168,6 +168,8 @@
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="Input.hpp" />
+    <ClInclude Include="Json.hpp" />
+    <ClInclude Include="Localization.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
     <ClInclude Include="ToolConfiguration.hpp" />
@@ -176,6 +178,8 @@
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="locales\en.json" />
+    <None Include="locales\ua.json" />
     <None Include="shaders\.vert" />
     <None Include="shaders\Left.frag" />
     <None Include="shaders\Right.frag" />

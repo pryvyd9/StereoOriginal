@@ -45,3 +45,6 @@ public:
 	virtual SceneObject* GetTarget() = 0;
 	virtual void BindTarget(SceneObject* o) {}
 };
+
+
+

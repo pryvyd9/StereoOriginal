@@ -311,7 +311,7 @@ public:
 		}
 
 		inutHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local) {
 				cross->SetParent(target.Get(), false, true, true, false);
 				if (target->GetVertices().size() > 0)
@@ -326,22 +326,22 @@ public:
 				else
 					cross->SetWorldPosition(target->GetWorldPosition());
 			}
-			});
-		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
+			};
+		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
 			cross->SetParent(target.Get(), false, true, true, false);
 			if (!target.HasValue() || target->GetVertices().empty())
 				cross->SetLocalPosition(glm::vec3());
 			else
 				cross->SetLocalPosition(target->GetVertices().back());
-			});
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
+			};
+		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
 			if (wasCommitDone)
 				return;
 
 			StateBuffer::Commit();
 			wasCommitDone = true;
 			Logger.Information("commit");
-			});
+			};
 
 		return true;
 	}
@@ -357,9 +357,9 @@ public:
 		cross->SetParent(crossOriginalParent, false, true, true, false);
 		cross->SetLocalPosition(crossOriginalPosition);
 		keyBinding->RemoveHandler(inutHandlerId);
-		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
-		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
-		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
+		StateBuffer::OnStateChange() -= stateChangedHandlerId;
+		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
 
 		DeleteConfig();
 
@@ -650,7 +650,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		cross->SetParent(crossOriginalParent);
 		cross->SetLocalPosition(crossOriginalPosition);
 
-		GlobalToolConfiguration::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
+		GlobalToolConfiguration::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		keyBinding->RemoveHandler(inputHandlerId);
 		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
 		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
@@ -720,7 +720,7 @@ public:
 		
 
 		inputHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (!mesh.HasValue())
 				return;
 
@@ -732,7 +732,7 @@ public:
 				cross->SetParent(crossOriginalParent, false, true, true, false);
 
 			cross->SetWorldPosition(pos);
-			});
+			};
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
@@ -1042,7 +1042,7 @@ public:
 			wasCommitDone = true;
 			//Logger.Information("commit");
 			});
-		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged().AddHandler([&](const SpaceMode& v) {
+		spaceModeChangeHandlerId = GlobalToolConfiguration::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
 
@@ -1053,7 +1053,7 @@ public:
 			}
 			else
 				cross->SetWorldRotation(cross->unitQuat());
-			});
+			};
 
 		return true;
 	}

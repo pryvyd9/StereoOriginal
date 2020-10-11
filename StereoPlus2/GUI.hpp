@@ -4,6 +4,7 @@
 #include "Window.hpp"
 #include "Windows.hpp"
 #include "Input.hpp"
+#include "Localization.hpp"
 #include <map>
 
 
@@ -54,23 +55,22 @@ class GUI {
 	}
 
 	bool DesignMenuBar() {
-		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Open", nullptr, false))
+		if (ImGui::BeginMenu(LocaleProvider::GetC("file"))) {
+			if (ImGui::MenuItem(LocaleProvider::GetC("open"), nullptr, false))
 				if (!OpenFileWindow(FileWindow::Load))
 					return false;
-			if (ImGui::MenuItem("Save", nullptr, false))
+			if (ImGui::MenuItem(LocaleProvider::GetC("save"), nullptr, false))
 				if (!OpenFileWindow(FileWindow::Save))
 					return false;
-			if (ImGui::MenuItem("Close", nullptr, false))
+			if (ImGui::MenuItem(LocaleProvider::GetC("close"), nullptr, false))
 				scene->DeleteAll();
 
-			//ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
 			if (auto h = GlobalToolConfiguration::ShouldDetectPosition().Get(); 
-				ImGui::MenuItem("Use position detection", nullptr, &h))
+				ImGui::MenuItem(LocaleProvider::GetC("usePositionDetection"), nullptr, &h))
 				GlobalToolConfiguration::ShouldDetectPosition().Set(h);
-			ImGui::MenuItem("Show FPS", nullptr, &shouldShowFPS);
+			ImGui::MenuItem(LocaleProvider::GetC("showFPS"), nullptr, &shouldShowFPS);
 
-			if (ImGui::MenuItem("Exit", nullptr, false))
+			if (ImGui::MenuItem(LocaleProvider::GetC("exit"), nullptr, false))
 				shouldClose = true;
 
 			ImGui::EndMenu();
@@ -144,7 +144,6 @@ public:
 	KeyBinding keyBinding;
 	Scene* scene;
 
-	//bool shouldUsePositionDetection = false;
 	bool shouldShowFPS = true;
 
 	std::vector<Window*> windows;
@@ -193,6 +192,24 @@ public:
 		// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
 		// - Read 'misc/fonts/README.txt' for more instructions and details.
 		// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+
+
+		ImFontConfig font_config;
+		font_config.OversampleH = 1; //or 2 is the same
+		font_config.OversampleV = 1;
+		font_config.PixelSnapH = 1;
+
+		static const ImWchar ranges[] =
+		{
+			0x0020, 0x00FF, // Basic Latin + Latin Supplement
+			0x0400, 0x04FF, // Cyrillic
+			0x0500, 0x052F, // Cyrillic supplement
+			0,
+		};
+
+
+		io->Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Tahoma.ttf", 14.0f, &font_config, ranges);
+
 		//io.Fonts->AddFontDefault();
 		//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
 		//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);

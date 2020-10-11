@@ -3,6 +3,7 @@
 #include "DomainUtils.hpp"
 #include <string>
 #include <iostream>
+#include "Json.hpp"
 
 class FileException : public std::exception {
 public:
@@ -20,9 +21,9 @@ namespace FileType {
 class obstream {
 	std::vector<char> buffer;
 public:
-	template<typename T>
-	void put(const T& val) {
-		for (size_t i = 0; i < sizeof(T); i++)
+	template<typename TString>
+	void put(const TString& val) {
+		for (size_t i = 0; i < sizeof(TString); i++)
 			buffer.push_back(((char*)&val)[i]);
 	}
 	template<>
@@ -199,58 +200,56 @@ public:
 	}
 };
 
-enum JType {
-	JObject,
-	JArray,
-	JPrimitive,
-	JPrimitiveString,
-};
-struct JsonObjectAbstract {
-	virtual JType GetType() const = 0;
-};
-struct JsonObject : JsonObjectAbstract {
-	std::unordered_map<std::string, JsonObjectAbstract*> objects;
-	
-	virtual JType GetType() const {
-		return JObject;
+class JsonConvert {
+
+	static bool& isRoot() {
+		static bool v;
+		return v;
 	}
-	~JsonObject() {
-		for (auto o : objects) {
-			delete o.second;
+
+	template<typename T>
+	static T* start() {
+		auto t = new T();
+		if (isRoot())
+			isRoot() = false;
+		else
+			objects().push_back(t);
+		return t;
+	}
+
+	template<typename T>
+	static void get(Js::Object* joa, std::string name, T& dest) {
+		dest = get<T>(joa->objects[name]);
+	}
+	template<typename T>
+	static void get(Js::Object* joa, std::string name, std::function<void(T)> dest) {
+		dest(get<T>(joa->objects[name]));
+	}
+	template<typename...T>
+	static void getArray(Js::Object* jo, std::string name, std::function<void(T...)> f) {
+		auto j = (Js::Array*)jo->objects[name];
+		for (auto o : j->objects)
+			f(get<T>(o)...);
+	}
+	static void getArray(Js::Object* jo, std::string name, std::function<void(size_t, size_t)> f) {
+		auto j = (Js::Array*)jo->objects[name];
+		for (auto o : j->objects) {
+			auto v = get<size_t, 2>(o);
+			f(v[0], v[1]);
 		}
 	}
-};
-struct JsonArray : JsonObjectAbstract {
-	std::vector<JsonObjectAbstract*> objects;
 
-	virtual JType GetType() const {
-		return JArray;
+	static void getChildren(Js::Object* j, std::string name, SceneObject* parent) {
+		getArray(j, name, std::function([&parent](SceneObject* v) {
+			v->SetParent(parent);
+			}));
 	}
 
-	~JsonArray() {
-		for (auto o : objects) {
-			delete o;
-		}
+
+	static std::stringstream& buffer() {
+		static std::stringstream v;
+		return v;
 	}
-};
-struct JsonPrimitive : JsonObjectAbstract {
-	std::string value;
-
-	virtual JType GetType() const {
-		return JPrimitive;
-	}
-};
-struct JsonPrimitiveString : JsonObjectAbstract {
-	std::string value;
-
-	virtual JType GetType() const {
-		return JPrimitiveString;
-	}
-};
-
-
-class ojstream {
-	std::stringstream buffer;
 
 	template<typename T>
 	static std::string toString(const T& t) {
@@ -260,323 +259,19 @@ class ojstream {
 	}
 
 	template<typename T>
-	void insert(JsonObject* jo, std::string name, const T& v) {
+	static void insert(Js::Object* jo, std::string name, const T& v) {
 		jo->objects.insert({ name, serialize(v) });
 	}
+
+
 public:
-	template<typename T>
-	JsonObjectAbstract* serialize(const T& o) {
-		auto j = new JsonPrimitive();
-		j->value = toString(o);
-		return j;
-	}
-	template<>
-	JsonObjectAbstract* serialize(const std::string& o) {
-		auto j = new JsonPrimitiveString();
-		j->value = o;
-		return j;
-	}
-	template<>
-	JsonObjectAbstract* serialize(const glm::vec3& o) {
-		auto j = new JsonArray();
-		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z) };
-		return j;
-	}
-	template<>
-	JsonObjectAbstract* serialize(const glm::fquat& o) {
-		auto j = new JsonArray();
-		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z), serialize(o.w) };
-		return j;
-	}
-	template<typename T>
-	JsonObjectAbstract* serialize(const std::vector<T*>& v) {
-		auto j = new JsonArray();
-		for (auto a : v)
-			if (auto r = serialize(*a); r != nullptr)
-				j->objects.push_back(r);
-		return j;
-	}
-	template<typename T>
-	JsonObjectAbstract* serialize(const std::vector<T>& v) {
-		auto j = new JsonArray();
-		for (auto a : v)
-			j->objects.push_back(serialize(a));
-		return j;
-	}
-	template<typename T, GLuint S>
-	JsonObjectAbstract* serialize(const std::array<T, S>& v) {
-		auto j = new JsonArray();
-		for (auto a : v)
-			j->objects.push_back(serialize(a));
-		return j;
-	}
-	template<>
-	JsonObjectAbstract* serialize(const SceneObject& so) {
-		if (so.GetType() == CrossT)
-			return nullptr;
-
-		auto jo = new JsonObject();
-		insert(jo, "type", so.GetType());
-		insert(jo, "name", so.Name);
-		insert(jo, "localPosition", so.GetLocalPosition());
-		insert(jo, "localRotation", so.GetLocalRotation());
-		insert(jo, "children", so.children);
-
-		switch (so.GetType()) {
-		case Group:
-			break;
-		case StereoPolyLineT:
-		{
-			auto o = (StereoPolyLine*)&so;
-			insert(jo, "vertices", o->GetVertices());
-			break;
-		}
-		case MeshT:
-		{
-			auto o = (Mesh*)&so;
-			insert(jo, "vertices", o->GetVertices());
-			insert(jo, "connections", o->GetLinearConnections());
-			break;
-		}
-		}
-
-		return jo;
-	}
-
-
-	template<typename T>
-	void put(const T& val) {
-		throw std::exception("Unsupported Type found while writing file.");
-	}
-	template<>
-	void put(const std::string& val) {
-		buffer << '"' << val << '"';
-	}
-	template<>
-	void put(const JsonObjectAbstract& joa) {
-		switch (joa.GetType()) {
-		case JPrimitive:
-		{
-			auto j = (JsonPrimitive*)&joa;
-
-			buffer << j->value;
-			break;
-		}
-		case JPrimitiveString:
-		{
-			auto j = (JsonPrimitiveString*)&joa;
-
-			put(j->value);
-			break;
-		}
-		case JObject:
-		{
-			auto j = (JsonObject*)&joa;
-
-			buffer << "{";
-			bool isFirst = true;
-			for (auto pair : j->objects) {
-				if (!isFirst)
-					buffer << ",";
-				put(pair.first);
-				buffer << ":";
-				put(*pair.second);
-				isFirst = false;
-			}
-			buffer << "}";
-			break;
-		}
-		case JArray:
-		{
-			auto j = (JsonArray*)&joa;
-
-			buffer << "[";
-			if (j->objects.size() > 0)
-				put(*j->objects[0]);
-			for (size_t i = 1; i < j->objects.size(); i++) {
-				buffer << ',';
-				put(*j->objects[i]);
-			}
-			buffer << ']';
-			break;
-		}
-		}
-	}
-	template<>
-	void put(const SceneObject& so) {
-		auto o = serialize(so);
-		put(*o);
-		delete o;
-	}
-
-
-	std::string getBuffer() {
-		return buffer.str();
-	}
-};
-
-class ijstream {
-	bool isRoot = true;
-
-	std::istringstream buffer;
-
-	void skipName() {
-		while (buffer.get() != ':');
-	}
-	void skip() {
-		char a = buffer.get();
-	}
-	// Skips comma if exists.
-	void skipComma() {
-		if (buffer.get() == ',')
-			return;
-
-		buffer.seekg(-1, std::ios_base::cur);
-	}
-
-
-	bool isString() {
-		bool is = false;
-		
-		if (buffer.get() == '"')
-			is = true;
-		
-		buffer.seekg(-1, std::ios_base::cur);
-
-		return is;
-	}
-	bool isObject() {
-		bool is = false;
-
-		if (buffer.get() == '{')
-			is = true;
-
-		buffer.seekg(-1, std::ios_base::cur);
-
-		return is;
-	}
-	bool isObjectEnd() {
-		bool is = false;
-
-		if (buffer.get() == '}')
-			is = true;
-
-		buffer.seekg(-1, std::ios_base::cur);
-
-		return is;
-	}
-	bool isArray() {
-		bool is = false;
-
-		if (buffer.get() == '[')
-			is = true;
-
-		buffer.seekg(-1, std::ios_base::cur);
-
-		return is;
-	}
-	bool isArrayEnd() {
-		bool is = false;
-
-		if (buffer.get() == ']')
-			is = true;
-
-		buffer.seekg(-1, std::ios_base::cur);
-
-		return is;
-	}
-	bool isArrayEmpty() {
-		bool is = false;
-
-		skip();//[
-		if (buffer.get() == ']')
-			is = true;
-
-		buffer.seekg(-2, std::ios_base::cur);
-
-		return is;
-	}
-
-	std::string readName() {
-		std::string v;
-		char c;
-
-		skip();//"
-		while ((c = buffer.get()) != '"')
-			v += c;
-
-		skip();//:
+	static std::vector<SceneObject*>& objects() {
+		static std::vector<SceneObject*> v;
 		return v;
 	}
-	JsonObjectAbstract* readValue() {
-		std::string v;
-		char c;
-		bool isString = (c = buffer.get()) == '"';
-
-		if (!isString)
-			v += c;
-		
-		while (c = buffer.get(), isString ? (c != '"') : (c != ',' && c != ']'))
-			v += c;
-
-		if (c == ']')
-			buffer.seekg(-1, std::ios_base::cur);
-		
-		skipComma();
-
-		if (isString) {
-			auto o = new JsonPrimitiveString();
-			o->value = v;
-			return o;
-		}
-
-		auto o = new JsonPrimitive();
-		o->value = v;
-		return o;
-	}
 
 	template<typename T>
-	T* start() {
-		auto t = new T();
-		if (isRoot)
-			isRoot = false;
-		else
-			objects.push_back(t);
-		return t;
-	}
-
-	template<typename T>
-	void get(JsonObject* joa, std::string name, T& dest) {
-		dest = get<T>(joa->objects[name]);
-	}
-	template<typename T>
-	void get(JsonObject* joa, std::string name, std::function<void(T)> dest) {
-		dest(get<T>(joa->objects[name]));
-	}
-	template<typename...T>
-	void getArray(JsonObject* jo, std::string name, std::function<void(T...)> f) {
-		auto j = (JsonArray*)jo->objects[name];
-		for (auto o : j->objects)
-			f(get<T>(o)...);
-	}
-	void getArray(JsonObject* jo, std::string name, std::function<void(size_t, size_t)> f) {
-		auto j = (JsonArray*)jo->objects[name];
-		for (auto o : j->objects) {
-			auto v = get<size_t, 2>(o);
-			f(v[0], v[1]);
-		}
-	}
-
-	void getChildren(JsonObject* j, std::string name, SceneObject* parent) {
-		getArray(j, name, std::function([&parent](SceneObject* v) {
-			v->SetParent(parent);
-			}));
-	}
-public:
-	std::vector<SceneObject*> objects;
-
-	template<typename T>
-	T get(std::string str) {
+	static T get(std::string str) {
 		std::stringstream ss;
 		ss << str;
 		T val;
@@ -584,52 +279,47 @@ public:
 		return val;
 	}
 	template<>
-	ObjectType get(std::string str) {
+	static ObjectType get(std::string str) {
 		return (ObjectType)get<int>(str);
 	}
-	template<>
-	std::string get(std::string str) {
-		return str;
-	}
+
 	template<typename T>
-	T get(JsonObjectAbstract* joa) {
-		auto j = (JsonPrimitive*)joa;
+	static T get(Js::ObjectAbstract* joa) {
+		auto j = (Js::Primitive*)joa;
 		return get<T>(j->value);
 	}
 	template<>
-	std::string get(JsonObjectAbstract* joa) {
-		auto j = (JsonPrimitiveString*)joa;
+	static std::string get(Js::ObjectAbstract* joa) {
+		auto j = (Js::PrimitiveString*)joa;
 		return get<std::string>(j->value);
 	}
 	template<>
-	glm::vec3 get(JsonObjectAbstract* joa) {
-		auto j = (JsonArray*)joa;
+	static glm::vec3 get(Js::ObjectAbstract* joa) {
+		auto j = (Js::Array*)joa;
 		glm::vec3 v;
-		for (size_t i = 0; i < j->objects.size(); i++) {
+		for (size_t i = 0; i < j->objects.size(); i++)
 			((float*)&v)[i] = get<float>(j->objects[i]);
-		}
 		return v;
 	}
 	template<>
-	glm::fquat get(JsonObjectAbstract* joa) {
-		auto j = (JsonArray*)joa;
+	static glm::fquat get(Js::ObjectAbstract* joa) {
+		auto j = (Js::Array*)joa;
 		glm::fquat v;
-		for (size_t i = 0; i < j->objects.size(); i++) {
+		for (size_t i = 0; i < j->objects.size(); i++)
 			((float*)&v)[i] = get<float>(j->objects[i]);
-		}
 		return v;
 	}
 	template<>
-	std::vector<SceneObject*> get(JsonObjectAbstract* joa) {
-		auto j = (JsonArray*)joa;
+	static std::vector<SceneObject*> get(Js::ObjectAbstract* joa) {
+		auto j = (Js::Array*)joa;
 		std::vector<SceneObject*> v;
 		for (auto p : j->objects)
 			v.push_back(get<SceneObject*>(p));
 		return v;
 	}
 	template<typename T, size_t S>
-	std::array<T, S> get(JsonObjectAbstract* joa) {
-		auto j = (JsonArray*)joa;
+	static std::array<T, S> get(Js::ObjectAbstract* joa) {
+		auto j = (Js::Array*)joa;
 		std::array<T, S> v;
 		for (size_t i = 0; i < S; i++) {
 			v[i] = get<T>(j->objects[i]);
@@ -637,8 +327,8 @@ public:
 		return v;
 	}
 	template<>
-	SceneObject* get(JsonObjectAbstract* joa) {
-		auto j = (JsonObject*)joa;
+	static SceneObject* get(Js::ObjectAbstract* joa) {
+		auto j = (Js::Object*)joa;
 		auto type = get<ObjectType>(j->objects["type"]);
 		switch (type) {
 		case Group:
@@ -680,42 +370,106 @@ public:
 		throw std::exception("Unsupported Scene Object Type found while reading file.");
 	}
 
-	JsonObjectAbstract* getJson() {
-		if (isObject()) {
-			auto o = new JsonObject();
-			skip();//{
-			while (!isObjectEnd())//}
-				o->objects.insert({ readName(), getJson() });
-			skip();//}
-			skipComma();
-			return o;
+	template<typename T>
+	static Js::ObjectAbstract* serialize(const T& o) {
+		auto j = new Js::Primitive();
+		j->value = toString(o);
+		return j;
+	}
+	template<>
+	static Js::ObjectAbstract* serialize(const std::string& o) {
+		auto j = new Js::PrimitiveString();
+		j->value = o;
+		return j;
+	}
+	template<>
+	static Js::ObjectAbstract* serialize(const glm::vec3& o) {
+		auto j = new Js::Array();
+		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z) };
+		return j;
+	}
+	template<>
+	static Js::ObjectAbstract* serialize(const glm::fquat& o) {
+		auto j = new Js::Array();
+		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z), serialize(o.w) };
+		return j;
+	}
+	template<typename T>
+	static Js::ObjectAbstract* serialize(const std::vector<T*>& v) {
+		auto j = new Js::Array();
+		for (auto a : v)
+			if (auto r = serialize(*a); r != nullptr)
+				j->objects.push_back(r);
+		return j;
+	}
+	template<typename T>
+	static Js::ObjectAbstract* serialize(const std::vector<T>& v) {
+		auto j = new Js::Array();
+		for (auto a : v)
+			j->objects.push_back(serialize(a));
+		return j;
+	}
+	template<typename T, GLuint S>
+	static Js::ObjectAbstract* serialize(const std::array<T, S>& v) {
+		auto j = new Js::Array();
+		for (auto a : v)
+			j->objects.push_back(serialize(a));
+		return j;
+	}
+	template<>
+	static Js::ObjectAbstract* serialize(const SceneObject& so) {
+		if (so.GetType() == CrossT)
+			return nullptr;
+
+		auto jo = new Js::Object();
+		insert(jo, "type", so.GetType());
+		insert(jo, "name", so.Name);
+		insert(jo, "localPosition", so.GetLocalPosition());
+		insert(jo, "localRotation", so.GetLocalRotation());
+		insert(jo, "children", so.children);
+
+		switch (so.GetType()) {
+		case Group:
+			break;
+		case StereoPolyLineT:
+		{
+			auto o = (StereoPolyLine*)&so;
+			insert(jo, "vertices", o->GetVertices());
+			break;
 		}
-		if (isArray()) {
-			auto o = new JsonArray();
-			skip();//[
-			while (!isArrayEnd())//]
-				o->objects.push_back(getJson());
-			skip();//]
-			skipComma();
-			return o;
+		case MeshT:
+		{
+			auto o = (Mesh*)&so;
+			insert(jo, "vertices", o->GetVertices());
+			insert(jo, "connections", o->GetLinearConnections());
+			break;
 		}
-		return readValue();
+		}
+
+		return jo;
 	}
 
-	SceneObject* read() {
-		auto j = getJson();
-		auto so = get<SceneObject*>(j);
-		delete j;
-		return so;
+
+
+	static void Reset() {
+		isRoot() = true;
+		objects().clear(); 
+		buffer().clear();
 	}
 
-	void setBuffer(char* buf) {
-		buffer = std::istringstream(buf);
+	static std::string getBuffer() {
+		return buffer().str();
 	}
 };
 
-
 class FileManager {
+	// How to check if file is Unicode
+	// Encoding     BOM (hex)     BOM (dec)
+	// ----------------------------------
+	// UTF - 8      EF BB BF      239 187 191
+	// UTF - 16     (BE)FE FF     254 255
+	// UTF - 16     (LE)FF FE     255 254
+
 	static Log& GetLog() {
 		static Log log = Log::For<FileManager>();
 		return log;
@@ -737,45 +491,25 @@ class FileManager {
 	static void SaveJson(std::string filename, Scene* inScene) {
 		if (inScene == nullptr)
 			Fail("InScene was null");
-		if (inScene->root.Get().Get() == nullptr)
+		if (!inScene->root.Get().HasValue())
 			Fail("InScene Root was null");
 
-		std::ofstream out(filename);
-
-		ojstream bs;
-
-		bs.put(*inScene->root.Get().Get());
-
-		out << bs.getBuffer();
-
-		out.close();
+		auto json = JsonConvert::serialize(*inScene->root.Get().Get());
+		Json::Write(filename, json);
+		delete json;
 	}
 	static void LoadJson(std::string filename, Scene* inScene) {
-		std::ifstream file(filename, std::ios::binary | std::ios::in);
-
-		auto bufferSize = GetFileSize(filename);
-
-		auto buffer = new char[bufferSize];
-		file.read(buffer, bufferSize);
-
-		ijstream str;
-		str.setBuffer(buffer);
-
-		auto o = str.read();
-		inScene->root = o;
+		auto json = Json::Read(filename);
+		JsonConvert::Reset();
+		auto root = JsonConvert::get<SceneObject*>(json);
+		
+		inScene->root = root;
 
 		std::vector<PON> newObjects;
-		for (auto o : str.objects)
+		for (auto o : JsonConvert::objects())
 			newObjects.push_back(o);
 
-		//std::vector<PON> newObjects(str.objects.size());
-		//for (size_t i = 0; i < str.objects.size(); i++)
-		//	newObjects[i] = PON(str.objects[i]);
-		
 		inScene->objects = newObjects;
-		
-		delete[] buffer;
-		file.close();
 	}
 
 	static void SaveBinary(std::string filename, Scene* inScene) {
@@ -801,10 +535,6 @@ class FileManager {
 
 		auto o = str.get<SceneObject*>();
 		inScene->root = o;
-
-		//std::vector<PON> newObjects(str.objects.size());
-		//for (size_t i = 0; i < str.objects.size(); i++)
-		//	newObjects[i] = PON(str.objects[i]);
 
 		std::vector<PON> newObjects;
 		for (auto o : str.objects)
@@ -866,5 +596,9 @@ public:
 			SaveBinary(filename, inScene);
 		else
 			Fail("File extension not supported");
+	}
+
+	static Jw::ObjectAbstract* LoadLocaleFile(const std::string& filename) {
+		return Json::ReadW(filename);
 	}
 };

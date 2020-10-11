@@ -226,6 +226,14 @@ public:
 			handlers.erase(v);
 		};
 	}
+
+	size_t operator += (std::function<void(T...)> func) {
+		return AddHandler(func);
+	}
+	void operator -= (size_t v) {
+		RemoveHandler(v);
+	}
+
 };
 
 template<typename...T>
@@ -465,4 +473,3 @@ static Property<type>& name() {\
 	static Property<type> v;\
 	return v;\
 }
-

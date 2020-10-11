@@ -13,10 +13,9 @@
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
-//#include <experimental/type_traits>
 #include "TemplateExtensions.hpp"
 #include "InfrastructureTypes.hpp"
-
+#include "Localization.hpp"
 
 namespace ImGui::Extensions {
 	#include <stack>
@@ -127,9 +126,8 @@ public:
 	std::function<bool()> customRenderFunc;
 	glm::vec2 renderSize = glm::vec3(1);
 
-	virtual bool Init()
-	{
-
+	virtual bool Init() {
+		Window::name = "renderWindow";
 		fbo = createFrameBuffer();
 		texture = createTextureAttachment(renderSize.x, renderSize.y);
 		depthBuffer = createDepthBufferAttachment(renderSize.x, renderSize.y);
@@ -138,8 +136,7 @@ public:
 		return true;
 	}
 
-	void HandleResize()
-	{
+	void HandleResize() {
 		// handle custom render window resize
 		glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
 		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
@@ -152,9 +149,9 @@ public:
 		}
 	}
 
-	virtual bool Design()
-	{
-		ImGui::Begin("Scene");
+	virtual bool Design() {
+		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(name.c_str());
 
 
 		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
@@ -174,8 +171,7 @@ public:
 		return true;
 	}
 
-	virtual bool OnExit()
-	{
+	virtual bool OnExit() {
 		glDeleteFramebuffers(1, &fbo);
 		glDeleteTextures(1, &texture);
 
@@ -198,17 +194,20 @@ public:
 	}
 
 	virtual bool Init() {
+		Window::name = "propertiesWindow";
 		return true;
 	}
 
 	virtual bool Window::Design() {
 		if (Object == nullptr) {
-			ImGui::Begin("Properties empty");
+			auto name = LocaleProvider::Get(Window::name);
+			ImGui::Begin(name.c_str());
 			ImGui::End();
 			return true;
 		}
 
-		ImGui::Begin(("Properties " + GetName(Object)).c_str());
+		auto name = LocaleProvider::Get(Window::name) + " " + GetName(Object);
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -222,7 +221,8 @@ public:
 			return true;
 		}
 
-		if (ImGui::BeginTabItem(("Properties " + GetName(Object)).c_str())) {
+		auto name = LocaleProvider::Get(Window::name) + " " + GetName(Object);
+		if (ImGui::BeginTabItem(name.c_str())) {
 			if (!DesignInternal())
 				return false;
 
@@ -561,10 +561,12 @@ public:
 	const float magicNumber = 1.25;
 
 	virtual bool Init() {
+		Window::name = "objectInspectorWindow";
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin("Object inspector");                         
+		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(name.c_str());
 
 		// Reset elements' IDs.
 		GetID() = 0;
@@ -695,13 +697,14 @@ public:
 		}
 		
 		//target = tool->GetTarget();
-		Window::name = Attributes::name = "PointPen " + GetName(type);
+		Window::name = Attributes::name = "pen";
 		Attributes::isInitialized = true;
 
 		return true;
 	}
 	virtual bool Window::Design() {
-		ImGui::Begin(Window::name.c_str());
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -711,7 +714,8 @@ public:
 		return true;
 	}
 	virtual bool Attributes::Design() {
-		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
 		{
 			if (!DesignInternal())
 				return false;
@@ -809,14 +813,14 @@ public:
 			return false;
 		}
 		
-		//target = tool->GetTarget();
-		Window::name = Attributes::name = "Extrusion " + GetName(type);
+		Window::name = Attributes::name = "extrusion";
 		Attributes::isInitialized = true;
 		
 		return true;
 	}
 	virtual bool Window::Design() {
-		ImGui::Begin(Window::name.c_str());
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -826,7 +830,8 @@ public:
 		return true;
 	}
 	virtual bool Attributes::Design() {
-		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
 		{
 			if (!DesignInternal())
 				return false;
@@ -957,20 +962,19 @@ public:
 	}
 
 	virtual bool Init() {
-		if (tool == nullptr)
-		{
+		if (tool == nullptr) {
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
 		
-		//target = tool->GetTarget();
-		Window::name = Attributes::name = "Transformation";
+		Window::name = Attributes::name = "transformation";
 		Attributes::isInitialized = true;
 		
 		return true;
 	}
 	virtual bool Window::Design() {
-		ImGui::Begin(Window::name.c_str());
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())
 			return false;
@@ -980,7 +984,8 @@ public:
 		return true;
 	}
 	virtual bool Attributes::Design() {
-		if (ImGui::BeginTabItem(Attributes::name.c_str()))
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
 		{
 			if (!DesignInternal())
 				return false;
@@ -1010,10 +1015,12 @@ public:
 	std::function<void()> onUnbindTool;
 
 	virtual bool Init() {
+		Window::name = "attributesWindow";
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin("Attributes");
+		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(name.c_str());
 
 		ImGui::BeginTabBar("#attributes window tab bar");
 
@@ -1099,10 +1106,10 @@ class ToolWindow : Window {
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene.Get()->OnDeleteAll().AddHandler([t = tool] {
+		auto deleteAllhandlerId = scene.Get()->OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindSceneObjects();
-		});
+		};
 		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
 			t->tool->UnbindSceneObjects();
 			s.Get()->OnDeleteAll().RemoveHandler(d);
@@ -1149,51 +1156,45 @@ public:
 			o->Name = ss.str();
 		});
 
+		Window::name = "toolWindow";
+
 		return true;
 	}
 	virtual bool Design() {
-		ImGui::Begin("Toolbar");
+		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::Begin(windowName.c_str());
 
-		if (ImGui::Button("PolyLine"))
+		if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
 			polyLineTool.Create();
-		if (ImGui::Button("Group"))
+		if (ImGui::Button(LocaleProvider::GetC("object:group")))
 			groupObjectTool.Create();
 
 		ImGui::Separator();
 
-		if (ImGui::Button("extrusion")) 
+		if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("pen")) 
+		if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
 			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		if (ImGui::Button("transform"))
+		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
-		//{
-		//	ImGui::Separator();
-		//	static int v = (int)GlobalToolConfiguration::GetCoordinateMode();
-		//	if (ImGui::RadioButton("Object", &v, (int)CoordinateMode::Object))
-		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Object);
-		//	if (ImGui::RadioButton("Vertex", &v, (int)CoordinateMode::Vertex))
-		//		GlobalToolConfiguration::SetCoordinateMode(CoordinateMode::Vertex);
-		//}
 		{
 			ImGui::Separator();
 			static int v = (int)GlobalToolConfiguration::SpaceMode().Get();
-			if (ImGui::RadioButton("World", &v, (int)SpaceMode::World))
+			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
 				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::World);
-			if (ImGui::RadioButton("Local", &v, (int)SpaceMode::Local))
+			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
 				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::Local);
 		}
 		{
 			ImGui::Separator();
-			ImGui::Text("Action on parent change:");
+			ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
 			static int v = (int)GlobalToolConfiguration::MoveCoordinateAction().Get();
-			if (ImGui::RadioButton("Adapt Coordinates", &v, (int)MoveCoordinateAction::Adapt))
+			if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
 				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
-			if (ImGui::RadioButton("None", &v, (int)MoveCoordinateAction::None))
+			if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
 				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::None);
 		}
-
 
 		ImGui::End();
 
@@ -1212,16 +1213,6 @@ public:
 		Save,
 	};
 private:
-	bool iequals(const std::string& a, const std::string& b)
-	{
-		return std::equal(a.begin(), a.end(),
-			b.begin(), b.end(),
-			[](char a, char b) {
-				return tolower(a) == tolower(b);
-			});
-	}
-	const Log log = Log::For<FileWindow>();
-
 	class Path {
 		fs::path path;
 		std::string pathBuffer;
@@ -1229,7 +1220,6 @@ private:
 		const fs::path& get() {
 			return path;
 		}
-
 		std::string& getBuffer() {
 			return pathBuffer;
 		}
@@ -1237,7 +1227,6 @@ private:
 		void apply() {
 			apply(pathBuffer);
 		}
-
 		void apply(fs::path n) {
 			path = fs::absolute(n);
 			pathBuffer = path.u8string();
@@ -1257,13 +1246,20 @@ private:
 		}
 	};
 
-
+	const Log log = Log::For<FileWindow>();
 
 	Path path;
 	Path selectedFile;
 	Scene* scene;
-	
 
+	//bool iequals(const std::string& a, const std::string& b)
+	//{
+	//	return std::equal(a.begin(), a.end(),
+	//		b.begin(), b.end(),
+	//		[](char a, char b) {
+	//			return tolower(a) == tolower(b);
+	//		});
+	//}
 
 	void ListFiles() {
 		if (ImGui::ListBoxHeader("")) {
@@ -1302,26 +1298,23 @@ private:
 			ImGui::ListBoxFooter();
 		}
 	}
-
 	void ShowPath() {
-		ImGui::InputText("Path", &path.getBuffer());
+		ImGui::InputText(LocaleProvider::GetC("path"), &path.getBuffer());
 
 		if (ImGui::Extensions::PushActive(path.isSome())) {
-			if (ImGui::Button("Submit"))
+			if (ImGui::Button(LocaleProvider::GetC("submit")))
 				path.apply();
 
 			ImGui::Extensions::PopActive();
 		}
 	}
-
 	void CloseButton() {
-		if (ImGui::Button("Cancel")) {
+		if (ImGui::Button(LocaleProvider::GetC("cancel"))) {
 			shouldClose = true;
 		}
 	}
 
 public:
-
 	Mode mode;
 
 	virtual bool Init() {
@@ -1334,17 +1327,18 @@ public:
 
 		return true;
 	}
-
 	virtual bool Design() {
-		ImGui::Begin(mode == FileWindow::Load ? "Open File" : "Save File");
+		auto windowName = mode == FileWindow::Load ? "openFileWindow" : "saveFileWindow";
+		auto name = LocaleProvider::Get(windowName) + "###" + "fileManagerWindow";
+		ImGui::Begin(name.c_str());
 
 		ShowPath();
 		ListFiles();
 
-		ImGui::InputText("File", &selectedFile.getBuffer());
+		ImGui::InputText(LocaleProvider::GetC("file"), &selectedFile.getBuffer());
 
 		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
-			if (ImGui::Button(mode == FileWindow::Load ? "Open" : "Save")) {
+			if (ImGui::Button(mode == FileWindow::Load ? LocaleProvider::GetC("open") : LocaleProvider::GetC("save"))) {
 				try {
 					auto fileName = selectedFile.get().is_absolute() 
 						? selectedFile.getBuffer() 
@@ -1377,7 +1371,6 @@ public:
 
 		return true;
 	}
-
 	bool BindScene(Scene* scene) {
 		if (this->scene = scene)
 			return true;
@@ -1385,5 +1378,4 @@ public:
 		log.Error("Scene was null");
 		return false;
 	}
-
 };
