@@ -4,6 +4,7 @@
 #include "Window.hpp"
 #include "Windows.hpp"
 #include "Input.hpp"
+#include "Localization.hpp"
 #include <map>
 
 
@@ -54,23 +55,22 @@ class GUI {
 	}
 
 	bool DesignMenuBar() {
-		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Open", nullptr, false))
+		if (ImGui::BeginMenu(LocaleProvider::GetC("file"))) {
+			if (ImGui::MenuItem(LocaleProvider::GetC("open"), nullptr, false))
 				if (!OpenFileWindow(FileWindow::Load))
 					return false;
-			if (ImGui::MenuItem("Save", nullptr, false))
+			if (ImGui::MenuItem(LocaleProvider::GetC("save"), nullptr, false))
 				if (!OpenFileWindow(FileWindow::Save))
 					return false;
-			if (ImGui::MenuItem("Close", nullptr, false))
+			if (ImGui::MenuItem(LocaleProvider::GetC("close"), nullptr, false))
 				scene->DeleteAll();
 
-			//ImGui::MenuItem("Use position detection", nullptr, &shouldUsePositionDetection);
 			if (auto h = GlobalToolConfiguration::ShouldDetectPosition().Get(); 
-				ImGui::MenuItem("Use position detection", nullptr, &h))
+				ImGui::MenuItem(LocaleProvider::GetC("usePositionDetection"), nullptr, &h))
 				GlobalToolConfiguration::ShouldDetectPosition().Set(h);
-			ImGui::MenuItem("Show FPS", nullptr, &shouldShowFPS);
+			ImGui::MenuItem(LocaleProvider::GetC("showFPS"), nullptr, &shouldShowFPS);
 
-			if (ImGui::MenuItem("Exit", nullptr, false))
+			if (ImGui::MenuItem(LocaleProvider::GetC("exit"), nullptr, false))
 				shouldClose = true;
 
 			ImGui::EndMenu();
@@ -144,7 +144,6 @@ public:
 	KeyBinding keyBinding;
 	Scene* scene;
 
-	//bool shouldUsePositionDetection = false;
 	bool shouldShowFPS = true;
 
 	std::vector<Window*> windows;
