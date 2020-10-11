@@ -34,6 +34,7 @@ namespace Key {
 
 	// Mouse
 	const KeyPair MouseLeft = MouseKey(GLFW_MOUSE_BUTTON_LEFT);
+	const KeyPair MouseRight = MouseKey(GLFW_MOUSE_BUTTON_RIGHT);
 
 	// Arrows
 	const KeyPair Left	= KeyboardKey(GLFW_KEY_LEFT	);
@@ -292,8 +293,6 @@ public:
 	Input* input;
 	Cross* cross;
 
-	float crossMovementSpeed = 0.01;
-
 	float crossScaleSpeed = 0.01;
 	float crossMinSize = 0.001;
 	float crossMaxSize = 1;
@@ -320,13 +319,13 @@ public:
 
 	void MoveCross() {
 		// Axe mode switch A
-		AddHandler([i = input, c = cross, sp = crossMovementSpeed, &axeMode = isAxeModeEnabled] {
+		AddHandler([i = input, c = cross, &axeMode = isAxeModeEnabled] {
 			if (i->IsDown(Key::A))
 				axeMode = !axeMode;
 			});
 		
 		// Advanced mouse+keyboard control
-		AddHandler([i = input, sp = crossMovementSpeed, &axeMode = isAxeModeEnabled] {
+		AddHandler([i = input, &axeMode = isAxeModeEnabled] {
 			if (axeMode) {
 				// alt x y
 				// ctrl x z
@@ -360,7 +359,7 @@ public:
 					// regardless of whether we move the cross or not.
 					i->SetMouseBoundlessMode(true);
 
-					auto m = i->MouseMoveDirection() * sp;
+					auto m = i->MouseMoveDirection() * Settings().CrossSpeed().Get();
 					i->movement[lockedAxeIndex] += m.x;
 
 					return;
@@ -378,7 +377,7 @@ public:
 				// regardless of whether we move the cross or not.
 				i->SetMouseBoundlessMode(true);
 
-				auto m = i->MouseMoveDirection() * sp;
+				auto m = i->MouseMoveDirection() * Settings().CrossSpeed().Get();
 
 				i->movement[lockedPlane[0]] += m.x;
 				i->movement[lockedPlane[1]] -= m.y;
@@ -393,17 +392,25 @@ public:
 			i->SetMouseBoundlessMode(isAltPressed);
 
 			if (isAltPressed) {
-				bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
+				auto speed = Settings().CrossSpeed().Get();
 
-				auto m = i->MouseMoveDirection() * sp * (isHighPrecisionMode ? 0.1f : 1);
+				if (auto isHighPrecisionMode = i->IsPressed(Key::ControlLeft); 
+					isHighPrecisionMode)
+					speed *= 0.1f;
 
-				i->movement.x += m.x;
-				i->movement.y -= m.y;
+				auto m = i->MouseMoveDirection() * speed;
+
+				if (i->IsPressed(Key::MouseRight))
+					i->movement.z -= m.y;
+				else {
+					i->movement.x += m.x;
+					i->movement.y -= m.y;
+				}
 			}
 			});
 
 		// Move cross with arrows/arrows+Ctrl
-		AddHandler([i = input, sp = crossMovementSpeed] {
+		AddHandler([i = input] {
 			// If nothing is pressed then return.
 			if (!i->IsContinuousInputNoDelay())
 				return;
@@ -417,14 +424,14 @@ public:
 
 			bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
-			m *= sp * (isHighPrecisionMode ? 0.1f : 1);
+			m *= Settings().CrossSpeed().Get() * (isHighPrecisionMode ? 0.1f : 1);
 
 			i->movement.x += m.x;
 			i->movement.y -= m.y;
 			});
 
 		// Move cross with numpad/numpad+Ctrl
-		AddHandler([i = input, sp = crossMovementSpeed] {
+		AddHandler([i = input] {
 			// If nothing is pressed then return.
 			if (!i->IsContinuousInputNoDelay())
 				return;
@@ -439,7 +446,7 @@ public:
 
 			bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
-			i->movement += movement * sp * (isHighPrecisionMode ? 0.1f : 1);
+			i->movement += movement * Settings().CrossSpeed().Get() * (isHighPrecisionMode ? 0.1f : 1);
 			});
 	}
 	void Cross() {

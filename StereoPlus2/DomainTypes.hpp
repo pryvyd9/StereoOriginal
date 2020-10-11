@@ -129,7 +129,7 @@ public:
 		GLuint shaderRight,
 		GLuint stencilMaskLeft,
 		GLuint stencilMaskRight) {
-		if (shouldUpdateCache || GlobalToolConfiguration::ShouldDetectPosition().Get())
+		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get())
 			UpdateOpenGLBuffer(toLeft, toRight);
 
 		glStencilMask(stencilMaskLeft);
@@ -156,7 +156,7 @@ public:
 		auto source = &parent->children;
 		auto dest = &newParent->children;
 
-		if (GlobalToolConfiguration::MoveCoordinateAction().Get() == MoveCoordinateAction::Adapt) {
+		if (Settings::MoveCoordinateAction().Get() == MoveCoordinateAction::Adapt) {
 			auto oldPosition = GetWorldPosition();
 			auto oldRotation = GetWorldRotation();
 

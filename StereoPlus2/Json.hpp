@@ -256,10 +256,10 @@ class ijstreams {
 		if (!isString)
 			v += c;
 
-		while (c = buffer.get(), isString ? (c != '"') : (c != ',' && c != ']'))
+		while (c = buffer.get(), isString ? (c != '"') : (c != ',' && c != ']' && c != '}'))
 			v += c;
 
-		if (c == ']')
+		if (c == ']' || c == '}')
 			buffer.seekg(-1, std::ios_base::cur);
 
 		skipWhiteSpace();
@@ -441,10 +441,10 @@ class ijstreamw {
 		if (!isString)
 			v += c;
 
-		while (c = getwc(), isString ? (c != L'"') : (c != L',' && c != L']'))
+		while (c = getwc(), isString ? (c != L'"') : (c != L',' && c != L']' && c!= L'}'))
 			v += c;
 
-		if (c == L']')
+		if (c == L']' || c == L'}')
 			buffer.seekg(-1, std::ios_base::cur);
 
 		skipWhiteSpace();

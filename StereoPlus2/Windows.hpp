@@ -47,6 +47,22 @@ namespace ImGui::Extensions {
 
 namespace fs = std::filesystem;
 
+//class TemplateWindow : Window {
+//	const Log log = Log::For<TemplateWindow>();
+//public:
+//	virtual bool Init() {
+//		Window::name = "templateWindow";
+//
+//		return true;
+//	}
+//	virtual bool Design() {
+//		return true;
+//	}
+//	virtual bool OnExit() {
+//		return true;
+//	}
+//};
+
 class CustomRenderWindow : Window
 {
 	GLuint fbo;
@@ -1180,20 +1196,20 @@ public:
 
 		{
 			ImGui::Separator();
-			static int v = (int)GlobalToolConfiguration::SpaceMode().Get();
+			static int v = (int)Settings::SpaceMode().Get();
 			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
-				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::World);
+				Settings::SpaceMode().Set(SpaceMode::World);
 			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
-				GlobalToolConfiguration::SpaceMode().Set(SpaceMode::Local);
+				Settings::SpaceMode().Set(SpaceMode::Local);
 		}
 		{
 			ImGui::Separator();
 			ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
-			static int v = (int)GlobalToolConfiguration::MoveCoordinateAction().Get();
+			static int v = (int)Settings::MoveCoordinateAction().Get();
 			if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
-				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
+				Settings::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
 			if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
-				GlobalToolConfiguration::MoveCoordinateAction().Set(MoveCoordinateAction::None);
+				Settings::MoveCoordinateAction().Set(MoveCoordinateAction::None);
 		}
 
 		ImGui::End();
@@ -1378,4 +1394,52 @@ public:
 		log.Error("Scene was null");
 		return false;
 	}
+};
+
+class SettingsWindow : Window {
+	const Log log = Log::For<SettingsWindow>();
+public:
+
+	Property<bool> IsOpen;
+
+
+	virtual bool Init() {
+		Window::name = "settingsWindow";
+
+		return true;
+	}
+	virtual bool Design() {
+		if (!IsOpen.Get())
+			return true;
+
+		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		if (!ImGui::Begin(windowName.c_str(), &IsOpen.Get())) {
+			ImGui::End();
+			return true;
+		}
+
+		if (auto v = Settings::CrossSpeed().Get();
+			ImGui::InputFloat(LocaleProvider::GetC("crossSpeed"), &v, 0.01, 0.1, 4))
+			Settings::CrossSpeed().Set(v);
+		if (auto v = Settings::StateBufferLength().Get();
+			ImGui::InputInt(LocaleProvider::GetC("stateBufferLength"), &v, 0.01, 0.1, 4))
+			Settings::StateBufferLength().Set(v);
+		if (auto v = Settings::Language().Get();
+			ImGui::TreeNode((LocaleProvider::Get("language") + ": " + LocaleProvider::Get(v)).c_str())) {
+
+			if (auto i = v == Locale::EN; ImGui::Selectable(LocaleProvider::GetC(Locale::EN), &i))
+				Settings::Language().Set(Locale::EN);
+			if (auto i = v == Locale::UA; ImGui::Selectable(LocaleProvider::GetC(Locale::UA), &i))
+				Settings::Language().Set(Locale::UA);
+
+			ImGui::TreePop();
+		}
+
+		ImGui::End();
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
+
 };

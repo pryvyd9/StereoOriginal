@@ -33,10 +33,15 @@ enum class MoveCoordinateAction {
 	None,
 };
 
-class GlobalToolConfiguration {
+class Settings {
 public:
 	StaticProperty(::ObjectMode, ObjectMode)
 	StaticProperty(::SpaceMode, SpaceMode)
 	StaticProperty(::MoveCoordinateAction, MoveCoordinateAction)
 	StaticProperty(bool, ShouldDetectPosition)
+
+	// Settings
+	StaticProperty(float, CrossSpeed)
+	StaticProperty(std::string, Language)
+	StaticProperty(int, StateBufferLength)
 };

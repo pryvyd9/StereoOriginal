@@ -171,6 +171,7 @@
     <ClInclude Include="Json.hpp" />
     <ClInclude Include="Localization.hpp" />
     <ClInclude Include="Renderer.hpp" />
+    <ClInclude Include="SettingsLoader.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
     <ClInclude Include="ToolConfiguration.hpp" />
     <ClInclude Include="ToolPool.hpp" />
@@ -180,6 +181,7 @@
   <ItemGroup>
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
+    <None Include="settings.json" />
     <None Include="shaders\.vert" />
     <None Include="shaders\Left.frag" />
     <None Include="shaders\Right.frag" />

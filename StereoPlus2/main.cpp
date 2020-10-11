@@ -9,6 +9,7 @@
 #include <filesystem> // C++17 standard header file name
 #include <chrono>
 #include "PositionDetection.hpp"
+#include "SettingsLoader.hpp"
 using namespace std;
 
 bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
@@ -36,6 +37,7 @@ int main(int, char**) {
 	SceneObjectInspectorWindow inspectorWindow;
 	AttributesWindow attributesWindow;
 	ToolWindow toolWindow;
+	SettingsWindow settingsWindow;
 
 	Renderer renderPipeline;
 	GUI gui;
@@ -69,18 +71,19 @@ int main(int, char**) {
 		(Window*)&inspectorWindow,
 		(Window*)&attributesWindow,
 		(Window*)&toolWindow,
+		(Window*)&settingsWindow,
 	};
 	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
 	gui.scene = &scene;
 	gui.keyBinding.cross = &cross;
+	gui.settingsWindow = &settingsWindow;
 	if (!gui.Init())
 		return false;
 
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
-	// Cross handlers
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	
@@ -94,19 +97,20 @@ int main(int, char**) {
 		}
 	});
 
+	SettingsLoader::Load();
+
 	ToolPool::Cross() = &cross;
 	ToolPool::Scene() = &scene;
 	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 
-	StateBuffer::BufferSize() = 30;
+	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
 	StateBuffer::RootObject().BindTwoWay(scene.root);
 	StateBuffer::Objects() = &scene.objects;
 	if (!StateBuffer::Init())
 		return false;
 
-	LocaleProvider::Language().Set(Locale::UA);
 	if (!LocaleProvider::Init())
 		return false;
 
@@ -121,9 +125,9 @@ int main(int, char**) {
 	// Reads user position and modifies camera position when enabled.
 	// Calls drawing methods of Renderer.
 	customRenderWindow.customRenderFunc = [&scene, &renderPipeline, &positionDetector]{
-		if (GlobalToolConfiguration::ShouldDetectPosition().Get() && !positionDetector.isPositionProcessingWorking)
+		if (Settings::ShouldDetectPosition().Get() && !positionDetector.isPositionProcessingWorking)
 			positionDetector.StartPositionDetection();
-		else if (!GlobalToolConfiguration::ShouldDetectPosition().Get() && positionDetector.isPositionProcessingWorking)
+		else if (!Settings::ShouldDetectPosition().Get() && positionDetector.isPositionProcessingWorking)
 			positionDetector.StopPositionDetection();
 		 
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
@@ -147,5 +151,6 @@ int main(int, char**) {
 	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
 	StateBuffer::Clear();
+	SettingsLoader::Save();
     return true;
 }

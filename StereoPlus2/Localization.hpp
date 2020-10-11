@@ -77,9 +77,6 @@ static class LocaleProvider {
 	}
 
 public:
-
-	StaticProperty(std::string, Language)
-
 	static const std::string& Get(const std::string& name) {
 		if (auto v = localizations().find(name); v != localizations().end())
 			return v._Ptr->_Myval.second;
@@ -92,14 +89,14 @@ public:
 	}
 
 	static bool Init() {
-		if (Language().Get().empty()) {
-			Log::For<LocaleProvider>().Error("Language not asigned.");
+		if (Settings::Language().Get().empty()) {
+			Log::For<LocaleProvider>().Error("Language not assigned.");
 			return false;
 		}
 
-		Language().OnChanged().AddHandler([](std::string name) { LoadLanguage(name); });
+		Settings::Language().OnChanged().AddHandler([](std::string name) { LoadLanguage(name); });
 
-		LoadLanguage(Language().Get());
+		LoadLanguage(Settings::Language().Get());
 
 		return true;
 	}
