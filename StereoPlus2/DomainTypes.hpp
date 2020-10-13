@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <set>
 #include <array>
+#include "ImGuiExtensions.hpp"
 
 enum ObjectType {
 	Group,
@@ -343,6 +344,11 @@ public:
 		}
 	}
 
+	// Clears the object.
+	virtual void Reset() {
+		ForceUpdateCache();
+	}
+
 	void CallRecursive(std::function<void(SceneObject*)> f) {
 		f(this);
 		for (auto c : children)
@@ -500,6 +506,11 @@ public:
 			ImGui::TreePop();
 		}
 		SceneObject::DesignProperties();
+	}
+
+	virtual void Reset() override {
+		vertices.clear();
+		SceneObject::Reset();
 	}
 
 	virtual void DrawLeft(GLuint shader) {
@@ -694,6 +705,13 @@ public:
 			ImGui::TreePop();
 		}
 		SceneObject::DesignProperties();
+	}
+
+	virtual void Reset() override {
+		vertices.clear();
+		connections.clear();
+		shouldUpdateIBO = true;
+		SceneObject::Reset();
 	}
 
 	virtual void DrawLeft(GLuint shader) {
@@ -898,7 +916,11 @@ class StereoCamera : public LeafObject
 		);
 	}
 
+	Event<> onPropertiesChanged;
 
+	virtual void HandleBeforeUpdate() override {
+		onPropertiesChanged.Invoke();
+	}
 public:
 	glm::vec2* viewSize = nullptr;
 	glm::vec3 positionModifier = glm::vec3(0, 3, -10);
@@ -908,6 +930,11 @@ public:
 	StereoCamera() {
 		Name = "camera";
 	}
+
+	IEvent<>& OnPropertiesChanged() {
+		return onPropertiesChanged;
+	}
+
 
 	// Preserve aspect ratio
 	// From [0;1] to ([0;viewSize->x];[0;viewSize->y])
@@ -948,17 +975,22 @@ public:
 	}
 
 
-	virtual ObjectType GetType() const {
+	virtual ObjectType GetType() const override {
 		return CameraT;
 	}
-	virtual void DesignProperties() {
+	virtual void DesignProperties() override {
 		if (ImGui::TreeNodeEx("camera", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
+			ImGui::Extensions::PushActive(false);
 			if (viewSize != nullptr)
 				ImGui::DragFloat2("view size", (float*)viewSize, 0.01, 0, 0, "%.5f");
-			ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f");
-			ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f");
+			ImGui::Extensions::PopActive();
+
+			if (ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f"))
+				ForceUpdateCache();
+			if (ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f"))
+				ForceUpdateCache();
 
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();

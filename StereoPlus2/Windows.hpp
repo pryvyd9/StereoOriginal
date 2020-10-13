@@ -8,7 +8,6 @@
 #include "ToolPool.hpp"
 #include <set>
 #include <sstream>
-#include <imgui/imgui_internal.h>
 #include <string>
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
@@ -16,34 +15,7 @@
 #include "TemplateExtensions.hpp"
 #include "InfrastructureTypes.hpp"
 #include "Localization.hpp"
-
-namespace ImGui::Extensions {
-	#include <stack>
-	static std::stack<bool>& GetIsActive() {
-		static std::stack<bool> val;
-		return val;
-	}
-	static bool PushActive(bool isActive) {
-		ImGui::Extensions::GetIsActive().push(isActive);
-		if (!isActive)
-		{
-			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-		}
-
-		return true;
-	}
-	static void PopActive() {
-		auto isActive = ImGui::Extensions::GetIsActive().top();
-		ImGui::Extensions::GetIsActive().pop();
-
-		if (!isActive)
-		{
-			ImGui::PopItemFlag();
-			ImGui::PopStyleVar();
-		}
-	}
-}
+#include "ImGuiExtensions.hpp"
 
 namespace fs = std::filesystem;
 
@@ -63,12 +35,14 @@ namespace fs = std::filesystem;
 //	}
 //};
 
-class CustomRenderWindow : Window
-{
+class CustomRenderWindow : Window {
 	GLuint fbo;
 	GLuint texture;
 	GLuint depthBuffer;
 	GLuint depthBufferTexture;
+
+	Event<> onResize;
+
 
 	GLuint createFrameBuffer() {
 		GLuint fbo;
@@ -83,7 +57,6 @@ class CustomRenderWindow : Window
 
 		return fbo;
 	}
-
 	GLuint createTextureAttachment(int width, int height) {
 		GLuint texture;
 		glGenTextures(1, &texture);
@@ -95,7 +68,6 @@ class CustomRenderWindow : Window
 
 		return texture;
 	}
-
 	GLuint createDepthBufferAttachment(int width, int height) {
 		GLuint depthBuffer;
 		glGenRenderbuffers(1, &depthBuffer);
@@ -117,12 +89,10 @@ class CustomRenderWindow : Window
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glViewport(0, 0, width, height);
 	}
-
 	void unbindCurrentFrameBuffer(int width, int height) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, width, height);
 	}
-
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
 		// resize color attachment
 		glBindTexture(GL_TEXTURE_2D, texture);
@@ -142,6 +112,10 @@ public:
 	std::function<bool()> customRenderFunc;
 	glm::vec2 renderSize = glm::vec3(1);
 
+	IEvent<>& OnResize() {
+		return onResize;
+	}
+
 	virtual bool Init() {
 		Window::name = "renderWindow";
 		fbo = createFrameBuffer();
@@ -156,12 +130,11 @@ public:
 		// handle custom render window resize
 		glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
 		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
-
 		glm::vec2 newSize = vMax - vMin;
-
-		if (renderSize != newSize)
-		{
+		
+		if (renderSize != newSize) {
 			ResizeCustomRenderCanvas(newSize);
+			onResize.Invoke();
 		}
 	}
 

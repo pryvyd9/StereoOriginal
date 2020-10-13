@@ -360,8 +360,12 @@ public:
 		return false;
 	}
 	void DeleteSelected() {
-		for (auto o : ObjectSelection::Selected())
-			Delete(const_cast<SceneObject*>(o->GetParent()), o.Get());
+		for (auto o : ObjectSelection::Selected()) {
+			o->Reset();
+			(new FuncCommand())->func = [this, o] {
+				Delete(const_cast<SceneObject*>(o.Get()->GetParent()), o.Get());
+			};
+		}
 	}
 	void DeleteAll() {
 		deleteAll.Invoke();

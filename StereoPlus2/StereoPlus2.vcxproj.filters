@@ -163,5 +163,6 @@
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
     <None Include="settings.json" />
+    <None Include="ImGuiExtensions.hpp" />
   </ItemGroup>
 </Project>

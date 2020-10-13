@@ -86,8 +86,6 @@ int main(int, char**) {
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
-	
-	// Return cursor
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
 		if (i->IsDown(Key::N5)) {
 			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight))
@@ -108,6 +106,12 @@ int main(int, char**) {
 	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
 	StateBuffer::RootObject().BindTwoWay(scene.root);
 	StateBuffer::Objects() = &scene.objects;
+	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
+		if (i->IsDown(Key::Delete)) {
+			StateBuffer::Commit();
+			s->DeleteSelected();
+			}
+		});
 	if (!StateBuffer::Init())
 		return false;
 
@@ -132,13 +136,14 @@ int main(int, char**) {
 		 
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
+	auto updateCacheForAllObjects = [&scene] {
+		for (auto& o : scene.objects)
+			o->ForceUpdateCache();
+	};
+	customRenderWindow.OnResize() += updateCacheForAllObjects;
+	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 
-	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
-		if (i->IsDown(Key::Delete)) {
-			StateBuffer::Commit();
-			s->DeleteSelected();
-			}
-		});
+
 
 
 	// Start the main loop and clean the memory when closed.
