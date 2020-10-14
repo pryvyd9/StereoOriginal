@@ -48,7 +48,15 @@ class EditingTool : Tool {
 		static size_t v;
 		return v;
 	}
-	size_t selectionChangedhandlerId;
+	static bool& isAnyActive() {
+		static bool v;
+		return v;
+	}
+	static size_t& selectionChangedhandlerId() {
+		static size_t v;
+		return v;
+	}
+
 protected:
 	using Mode = EditMode;
 
@@ -63,11 +71,6 @@ protected:
 		static bool v;
 		return v;
 	}
-
-	//static bool& isBeingContinuouslyModified() {
-	//	static bool v;
-	//	return v;
-	//}
 
 
 	void DeleteConfig() {
@@ -85,7 +88,6 @@ public:
 		Extrusion,
 		Transform,
 	};
-	Property<bool> IsActive;
 
 	ReadonlyProperty<KeyBinding*> keyBinding;
 
@@ -103,22 +105,24 @@ public:
 	virtual bool UnbindSceneObjects() = 0;
 
 	virtual void Activate() {
-		if (IsActive.Get())
-			return;
+		if (isAnyActive())
+			Deactivate();
 
-		selectionChangedhandlerId = ObjectSelection::OnChanged() += [&](const ObjectSelection::Selection& v) {
+		selectionChangedhandlerId() = ObjectSelection::OnChanged() += [&](const ObjectSelection::Selection& v) {
 			OnSelectionChanged(v);
 		};
 
-		IsActive = true;
+		isAnyActive() = true;
+
+		OnSelectionChanged(ObjectSelection::Selected());
 	}
 	virtual void Deactivate() {
-		if (!IsActive.Get())
+		if (!isAnyActive())
 			return;
 
-		ObjectSelection::OnChanged() -= selectionChangedhandlerId;
-		selectionChangedhandlerId = 0;
-		IsActive = false;
+		ObjectSelection::OnChanged() -= selectionChangedhandlerId();
+		selectionChangedhandlerId() = 0;
+		isAnyActive() = false;
 	}
 
 

@@ -143,6 +143,9 @@
     <ClInclude Include="SettingsLoader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Key.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">

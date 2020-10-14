@@ -27,6 +27,27 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
+void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb) {
+	Settings::TransformToolShortcut() = Key::Combination({ Key::T });
+	Settings::PenToolShortcut() = Key::Combination({ Key::P });
+	Settings::ExtrusionToolShortcut() = Key::Combination({ Key::E });
+
+	kb.AddHandler([&] (Input* i) {
+		if (ImGui::IsAnyItemFocused())
+			return;
+
+		if (i->IsDown(Key::Escape))
+			tw.Unbind();
+
+		if (i->IsDown(Settings::TransformToolShortcut().Get()))
+			tw.ApplyTool<TransformToolWindow, TransformTool>();
+		if (i->IsDown(Settings::PenToolShortcut().Get()))
+			tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
+		if (i->IsDown(Settings::ExtrusionToolShortcut().Get()))
+			tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
+		});
+}
+
 int main(int, char**) {
 	// Declare main components.
 	PositionDetector positionDetector;
@@ -143,8 +164,7 @@ int main(int, char**) {
 	customRenderWindow.OnResize() += updateCacheForAllObjects;
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 
-
-
+	ConfigureShortcuts(toolWindow, gui.keyBinding);
 
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |

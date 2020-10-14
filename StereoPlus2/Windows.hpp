@@ -833,20 +833,19 @@ class TransformToolWindow : Window, Attributes {
 	}
 
 	bool DesignInternal() {
-		ImGui::Text(GetName(GetTarget()).c_str());
-
-		if (ImGui::BeginDragDropTarget()) {
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<PON> objects;
-			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
-			{
-				if (!tool->BindSceneObjects(objects))
-					return false;
-			}
-			ImGui::EndDragDropTarget();
-		}
+		//ImGui::Text(GetName(GetTarget()).c_str());
+		//if (ImGui::BeginDragDropTarget()) {
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	std::vector<PON> objects;
+		//	if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+		//	{
+		//		if (!tool->BindSceneObjects(objects))
+		//			return false;
+		//	}
+		//	ImGui::EndDragDropTarget();
+		//}
 
 		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
 			if (ImGui::Button("Release"))
@@ -955,7 +954,7 @@ class AttributesWindow : public Window {
 	Attributes* targetAttributes = nullptr;
 	
 public:
-	std::function<void()> onUnbindTool;
+	std::function<void()> onUnbindTool = [] {};
 
 	virtual bool Init() {
 		Window::name = "attributesWindow";
@@ -996,14 +995,10 @@ public:
 		return true;
 	}
 	bool UnbindTool() {
-		try
-		{
-			onUnbindTool();
-		}
-		catch (const std::exception&)
-		{
+		if (!toolAttributes)
+			return true;
 
-		}
+		onUnbindTool();
 		toolAttributes = nullptr;
 		return true;
 	}
@@ -1032,6 +1027,18 @@ class ToolWindow : Window {
 	CreatingTool<GroupObject> groupObjectTool;
 
 
+
+	template<typename T>
+	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
+		creatingTool.scene.BindAndApply(scene);
+		creatingTool.destination.BindAndApply(scene.Get()->root);
+		creatingTool.func = initFunc;
+	}
+
+public:
+	AttributesWindow* attributesWindow;
+	ReadonlyProperty<Scene*> scene;
+
 	template<typename T>
 	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
 
@@ -1058,22 +1065,15 @@ class ToolWindow : Window {
 			t->tool->UnbindSceneObjects();
 			s.Get()->OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
-			t->tool->Deactivate();
 			delete t;
 		};
 	}
 
-
-	template<typename T>
-	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
-		creatingTool.scene.BindAndApply(scene);
-		creatingTool.destination.BindAndApply(scene.Get()->root);
-		creatingTool.func = initFunc;
+	void Unbind() {
+		attributesWindow->UnbindTarget();
+		attributesWindow->UnbindTool();
 	}
 
-public:
-	AttributesWindow* attributesWindow;
-	ReadonlyProperty<Scene*> scene;
 
 	virtual bool Init() {
 		if (attributesWindow == nullptr)
