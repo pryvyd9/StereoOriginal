@@ -317,6 +317,12 @@ public:
 		};
 	}
 
+	void ResetFocus() {
+		AddHandler([i = input] {
+			if (i->IsDown(Key::Escape))
+				ImGui::FocusWindow(NULL);
+			});
+	}
 	void MoveCross() {
 		// Axe mode switch A
 		AddHandler([i = input, c = cross, &axeMode = isAxeModeEnabled] {
@@ -489,6 +495,7 @@ public:
 			});
 	}
 	bool Init() {
+		ResetFocus();
 		Cross();
 		ChangeBuffer();
 

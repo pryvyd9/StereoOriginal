@@ -345,32 +345,19 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	}
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
-		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
 		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
-
 		if (isSelected) {
 			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
 			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
 			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
 		}
 
-		bool open = ImGui::TreeNodeEx(t->Name.c_str(), _flags);
+		flags |= ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed;
 
-		if (isSelected) ImGui::PopStyleColor(3);
+		if (t->children.empty())
+			flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 
-		return open;
-	}
-	bool Selectable(SceneObject* t, bool& isSelected) {
-		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
-		//isSelected = exists(SceneObjectSelection::Selected(), t);
-
-		if (isSelected) {
-			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
-			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
-			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
-		}
-
-		bool open = ImGui::Selectable(t->Name.c_str(), isSelected);
+		bool open = ImGui::TreeNodeEx(t->Name.c_str(), flags);
 
 		if (isSelected) ImGui::PopStyleColor(3);
 
@@ -414,24 +401,10 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return true;
 	}
 	bool DesignTreeNode(SceneObject* t, std::vector<SceneObject*>& source, int pos) {
-		switch (t->GetType()) {
-		case Group:
-			return DesignTreeNode((GroupObject*)t, source, pos);
-		case StereoPolyLineT:
-		case MeshT:
-			return DesignTreeLeaf((LeafObject*)t, source, pos);
-		case CrossT:
-			return true;
-		default:
-			log.Error("Invalid SceneObject type passed: ", t->GetType());
-			return false;
-		}
-	}
-	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
 		ImGui::PushID(GetID()++);
 
 		ImGui::Indent(indent);
-		
+
 		bool isSelected;
 		bool open = TreeNode(t, isSelected);
 
@@ -459,26 +432,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		return true;
 	}
-	bool DesignTreeLeaf(LeafObject*  t, std::vector<SceneObject*>& source, int pos) {
-		ImGui::PushID(GetID()++);
 
-		ImGui::Indent(indent);
-
-		bool isSelected;
-		Selectable(t, isSelected);
-
-		ImGuiDragDropFlags src_flags = 0;
-		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
-		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
-		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-
-		!TryDragDropTarget(t, pos, Top | Bottom) && !TryDragDropSource(t, isSelected, src_flags) && TrySelect(t, isSelected);
-
-		ImGui::Unindent(indent);
-		ImGui::PopID();
-
-		return true;
-	}
 
 	InsertPosition GetPosition(int positionMask) {
 		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
@@ -1088,6 +1042,7 @@ class ToolWindow : Window {
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
+		tool->tool->Activate();
 
 		auto targetWindow = new SceneObjectPropertiesWindow();
 		attributesWindow->UnbindTarget();
@@ -1103,6 +1058,7 @@ class ToolWindow : Window {
 			t->tool->UnbindSceneObjects();
 			s.Get()->OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
+			t->tool->Deactivate();
 			delete t;
 		};
 	}

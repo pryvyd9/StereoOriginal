@@ -12,6 +12,8 @@ enum ObjectType {
 	MeshT,
 	CameraT,
 	CrossT,
+	ProceduralObjectT,
+	ProceduralObjectNodeT,
 };
 
 enum InsertPosition {
@@ -375,7 +377,7 @@ public:
 
 class GroupObject : public SceneObject {
 public:
-	virtual ObjectType GetType() const {
+	virtual ObjectType GetType() const override {
 		return Group;
 	}
 
@@ -385,7 +387,7 @@ public:
 		SceneObject::operator=(o);
 		return *this;
 	}
-	virtual SceneObject* Clone() { 
+	virtual SceneObject* Clone() override {
 		return new GroupObject(this);
 	}
 
@@ -412,7 +414,7 @@ class StereoPolyLine : public LeafObject {
 
 	virtual void UpdateOpenGLBuffer(
 		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) {
+		std::function<glm::vec3(glm::vec3)> toRight) override {
 		UpdateCache();
 
 		leftBuffer = std::vector<glm::vec3>(verticesCache.size());
@@ -442,43 +444,43 @@ public:
 		vertices = copy->vertices;
 	}
 
-	virtual ObjectType GetType() const {
+	virtual ObjectType GetType() const override {
 		return StereoPolyLineT;
 	}
-	virtual const std::vector<glm::vec3>& GetVertices() const {
+	virtual const std::vector<glm::vec3>& GetVertices() const override {
 		return vertices;
 	}
 
-	virtual void AddVertice(const glm::vec3& v) {
+	virtual void AddVertice(const glm::vec3& v) override {
 		HandleBeforeUpdate();
 		vertices.push_back(v);
 		shouldUpdateCache = true;
 	}
-	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
 		for (auto v : vs)
 			AddVertice(v);
 	}
-	virtual void SetVertice(size_t index, const glm::vec3& v) {
+	virtual void SetVertice(size_t index, const glm::vec3& v) override {
 		HandleBeforeUpdate();
 		vertices[index] = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVerticeX(size_t index, const float& v) {
+	virtual void SetVerticeX(size_t index, const float& v) override {
 		HandleBeforeUpdate();
 		vertices[index].x = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVerticeY(size_t index, const float& v) {
+	virtual void SetVerticeY(size_t index, const float& v) override {
 		HandleBeforeUpdate();
 		vertices[index].y = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVerticeZ(size_t index, const float& v) {
+	virtual void SetVerticeZ(size_t index, const float& v) override {
 		HandleBeforeUpdate();
 		vertices[index].z = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) override {
 		HandleBeforeUpdate();
 		vertices.clear();
 		for (auto v : vs)
@@ -486,14 +488,14 @@ public:
 		shouldUpdateCache = true;
 	}
 
-	virtual void RemoveVertice() {
+	virtual void RemoveVertice() override {
 		HandleBeforeUpdate();
 		if (vertices.size() > 0)
 			vertices.pop_back();
 		shouldUpdateCache = true;
 	}
 
-	virtual void DesignProperties() {
+	virtual void DesignProperties() override {
 		if (ImGui::TreeNodeEx("polyline", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
@@ -513,7 +515,7 @@ public:
 		SceneObject::Reset();
 	}
 
-	virtual void DrawLeft(GLuint shader) {
+	virtual void DrawLeft(GLuint shader) override {
 		if (verticesCache.size() < 2)
 			return;
 
@@ -527,7 +529,7 @@ public:
 		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
-	virtual void DrawRight(GLuint shader) {
+	virtual void DrawRight(GLuint shader) override {
 		if (verticesCache.size() < 2)
 			return;
 
@@ -568,7 +570,7 @@ private:
 
 	virtual void UpdateOpenGLBuffer(
 		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) {
+		std::function<glm::vec3(glm::vec3)> toRight) override {
 		UpdateCache();
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertexCache.size());
@@ -612,7 +614,7 @@ public:
 		glDeleteBuffers(1, &IBO);
 	}
 
-	virtual ObjectType GetType() const {
+	virtual ObjectType GetType() const override {
 		return MeshT;
 	}
 	size_t GetVerticesSize() {
@@ -641,40 +643,40 @@ public:
 		return connections;
 	}
 
-	virtual const std::vector<glm::vec3>& GetVertices() const {
+	virtual const std::vector<glm::vec3>& GetVertices() const override {
 		return vertices;
 	}
-	virtual void AddVertice(const glm::vec3& v) {
+	virtual void AddVertice(const glm::vec3& v) override {
 		HandleBeforeUpdate();
 		vertices.push_back(v);
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
 	}
-	virtual void AddVertices(const std::vector<glm::vec3>& vs) {
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
 		for (auto v : vs)
 			AddVertice(v);
 	}
-	virtual void SetVertice(size_t index, const glm::vec3& v) {
+	virtual void SetVertice(size_t index, const glm::vec3& v) override {
 		HandleBeforeUpdate();
 		vertices[index] = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVerticeX(size_t index, const float& v) {
+	virtual void SetVerticeX(size_t index, const float& v) override {
 		HandleBeforeUpdate();
 		vertices[index].x = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVerticeY(size_t index, const float& v) {
+	virtual void SetVerticeY(size_t index, const float& v) override {
 		HandleBeforeUpdate();
 		vertices[index].y = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVerticeZ(size_t index, const float& v) {
+	virtual void SetVerticeZ(size_t index, const float& v) override {
 		HandleBeforeUpdate();
 		vertices[index].z = v;
 		shouldUpdateCache = true;
 	}
-	virtual void SetVertices(const std::vector<glm::vec3>& vs) {
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) override {
 		HandleBeforeUpdate();
 		vertices = vs;
 		shouldUpdateCache = true;
@@ -685,14 +687,14 @@ public:
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
 	}
-	virtual void RemoveVertice() {
+	virtual void RemoveVertice() override {
 		HandleBeforeUpdate();
 		vertices.pop_back();
 		shouldUpdateCache = true;
 		shouldUpdateIBO = true;
 	}
 
-	virtual void DesignProperties() {
+	virtual void DesignProperties() override {
 		if (ImGui::TreeNodeEx("mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
@@ -714,7 +716,7 @@ public:
 		SceneObject::Reset();
 	}
 
-	virtual void DrawLeft(GLuint shader) {
+	virtual void DrawLeft(GLuint shader) override {
 		if (vertexCache.size() < 2)
 			return;
 
@@ -729,7 +731,7 @@ public:
 		glUseProgram(shader);
 		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
 	}
-	virtual void DrawRight(GLuint shader) {
+	virtual void DrawRight(GLuint shader) override {
 		if (vertexCache.size() < 2)
 			return;
 
@@ -798,7 +800,7 @@ class Cross : public LeafObject {
 
 	virtual void UpdateOpenGLBuffer(
 		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) {
+		std::function<glm::vec3(glm::vec3)> toRight) override {
 		UpdateCache();
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
@@ -832,7 +834,7 @@ class Cross : public LeafObject {
 	}
 
 	// Cross is being continuously modified so don't notify it's updates.
-	virtual void HandleBeforeUpdate() {}
+	virtual void HandleBeforeUpdate() override {}
 
 public:
 	float size = 0.1;
@@ -843,10 +845,10 @@ public:
 	size_t GUIPositionEditHandlerId;
 	glm::vec3 GUIPositionEditDifference;
 
-	virtual ObjectType GetType() const {
+	virtual ObjectType GetType() const override {
 		return CrossT;
 	}
-	virtual void DesignProperties() {
+	virtual void DesignProperties() override {
 		if (ImGui::TreeNodeEx("cross", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
@@ -867,7 +869,7 @@ public:
 		SetLocalPosition(oldPos);
 	}
 
-	virtual void DrawLeft(GLuint shader) {
+	virtual void DrawLeft(GLuint shader) override {
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -878,7 +880,7 @@ public:
 		glUseProgram(shader);
 		glDrawArrays(GL_LINES, 0, vertices.size());
 	}
-	virtual void DrawRight(GLuint shader) {
+	virtual void DrawRight(GLuint shader) override {
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
@@ -999,6 +1001,21 @@ public:
 	}
 };
 
+
+class ProceduralObjectNode : public LeafObject {
+public:
+	virtual ObjectType GetType() const override {
+		return ProceduralObjectNodeT;
+	}
+
+};
+class ProceduralObject : public LeafObject {
+public:
+	virtual ObjectType GetType() const override {
+		return ProceduralObjectT;
+	}
+
+};
 // Persistent object node
 class PON {
 	struct Node {

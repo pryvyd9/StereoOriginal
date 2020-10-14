@@ -423,6 +423,13 @@ public:
 
 		CategorizeObjects(root, &is, categorizedObjects);
 	}
+	static void CategorizeObjects(SceneObject* root, const std::set<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
 
 
 	// Tree structure is preserved even if there is an unselected link.
