@@ -29,6 +29,7 @@ enum class TransformToolMode {
 	Rotate,
 };
 
+
 enum class MoveCoordinateAction {
 	Adapt,
 	None,

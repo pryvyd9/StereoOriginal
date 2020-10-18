@@ -12,8 +12,8 @@ enum ObjectType {
 	MeshT,
 	CameraT,
 	CrossT,
-	ProceduralObjectT,
-	ProceduralObjectNodeT,
+	TraceObjectT,
+	TraceObjectNodeT,
 };
 
 enum InsertPosition {
@@ -79,8 +79,8 @@ protected:
 			for (size_t i = 0; i < vertices.size(); i++)
 				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]) + GetLocalPosition();
 
-		if (parent)
-			parent->CascadeTransform(vertices);
+		if (GetParent())
+			GetParent()->CascadeTransform(vertices);
 	}
 	void CascadeTransform(glm::vec3& v) const {
 		if (GetLocalRotation() == unitQuat())
@@ -88,12 +88,12 @@ protected:
 		else
 			v = glm::rotate(GetLocalRotation(), v) + GetLocalPosition();
 
-		if (parent)
-			parent->CascadeTransform(v);
+		if (GetParent())
+			GetParent()->CascadeTransform(v);
 	}
 	void CascadeTransformInverse(glm::vec3& v) const {
-		if (parent)
-			parent->CascadeTransformInverse(v);
+		if (GetParent())
+			GetParent()->CascadeTransformInverse(v);
 
 		if (GetLocalRotation() == unitQuat())
 			v -= GetLocalPosition();
@@ -113,7 +113,7 @@ public:
 		glGenBuffers(2, &VBOLeft);
 		glGenVertexArrays(1, &VAO);
 	}
-	SceneObject(SceneObject* copy) : SceneObject() {
+	SceneObject(const SceneObject* copy) : SceneObject() {
 		position = copy->position;
 		rotation = copy->rotation;
 		parent = copy->parent;
@@ -125,7 +125,7 @@ public:
 		glDeleteVertexArrays(1, &VAO);
 	}
 
-	void Draw(
+	virtual void Draw(
 		std::function<glm::vec3(glm::vec3)> toLeft,
 		std::function<glm::vec3(glm::vec3)> toRight,
 		GLuint shaderLeft,
@@ -151,7 +151,7 @@ public:
 		return glm::fquat(1, 0, 0, 0);
 	}
 
-	const SceneObject* GetParent() const {
+	const virtual SceneObject* GetParent() const {
 		return parent;
 	}
 	void SetParent(SceneObject* newParent, int newParentPos, InsertPosition pos) {
@@ -247,12 +247,10 @@ public:
 	const glm::vec3& GetLocalPosition() const {
 		return position;
 	}
-	const glm::vec3 GetWorldPosition() const {
-		if (parent)
-			return ToWorldPosition(glm::vec3());
-			//return GetLocalPosition() + parent->GetWorldPosition();
-		
-		return GetLocalPosition();
+	const virtual glm::vec3 GetWorldPosition() const {
+		return GetParent()
+			? ToWorldPosition(glm::vec3())
+			: GetLocalPosition();
 	}
 	void SetLocalPosition(const glm::vec3& v) {
 		ForceUpdateCache();
@@ -261,19 +259,19 @@ public:
 	void SetWorldPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 
-		position = parent
+		position = GetParent()
 			// Set world position means to set local position
 			// relative to parent.
-			? parent->ToLocalPosition(v)
+			? GetParent()->ToLocalPosition(v)
 			: v;
 	}
 
 	const glm::quat& GetLocalRotation() const {
 		return rotation;
 	}
-	const glm::quat GetWorldRotation() const {
-		return parent
-			? parent->GetWorldRotation() * GetLocalRotation()
+	const virtual glm::quat GetWorldRotation() const {
+		return GetParent()
+			? GetParent()->GetWorldRotation() * GetLocalRotation()
 			: GetLocalRotation();
 	}
 	void SetLocalRotation(const glm::quat& v) {
@@ -283,10 +281,10 @@ public:
 	void SetWorldRotation(const glm::quat& v) {
 		ForceUpdateCache();
 
-		rotation = parent
+		rotation = GetParent()
 			// Set world rotation means to set local rotation
 			// relative to parent.
-			? glm::inverse(parent->GetWorldRotation()) * v
+			? glm::inverse(GetParent()->GetWorldRotation()) * v
 			: v;
 	}
 
@@ -363,7 +361,7 @@ public:
 			c->CallRecursive(t, f);
 	}
 
-	virtual SceneObject* Clone() { return nullptr; }
+	virtual SceneObject* Clone() const { return nullptr; }
 	SceneObject& operator=(const SceneObject& o) {
 		position = o.position;
 		rotation = o.rotation;
@@ -382,12 +380,12 @@ public:
 	}
 
 	GroupObject() {}
-	GroupObject(GroupObject* copy) : SceneObject(copy) {}
+	GroupObject(const GroupObject* copy) : SceneObject(copy) {}
 	GroupObject& operator=(const GroupObject& o) {
 		SceneObject::operator=(o);
 		return *this;
 	}
-	virtual SceneObject* Clone() override {
+	virtual SceneObject* Clone() const override {
 		return new GroupObject(this);
 	}
 
@@ -396,7 +394,7 @@ public:
 class LeafObject : public SceneObject {
 public:
 	LeafObject() {}
-	LeafObject(LeafObject* copy) : SceneObject(copy){}
+	LeafObject(const LeafObject* copy) : SceneObject(copy){}
 	LeafObject& operator=(const LeafObject& o) {
 		SceneObject::operator=(o);
 		return *this;
@@ -440,7 +438,7 @@ class StereoPolyLine : public LeafObject {
 public:
 
 	StereoPolyLine() {}
-	StereoPolyLine(StereoPolyLine* copy) : LeafObject(copy){
+	StereoPolyLine(const StereoPolyLine* copy) : LeafObject(copy){
 		vertices = copy->vertices;
 	}
 
@@ -544,7 +542,7 @@ public:
 		glDrawArrays(GL_LINE_STRIP, 0, GetVertices().size());
 	}
 
-	SceneObject* Clone() override {
+	SceneObject* Clone() const override {
 		return new StereoPolyLine(this);
 	}
 	StereoPolyLine& operator=(const StereoPolyLine& o) {
@@ -552,7 +550,6 @@ public:
 		LeafObject::operator=(o);
 		return *this;
 	}
-
 };
 
 struct Mesh : LeafObject {
@@ -599,11 +596,41 @@ private:
 		shouldUpdateCache = false;
 	}
 
+	virtual void DrawLeft(GLuint shader) override {
+		if (vertexCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
+	}
+	virtual void DrawRight(GLuint shader) override {
+		if (vertexCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
+	}
+
 public:
 	Mesh() {
 		glGenBuffers(1, &IBO);
 	}
-	Mesh(Mesh* copy) : LeafObject(copy) {
+	Mesh(const Mesh* copy) : LeafObject(copy) {
 		glGenBuffers(1, &IBO);
 
 		vertices = copy->vertices;
@@ -716,37 +743,8 @@ public:
 		SceneObject::Reset();
 	}
 
-	virtual void DrawLeft(GLuint shader) override {
-		if (vertexCache.size() < 2)
-			return;
 
-		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(shader);
-		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
-	}
-	virtual void DrawRight(GLuint shader) override {
-		if (vertexCache.size() < 2)
-			return;
-
-		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		// Apply shader
-		glUseProgram(shader);
-		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
-	}
-
-	SceneObject* Clone() override {
+	SceneObject* Clone() const override {
 		return new Mesh(this);
 	}
 	Mesh& operator=(const Mesh& o) {
@@ -1002,19 +1000,71 @@ public:
 };
 
 
-class ProceduralObjectNode : public LeafObject {
+class TraceObjectNode : public LeafObject {
+	SceneObject* cache = nullptr;
+
+	virtual void HandleBeforeUpdate() override {
+		if (auto p = GetParent();
+			!p || p->GetType() != TraceObjectT || !p->GetParent()) {
+			
+			if (cache)
+				delete cache;
+			cache = nullptr;
+			return;
+		}
+
+		if (cache)
+			return;
+			//delete cache;
+
+		cache = GetParent()->GetParent()->Clone();
+		cache->children.clear();
+		cache->SetParent(nullptr, false, true, false, false);
+		cache->SetWorldPosition(GetWorldPosition());
+		cache->SetWorldRotation(GetWorldRotation());
+	}
 public:
 	virtual ObjectType GetType() const override {
-		return ProceduralObjectNodeT;
+		return TraceObjectNodeT;
+	}
+	virtual void Draw(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight,
+		GLuint shaderLeft,
+		GLuint shaderRight,
+		GLuint stencilMaskLeft,
+		GLuint stencilMaskRight) override {
+		if (!cache)
+			return;
+
+		cache->Draw(toLeft, toRight, shaderLeft, shaderRight, stencilMaskLeft, stencilMaskRight);
 	}
 
+	~TraceObjectNode() {
+		if (cache)
+			delete cache;
+	}
 };
-class ProceduralObject : public LeafObject {
-public:
-	virtual ObjectType GetType() const override {
-		return ProceduralObjectT;
+class TraceObject : public GroupObject {
+	bool shouldIgnoreParent;
+	virtual void HandleBeforeUpdate() override {
+		GroupObject::HandleBeforeUpdate();
+		shouldIgnoreParent = false;
 	}
 
+public:
+	void IgnoreParentOnce() {
+		shouldIgnoreParent = true;
+	}
+	virtual ObjectType GetType() const override {
+		return TraceObjectT;
+	}
+	const virtual SceneObject* GetParent() const override {
+		return shouldIgnoreParent
+			? nullptr
+			: GroupObject::GetParent();
+	}
+	
 };
 // Persistent object node
 class PON {

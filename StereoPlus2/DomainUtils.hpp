@@ -1,6 +1,7 @@
 #pragma once
 #include "DomainTypes.hpp"
 #include <stack>
+#include <algorithm>
 
 enum SelectPosition {
 	Anchor = 0x01,

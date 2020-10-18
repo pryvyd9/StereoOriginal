@@ -15,12 +15,12 @@ class Tool {};
 
 template<typename T>
 class CreatingTool : Tool, public ISceneHolder {
-	static std::stack<SceneObject*>& GetCreatedObjects() {
-		static std::stack<SceneObject*> val;
-		return val;
-	}
+	//static std::stack<SceneObject*>& GetCreatedObjects() {
+	//	static std::stack<SceneObject*> val;
+	//	return val;
+	//}
 public:
-	std::function<void(T*)> func;
+	std::function<void(T*)> init;
 
 	ReadonlyProperty<PON> destination;
 
@@ -32,9 +32,32 @@ public:
 		command->destination = destination.Get().Get();
 		command->func = [=] {
 			T* obj = new T();
-			func(obj);
-			GetCreatedObjects().push(obj);
+			init(obj);
+			//GetCreatedObjects().push(obj);
 
+			return obj;
+		};
+
+		return true;
+	}
+};
+
+class CloneTool : Tool, public ISceneHolder {
+	
+public:
+	ReadonlyProperty<PON> destination;
+	ReadonlyProperty<PON> target;
+	std::function<void(SceneObject*)> init;
+
+	bool Create() {
+		StateBuffer::Commit();
+
+		auto command = new CreateCommand();
+		command->scene.BindAndApply(scene);
+		command->destination = destination.Get().Get();
+		command->func = [=] {
+			auto obj = target->Clone();
+			init(obj);
 			return obj;
 		};
 
@@ -56,6 +79,10 @@ class EditingTool : Tool {
 		static size_t v;
 		return v;
 	}
+	//static EditingTool* activeTool() {
+	//	static EditingTool* v = nullptr;
+	//	return v;
+	//}
 
 protected:
 	using Mode = EditMode;
@@ -82,6 +109,7 @@ protected:
 	}
 
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) {}
+	//virtual void OnBeforeDeactivate() {}
 public:
 	enum Type {
 		PointPen,
@@ -100,9 +128,8 @@ public:
 			});
 	}
 
-	virtual Type GetType() = 0;
-	virtual bool BindSceneObjects(std::vector<PON> obj) = 0;
-	virtual bool UnbindSceneObjects() = 0;
+	virtual bool BindSceneObjects(std::vector<PON> obj) { return true; };
+	virtual bool UnbindSceneObjects() { return true; };
 
 	virtual void Activate() {
 		if (isAnyActive())
@@ -113,12 +140,15 @@ public:
 		};
 
 		isAnyActive() = true;
+		//activeTool() = this;
 
 		OnSelectionChanged(ObjectSelection::Selected());
 	}
-	virtual void Deactivate() {
+	static void Deactivate() {
 		if (!isAnyActive())
 			return;
+
+		//activeTool()->OnBeforeDeactivate();
 
 		ObjectSelection::OnChanged() -= selectionChangedhandlerId();
 		selectionChangedhandlerId() = 0;
@@ -483,9 +513,6 @@ public:
 
 	}
 
-	virtual Type GetType() {
-		return Type::PointPen;
-	}
 	SceneObject* GetTarget() {
 		return target.HasValue()
 			? target.Get()
@@ -787,7 +814,7 @@ public:
 	ReadonlyProperty<Cross*> cross;
 
 	ExtrusionEditingTool() {
-		func = [&, mesh = &mesh](Mesh* o) {
+		init = [&, mesh = &mesh](Mesh* o) {
 			std::stringstream ss;
 			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<StereoPolyLineT>>();
 			o->Name = ss.str();
@@ -877,10 +904,6 @@ public:
 			? pen.Get()
 			: nullptr;
 	}
-	virtual Type GetType() {
-		return Type::Extrusion;
-	}
-
 	void SetMode(Mode mode) {
 		this->mode = mode;
 	}
@@ -924,7 +947,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		//if (SceneObjectSelection::Selected().empty())
 		//	return;
 
-		if (!input->IsContinuousInputOneSecondDelay()) {
+		if (!input->IsContinuousInputNoDelay()) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 		}
@@ -997,6 +1020,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		}
 	}
 	void Translate(const glm::vec3& transformVector, std::list<PON>& targets) {
+		if (shouldTrace)
+			Trace(targets);
+
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
 		if (Settings::SpaceMode().Get() == SpaceMode::Local && haveSingleParent(targets)) {
@@ -1014,6 +1040,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			o->SetWorldPosition(o->GetWorldPosition() + transformVector);
 	}
 	void Rotate(const glm::vec3& center, std::list<PON>& targets) {
+		if (shouldTrace)
+			Trace(targets);
+
 		auto i = getChangedAxe();
 		if (i < 0) return;
 
@@ -1022,11 +1051,10 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		oldAxeId = i;
 
-		auto trimmedDeltaAngle = getTrimmedAngle((angle - oldAngle)[i]) * 3.1415926f * 2 / 360;
-
 		auto axe = glm::vec3();
 		axe[i] = 1;
 
+		auto trimmedDeltaAngle = getTrimmedAngle((angle - oldAngle)[i]) * 3.1415926f * 2 / 360;
 		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
 
 		auto crossOldRotation = cross->GetLocalRotation();
@@ -1047,6 +1075,64 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		}
 	}
 
+	void Trace(std::list<PON>& targets) {
+		static int id = 0;
+
+		for (auto& o : targets) {
+			auto pos = findBack(o->children, std::function([](SceneObject* so) {
+				return so->GetType() == TraceObjectT;
+				}));
+
+			if (pos < 0) {
+				SceneObject* nodeRef = nullptr;
+
+				pos = o->children.size();
+				traceObjectTool.destination = o;
+				traceObjectTool.init = [&, id = id, nr = &nodeRef](SceneObject* o) {
+					std::stringstream ss;
+					ss << "TraceObject" << id;
+					o->Name = ss.str();
+					*nr = o;
+					((TraceObject*)o)->IgnoreParentOnce();
+
+					(new FuncCommand())->func = [o] {
+						o->SetParent(nullptr, false, true, false, false);
+					};
+				};
+
+				traceObjectTool.Create();
+				cloneTool.destination = PON(nodeRef);
+				cloneTool.target = o;
+				cloneTool.init = [o](SceneObject* obj) {
+					obj->children.clear();
+					obj->SetLocalPosition(o.Get()->GetWorldPosition());
+					obj->SetLocalRotation(o.Get()->GetWorldRotation());
+				};
+				cloneTool.Create();
+				
+
+				id++;
+			}
+			else {
+				auto to = PON(o->children[pos]);
+
+				//Logger.Information(to->GetWorldPosition());
+
+				cloneTool.destination = to;
+				cloneTool.target = o;
+				cloneTool.init = [o](SceneObject* obj) {
+					obj->children.clear();
+					obj->SetWorldPosition(o.Get()->GetWorldPosition());
+					obj->SetWorldRotation(o.Get()->GetWorldRotation());
+				};
+				cloneTool.Create();
+				((TraceObject*)to.Get())->IgnoreParentOnce();
+
+			}
+		}
+	}
+
+
 	void MoveCross(const glm::vec3& movement) {
 		cross->SetLocalPosition(cross->GetLocalPosition() + movement);
 	}
@@ -1064,11 +1150,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	}
 
 	float getTrimmedAngle(float a) {
-		while (a - 360 > 0)
-			a -= 360;
-		while (a + 360 < 0)
-			a += 360;
-		return a;
+		int b = a;
+		return b % 360 + (a - b);
 	}
 	void nullifyUntouchedAngles() {
 		auto da = angle - oldAngle;
@@ -1176,6 +1259,11 @@ public:
 	glm::vec3 angle;
 	glm::vec3 transformPos;
 	bool isRelativeMode;
+	bool shouldTrace;
+
+	CreatingTool<TraceObject> traceObjectTool;
+	CloneTool cloneTool;
+
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (!UnbindSceneObjects())
@@ -1274,9 +1362,6 @@ public:
 		else 
 			return targets.parentObjects.front().Get();
 	}
-	virtual Type GetType() {
-		return Type::Transform;
-	}
 	void SetMode(Mode mode) {
 		this->mode = mode;
 	}
@@ -1284,3 +1369,8 @@ public:
 		return mode;
 	}
 };
+
+//class TraceTool : public EditingTool<void> {
+//	const Log Logger = Log::For<TraceTool>();
+//
+//};
