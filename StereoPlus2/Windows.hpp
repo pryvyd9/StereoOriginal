@@ -847,12 +847,12 @@ class TransformToolWindow : Window, Attributes {
 		//	ImGui::EndDragDropTarget();
 		//}
 
-		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
-			if (ImGui::Button("Release"))
-				tool->UnbindSceneObjects();
+		//if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
+		//	if (ImGui::Button("Release"))
+		//		tool->UnbindSceneObjects();
 
-			ImGui::Extensions::PopActive();
-		}
+		//	ImGui::Extensions::PopActive();
+		//}
 
 		auto transformToolModeCopy = tool->GetMode();
 		{
@@ -863,6 +863,7 @@ class TransformToolWindow : Window, Attributes {
 			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate))
 				tool->SetMode(TransformToolMode::Rotate);
 		}
+		ImGui::Checkbox("Trace", &tool->shouldTrace);
 
 		switch (transformToolModeCopy) {
 		case TransformToolMode::Translate:
@@ -893,7 +894,6 @@ class TransformToolWindow : Window, Attributes {
 	}
 
 public:
-	//SceneObject* target = nullptr;
 	TransformTool* tool = nullptr;
 
 	virtual SceneObject* GetTarget() {
@@ -908,10 +908,10 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-		
+
 		Window::name = Attributes::name = "transformation";
 		Attributes::isInitialized = true;
-		
+
 		return true;
 	}
 	virtual bool Window::Design() {
@@ -941,11 +941,7 @@ public:
 		UnbindTargets();
 		return true;
 	}
-	virtual void UnbindTargets() {
-		//target = nullptr;
-	}
-	
-
+	virtual void UnbindTargets() {}
 };
 
 
@@ -1032,7 +1028,7 @@ class ToolWindow : Window {
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
 		creatingTool.scene.BindAndApply(scene);
 		creatingTool.destination.BindAndApply(scene.Get()->root);
-		creatingTool.func = initFunc;
+		creatingTool.init = initFunc;
 	}
 
 public:

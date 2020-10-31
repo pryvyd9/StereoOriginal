@@ -20,6 +20,9 @@ class ToolPool {
 	static void Init(TransformTool* tool) {
 		tool->cross.BindAndApply(Cross());
 		tool->keyBinding.BindAndApply(KeyBinding());
+		//tool->scene.BindAndApply(Scene());
+		tool->traceObjectTool.scene.BindAndApply(Scene());
+		tool->cloneTool.scene.BindAndApply(Scene());
 	}
 
 public:

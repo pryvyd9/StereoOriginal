@@ -28,6 +28,26 @@ int find(const std::vector<T>& source, std::function<bool(const T&)> condition) 
 
 	return -1;
 }
+//template<typename T>
+//int find(std::vector<T*>& source, std::function<bool(T*)> condition) {
+//	for (size_t i = 0; i < source.size(); i++)
+//		if (condition(source[i]))
+//			return i;
+//
+//	return -1;
+//}
+template<typename T>
+int findBack(std::vector<T*>& source, std::function<bool(T*)> condition) {
+	if (source.empty())
+		return -1;
+
+	for (int i = source.size() - 1; i >= 0; i--)
+		if (condition(source[i]))
+			return i;
+
+	return -1;
+}
+
 template<typename T>
 std::vector<int> findAll(const std::vector<T>& source, std::function<bool(const T&)> condition) {
 	std::vector<int> indices;
