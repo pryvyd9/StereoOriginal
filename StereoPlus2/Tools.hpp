@@ -1013,13 +1013,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			Trace(targets);
 
 		for (auto target : targets) {
-			int v = 0;
-			target->CallRecursive([&](SceneObject* o) {
-				o->SetWorldPosition((o->GetWorldPosition() - center) / oldScale * scale + center);
-				for (size_t i = 0; i < o->GetVertices().size(); i++)
-					o->SetVertice(i, o->GetVertices()[i] / oldScale * scale);
-				v++;
-				});
+			target->SetWorldPosition((target->GetWorldPosition() - center) / oldScale * scale + center);
+			for (size_t i = 0; i < target->GetVertices().size(); i++)
+				target->SetVertice(i, (target->GetVertices()[i] - center) / oldScale * scale + center);
 		}
 	}
 	void Translate(const glm::vec3& transformVector, std::list<PON>& targets) {
@@ -1039,8 +1035,11 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		}
 
 		MoveCross(transformVector);
-		for (auto o : targets)
+		for (auto o : targets) {
 			o->SetWorldPosition(o->GetWorldPosition() + transformVector);
+			for (size_t i = 0; i < o->GetVertices().size(); i++)
+				o->SetVertice(i, o->GetVertices()[i] + transformVector);
+		}
 	}
 	void Rotate(const glm::vec3& center, std::list<PON>& targets) {
 		if (shouldTrace)
@@ -1066,6 +1065,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		if (Settings::SpaceMode().Get() == SpaceMode::World)
 			for (auto& target : targets) {
 				target->SetWorldPosition(glm::rotate(r, target->GetWorldPosition() - center) + center);
+				for (size_t i = 0; i < target->GetVertices().size(); i++)
+					target->SetVertice(i, glm::rotate(r, target->GetVertices()[i] - center) + center);
+
 				target->SetWorldRotation(r * target->GetWorldRotation());
 			}
 		else {
@@ -1073,6 +1075,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			for (auto& target : targets) {
 				// Rotate relative to cross.
 				target->SetWorldPosition(glm::rotate(rIsolated, target->GetWorldPosition() - center) + center);
+				for (size_t i = 0; i < target->GetVertices().size(); i++)
+					target->SetVertice(i, glm::rotate(rIsolated, target->GetVertices()[i] - center) + center);
+
 				target->SetLocalRotation(target->GetLocalRotation() * r);
 			}
 		}

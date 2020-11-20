@@ -36,6 +36,8 @@ class SceneObject {
 	glm::fquat rotation = unitQuat();
 	SceneObject* parent = nullptr;
 protected:
+	bool shouldTransformPosition = false;
+	bool shouldTransformRotation = false;
 	GLuint VBOLeft, VBORight, VAO;
 		
 	static bool& isAnyObjectUpdated() {
@@ -71,34 +73,38 @@ protected:
 
 	// Adds or substracts transformations.
 
-	void CascadeTransform(std::vector<glm::vec3>& vertices) const {
-		if (GetLocalRotation() == unitQuat())
-			for (size_t i = 0; i < vertices.size(); i++)
-				vertices[i] += GetLocalPosition();
-		else
+	virtual void CascadeTransform(std::vector<glm::vec3>& vertices) const {
+		if (shouldTransformRotation && shouldTransformPosition)
 			for (size_t i = 0; i < vertices.size(); i++)
 				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]) + GetLocalPosition();
+
+		else if (shouldTransformRotation)
+			for (size_t i = 0; i < vertices.size(); i++)
+				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]);
+		else if (shouldTransformPosition)
+			for (size_t i = 0; i < vertices.size(); i++)
+				vertices[i] += GetLocalPosition();
 
 		if (GetParent())
 			GetParent()->CascadeTransform(vertices);
 	}
-	void CascadeTransform(glm::vec3& v) const {
-		if (GetLocalRotation() == unitQuat())
+	virtual void CascadeTransform(glm::vec3& v) const {
+		if (shouldTransformRotation)
+			v += glm::rotate(GetLocalRotation(), v);
+		if (shouldTransformPosition)
 			v += GetLocalPosition();
-		else
-			v = glm::rotate(GetLocalRotation(), v) + GetLocalPosition();
 
 		if (GetParent())
 			GetParent()->CascadeTransform(v);
 	}
-	void CascadeTransformInverse(glm::vec3& v) const {
+	virtual void CascadeTransformInverse(glm::vec3& v) const {
 		if (GetParent())
 			GetParent()->CascadeTransformInverse(v);
 
-		if (GetLocalRotation() == unitQuat())
+		if (shouldTransformPosition)
 			v -= GetLocalPosition();
-		else
-			v = glm::rotate(glm::inverse(GetLocalRotation()), v - GetLocalPosition());
+		if (shouldTransformRotation)
+			v += glm::rotate(glm::inverse(GetLocalRotation()), v);
 	}
 
 public:
@@ -833,7 +839,6 @@ class Cross : public LeafObject {
 
 	// Cross is being continuously modified so don't notify it's updates.
 	virtual void HandleBeforeUpdate() override {}
-
 public:
 	float size = 0.1;
 	std::function<void()> keyboardBindingHandler;
@@ -842,6 +847,11 @@ public:
 	std::function<void()> GUIPositionEditHandler;
 	size_t GUIPositionEditHandlerId;
 	glm::vec3 GUIPositionEditDifference;
+
+	Cross() {
+		shouldTransformPosition = true;
+		shouldTransformRotation = true;
+	}
 
 	virtual ObjectType GetType() const override {
 		return CrossT;
