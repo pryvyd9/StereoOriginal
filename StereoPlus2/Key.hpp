@@ -2,13 +2,13 @@
 #include <imgui/imgui_impl_glfw.h>
 
 namespace Key {
-	enum KeyType {
+	enum class Type {
 		Mouse,
 		Keyboard,
 	};
 
 	struct KeyPair {
-		KeyType type;
+		Type type;
 		int code;
 
 		bool operator!=(const KeyPair& v) {
@@ -18,13 +18,13 @@ namespace Key {
 
 	struct MouseKey : public KeyPair {
 		MouseKey(int code) {
-			type = Mouse;
+			type = Type::Mouse;
 			this->code = code;
 		}
 	};
 	struct KeyboardKey : public KeyPair {
 		KeyboardKey(int code) {
-			type = Keyboard;
+			type = Type::Keyboard;
 			this->code = code;
 		}
 	};
@@ -49,6 +49,7 @@ namespace Key {
 	// Mouse
 	const KeyPair MouseLeft = MouseKey(GLFW_MOUSE_BUTTON_LEFT);
 	const KeyPair MouseRight = MouseKey(GLFW_MOUSE_BUTTON_RIGHT);
+	const KeyPair MouseMiddle = MouseKey(GLFW_MOUSE_BUTTON_MIDDLE);
 
 	// Arrows
 	const KeyPair Left = KeyboardKey(GLFW_KEY_LEFT);

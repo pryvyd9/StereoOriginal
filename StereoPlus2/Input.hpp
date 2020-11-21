@@ -19,7 +19,7 @@ class Input {
 		}
 	};
 	struct KeyStatus {
-		Key::KeyType keyType;
+		Key::Type keyType;
 		bool isPressed;
 		bool isDown;
 		bool isUp;
@@ -69,7 +69,7 @@ class Input {
 
 	void UpdateStatus(const Key::KeyPair& key, KeyStatus* status) {
 		bool isPressed = 
-			key.type == Key::Mouse 
+			key.type == Key::Type::Mouse
 			? glfwGetMouseButton(glWindow, key.code) == GLFW_PRESS
 			: glfwGetKey(glWindow, key.code) == GLFW_PRESS;
 

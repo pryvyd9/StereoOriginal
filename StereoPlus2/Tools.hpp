@@ -11,7 +11,25 @@
 #include "TemplateExtensions.hpp"
 #include "ToolConfiguration.hpp"
 
-class Tool {};
+class Tool {
+protected:
+	static size_t& isBeingModifiedHandler() {
+		static size_t v;
+		return v;
+	}
+	static bool& isAnyActive() {
+		static bool v;
+		return v;
+	}
+	static size_t& selectionChangedhandlerId() {
+		static size_t v;
+		return v;
+	}
+	static Tool*& activeTool() {
+		static Tool* v = nullptr;
+		return v;
+	}
+};
 
 template<typename T>
 class CreatingTool : Tool, public ISceneHolder {
@@ -67,19 +85,19 @@ public:
 
 template<typename EditMode>
 class EditingTool : Tool {
-	static size_t& isBeingModifiedHandler() {
-		static size_t v;
-		return v;
-	}
-	static bool& isAnyActive() {
-		static bool v;
-		return v;
-	}
-	static size_t& selectionChangedhandlerId() {
-		static size_t v;
-		return v;
-	}
-	//static EditingTool* activeTool() {
+	//static size_t& isBeingModifiedHandler() {
+	//	static size_t v;
+	//	return v;
+	//}
+	//static bool& isAnyActive() {
+	//	static bool v;
+	//	return v;
+	//}
+	//static size_t& selectionChangedhandlerId() {
+	//	static size_t v;
+	//	return v;
+	//}
+	//static EditingTool*& activeTool() {
 	//	static EditingTool* v = nullptr;
 	//	return v;
 	//}
@@ -140,7 +158,7 @@ public:
 		};
 
 		isAnyActive() = true;
-		//activeTool() = this;
+		activeTool() = this;
 
 		OnSelectionChanged(ObjectSelection::Selected());
 	}
@@ -148,7 +166,8 @@ public:
 		if (!isAnyActive())
 			return;
 
-		//activeTool()->OnBeforeDeactivate();
+		if (activeTool())
+			static_cast<EditingTool*>(activeTool())->UnbindSceneObjects();
 
 		ObjectSelection::OnChanged() -= selectionChangedhandlerId();
 		selectionChangedhandlerId() = 0;
@@ -1024,13 +1043,21 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
-		if (Settings::SpaceMode().Get() == SpaceMode::Local && haveSingleParent(targets)) {
-			auto r = glm::rotate(targets.front()->GetWorldRotation(), transformVector);
+		if (Settings::SpaceMode().Get() == SpaceMode::Local){
+			//if (!haveSingleParent(targets)) {
+			if (targets.size() > 1) {
+				Logger.Warning("Cannot move more than 1 object in local space mode.");
+				return;
+			}
 			
-			MoveCross(r);
-			for (auto o : targets)
-				o->SetWorldPosition(o->GetWorldPosition() + r);
+			auto r = glm::rotate(targets.front()->GetWorldRotation(), transformVector);
 
+			MoveCross(r);
+			for (auto o : targets) {
+				o->SetWorldPosition(o->GetWorldPosition() + r);
+				for (size_t i = 0; i < o->GetVertices().size(); i++)
+					o->SetVertice(i, o->GetVertices()[i] + r);
+			}
 			return;
 		}
 
@@ -1092,32 +1119,22 @@ class TransformTool : public EditingTool<TransformToolMode> {
 				}));
 
 			if (pos < 0) {
-				SceneObject* nodeRef = nullptr;
-
-				pos = o->children.size();
 				traceObjectTool.destination = o;
-				traceObjectTool.init = [&, id = id, nr = &nodeRef](SceneObject* o) {
+				traceObjectTool.init = [&, id = id, target = o](SceneObject* o) {
 					std::stringstream ss;
 					ss << "TraceObject" << id;
 					o->Name = ss.str();
-					*nr = o;
-					((TraceObject*)o)->IgnoreParentOnce();
-
-					(new FuncCommand())->func = [o] {
-						o->SetParent(nullptr, false, true, false, false);
+					
+					cloneTool.destination = PON(o);
+					cloneTool.target = target;
+					cloneTool.init = [target](SceneObject* obj) {
+						obj->children.clear();
+						//obj->SetLocalPosition(target.Get()->GetWorldPosition());
+						//obj->SetLocalRotation(target.Get()->GetWorldRotation());
 					};
+					cloneTool.Create();
 				};
-
 				traceObjectTool.Create();
-				cloneTool.destination = PON(nodeRef);
-				cloneTool.target = o;
-				cloneTool.init = [o](SceneObject* obj) {
-					obj->children.clear();
-					obj->SetLocalPosition(o.Get()->GetWorldPosition());
-					obj->SetLocalRotation(o.Get()->GetWorldRotation());
-				};
-				cloneTool.Create();
-				
 
 				id++;
 			}
@@ -1134,8 +1151,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 					obj->SetWorldRotation(o.Get()->GetWorldRotation());
 				};
 				cloneTool.Create();
-				((TraceObject*)to.Get())->IgnoreParentOnce();
-
 			}
 		}
 	}
@@ -1146,16 +1161,16 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	}
 
 
-	bool haveSingleParent(std::list<PON>& targets) {
-		auto firstParent = targets.front()->GetParent();
-		
-		// First object check is redundant.
-		for (auto& o : targets)
-			if (o->GetParent() != firstParent)
-				return false;
-		
-		return true;
-	}
+	//bool haveSingleParent(std::list<PON>& targets) {
+	//	auto firstParent = targets.front()->GetParent();
+	//	
+	//	// First object check is redundant.
+	//	for (auto& o : targets)
+	//		if (o->GetParent() != firstParent)
+	//			return false;
+	//	
+	//	return true;
+	//}
 
 	float getTrimmedAngle(float a) {
 		int b = a;
@@ -1224,7 +1239,10 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		targets.childObjects.clear();
 		targets.orphanedObjects.clear();
 		targets.parentObjects.clear();
-		Scene::CategorizeObjects(StateBuffer::RootObject().Get().Get(), v, targets);
+
+		for (auto o : v)
+			targets.parentObjects.push_back(o);
+		//Scene::CategorizeObjects(StateBuffer::RootObject().Get().Get(), v, targets);
 
 		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
 		if (Settings::SpaceMode().Get() == SpaceMode::World)
@@ -1272,77 +1290,11 @@ public:
 	CreatingTool<TraceObject> traceObjectTool;
 	CloneTool cloneTool;
 
-
-	virtual bool BindSceneObjects(std::vector<PON> objs) {
-		if (!UnbindSceneObjects())
-			return false;
-
-		if (keyBinding.Get() == nullptr) {
-			Logger.Error("KeyBinding wasn't assigned");
-			return false;
-		}
-
-		targets.childObjects.clear();
-		targets.orphanedObjects.clear();
-		targets.parentObjects.clear();
-		Scene::CategorizeObjects(StateBuffer::RootObject().Get().Get(), objs, targets);
-
-		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
-		if (Settings::SpaceMode().Get() == SpaceMode::World)
-			cross->SetWorldRotation(cross->unitQuat());
-		else if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
-			cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
-
-		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
-		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
-		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] { 
-			cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
-			});
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
-			//Logger.Information("commit");
-			});
-		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
-			oldAngle = angle = glm::vec3();
-
-			if (v == SpaceMode::Local) {
-				if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
-					cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
-				//cross->SetLocalRotation(cross->unitQuat());
-			}
-			else
-				cross->SetWorldRotation(cross->unitQuat());
-			};
-
+	virtual bool UnbindSceneObjects() override {
+		UnbindTool();
 		return true;
 	}
-	virtual bool UnbindSceneObjects() {
-		if (targets.parentObjects.empty())
-			return true;
 
-		scale = 1;
-		oldScale = 1;
-		angle = glm::vec3();
-		oldAngle = glm::vec3();
-		transformPos = glm::vec3();
-
-		keyBinding->RemoveHandler(inputHandlerId);
-		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
-		Settings::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
-		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
-		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
-		DeleteConfig();
-
-		cross->SetLocalRotation(cross->unitQuat());
-		cross->SetLocalPosition(glm::vec3());
-
-		return true;
-	}
 
 	void UnbindTool() {
 		if (targets.parentObjects.empty())
@@ -1355,7 +1307,10 @@ public:
 		transformPos = glm::vec3();
 
 		keyBinding->RemoveHandler(inputHandlerId);
+		// Remove if exists and add a new one.
+		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
 		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
+
 		Settings::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
 		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
@@ -1377,8 +1332,3 @@ public:
 		return mode;
 	}
 };
-
-//class TraceTool : public EditingTool<void> {
-//	const Log Logger = Log::For<TraceTool>();
-//
-//};

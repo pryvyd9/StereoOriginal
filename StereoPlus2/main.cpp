@@ -109,8 +109,13 @@ int main(int, char**) {
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
 		if (i->IsDown(Key::N5)) {
-			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight))
-				cross.SetLocalPosition(glm::vec3());
+			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+				glm::vec3 v(0);
+				for (auto& o : ObjectSelection::Selected())
+					v += o.Get()->GetWorldPosition();
+				v /= ObjectSelection::Selected().size();
+				cross.SetWorldPosition(v);
+			}
 			else
 				cross.SetWorldPosition(glm::vec3());
 		}

@@ -45,6 +45,7 @@ public:
 		switch (so.GetType())
 		{
 		case Group:
+		case TraceObjectT:
 			break;
 		case StereoPolyLineT:
 		{
@@ -183,6 +184,15 @@ public:
 			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			readArray(std::function([&o](GLuint a, GLuint b) { o->Connect(a, b); }));
+			readChildren(o);
+			return o;
+		}
+		case TraceObjectT:
+		{
+			auto o = start<TraceObject>();
+			read(&o->Name);
+			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
 			readChildren(o);
 			return o;
 		}
@@ -340,6 +350,15 @@ public:
 			getChildren(j, "children", o);
 			return o;
 		}
+		case TraceObjectT:
+		{
+			auto o = start<TraceObject>();
+			get(j, "name", o->Name);
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			getChildren(j, "children", o);
+			return o;
+		}
 		case StereoPolyLineT:
 		{
 			auto o = start<StereoPolyLine>();
@@ -430,6 +449,7 @@ public:
 
 		switch (so.GetType()) {
 		case Group:
+		case TraceObjectT:
 			break;
 		case StereoPolyLineT:
 		{

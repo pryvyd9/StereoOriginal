@@ -274,7 +274,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
 		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftLeft);
 
-		std::function<void(SceneObject*)> func = isSelected
+		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
 			? ObjectSelection::Remove
 			: ObjectSelection::Add;
 		bool isRecursive = isShiftPressed;
