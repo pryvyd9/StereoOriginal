@@ -2,8 +2,6 @@
 
 A 3d modelling and visualisation solution with stereo output (anaglyph) and multi pov view (camera user position tracking).
 
-![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/mainWindow.PNG?raw=true)
-
 ## Implemented instruments
 - Polyline drawing
 - Polyline extruding
@@ -18,3 +16,8 @@ A 3d modelling and visualisation solution with stereo output (anaglyph) and mult
 - Selecting objects
 - Transforming/moving selected objects
 - Change buffer. Ctrl+Z, Ctrl+Y
+- Transformation tracing
+
+![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/mainWindow.png?raw=true)
+![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/moveSelectedClones.png?raw=true)
+![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/flower.png?raw=true)

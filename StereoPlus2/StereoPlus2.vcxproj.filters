@@ -143,6 +143,9 @@
     <ClInclude Include="SettingsLoader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Key.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">
@@ -163,5 +166,6 @@
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
     <None Include="settings.json" />
+    <None Include="ImGuiExtensions.hpp" />
   </ItemGroup>
 </Project>

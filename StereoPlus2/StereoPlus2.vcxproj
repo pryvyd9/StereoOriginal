@@ -169,6 +169,7 @@
     <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Json.hpp" />
+    <ClInclude Include="Key.hpp" />
     <ClInclude Include="Localization.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="SettingsLoader.hpp" />
@@ -179,6 +180,7 @@
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ImGuiExtensions.hpp" />
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
     <None Include="settings.json" />

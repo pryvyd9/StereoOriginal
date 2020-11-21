@@ -8,7 +8,6 @@
 #include "ToolPool.hpp"
 #include <set>
 #include <sstream>
-#include <imgui/imgui_internal.h>
 #include <string>
 #include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
@@ -16,34 +15,7 @@
 #include "TemplateExtensions.hpp"
 #include "InfrastructureTypes.hpp"
 #include "Localization.hpp"
-
-namespace ImGui::Extensions {
-	#include <stack>
-	static std::stack<bool>& GetIsActive() {
-		static std::stack<bool> val;
-		return val;
-	}
-	static bool PushActive(bool isActive) {
-		ImGui::Extensions::GetIsActive().push(isActive);
-		if (!isActive)
-		{
-			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-		}
-
-		return true;
-	}
-	static void PopActive() {
-		auto isActive = ImGui::Extensions::GetIsActive().top();
-		ImGui::Extensions::GetIsActive().pop();
-
-		if (!isActive)
-		{
-			ImGui::PopItemFlag();
-			ImGui::PopStyleVar();
-		}
-	}
-}
+#include "ImGuiExtensions.hpp"
 
 namespace fs = std::filesystem;
 
@@ -63,12 +35,14 @@ namespace fs = std::filesystem;
 //	}
 //};
 
-class CustomRenderWindow : Window
-{
+class CustomRenderWindow : Window {
 	GLuint fbo;
 	GLuint texture;
 	GLuint depthBuffer;
 	GLuint depthBufferTexture;
+
+	Event<> onResize;
+
 
 	GLuint createFrameBuffer() {
 		GLuint fbo;
@@ -83,7 +57,6 @@ class CustomRenderWindow : Window
 
 		return fbo;
 	}
-
 	GLuint createTextureAttachment(int width, int height) {
 		GLuint texture;
 		glGenTextures(1, &texture);
@@ -95,7 +68,6 @@ class CustomRenderWindow : Window
 
 		return texture;
 	}
-
 	GLuint createDepthBufferAttachment(int width, int height) {
 		GLuint depthBuffer;
 		glGenRenderbuffers(1, &depthBuffer);
@@ -117,12 +89,10 @@ class CustomRenderWindow : Window
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glViewport(0, 0, width, height);
 	}
-
 	void unbindCurrentFrameBuffer(int width, int height) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, width, height);
 	}
-
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
 		// resize color attachment
 		glBindTexture(GL_TEXTURE_2D, texture);
@@ -142,6 +112,10 @@ public:
 	std::function<bool()> customRenderFunc;
 	glm::vec2 renderSize = glm::vec3(1);
 
+	IEvent<>& OnResize() {
+		return onResize;
+	}
+
 	virtual bool Init() {
 		Window::name = "renderWindow";
 		fbo = createFrameBuffer();
@@ -156,12 +130,11 @@ public:
 		// handle custom render window resize
 		glm::vec2 vMin = ImGui::GetWindowContentRegionMin();
 		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
-
 		glm::vec2 newSize = vMax - vMin;
-
-		if (renderSize != newSize)
-		{
+		
+		if (renderSize != newSize) {
 			ResizeCustomRenderCanvas(newSize);
+			onResize.Invoke();
 		}
 	}
 
@@ -299,17 +272,22 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		auto isCtrlPressed = ignoreCtrl
 			? false
 			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
+		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftLeft);
 
-		if (isCtrlPressed) {
-			if (isSelected)
-				t->CallRecursive([](SceneObject* o) { ObjectSelection::Remove(o); });
-			else
-				t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
-		}
-		else {
+		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
+			? ObjectSelection::Remove
+			: ObjectSelection::Add;
+		bool isRecursive = isShiftPressed;
+		bool mustRemoveAllBeforeSelect = !isCtrlPressed;
+
+
+		if (mustRemoveAllBeforeSelect)
 			ObjectSelection::RemoveAll();
-			t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
-		}
+
+		if (isRecursive)
+			t->CallRecursive([func](SceneObject* o) { func(o); });
+		else
+			func(t);
 	}
 
 	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
@@ -372,32 +350,19 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	}
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
-		int _flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed | flags;
 		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
-
 		if (isSelected) {
 			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
 			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
 			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
 		}
 
-		bool open = ImGui::TreeNodeEx(t->Name.c_str(), _flags);
+		flags |= ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_Framed;
 
-		if (isSelected) ImGui::PopStyleColor(3);
+		if (t->children.empty())
+			flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 
-		return open;
-	}
-	bool Selectable(SceneObject* t, bool& isSelected) {
-		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
-		//isSelected = exists(SceneObjectSelection::Selected(), t);
-
-		if (isSelected) {
-			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
-			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, selectedHoveredColor);
-			ImGui::PushStyleColor(ImGuiCol_HeaderActive, selectedActiveColor);
-		}
-
-		bool open = ImGui::Selectable(t->Name.c_str(), isSelected);
+		bool open = ImGui::TreeNodeEx(t->Name.c_str(), flags);
 
 		if (isSelected) ImGui::PopStyleColor(3);
 
@@ -441,24 +406,10 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return true;
 	}
 	bool DesignTreeNode(SceneObject* t, std::vector<SceneObject*>& source, int pos) {
-		switch (t->GetType()) {
-		case Group:
-			return DesignTreeNode((GroupObject*)t, source, pos);
-		case StereoPolyLineT:
-		case MeshT:
-			return DesignTreeLeaf((LeafObject*)t, source, pos);
-		case CrossT:
-			return true;
-		default:
-			log.Error("Invalid SceneObject type passed: ", t->GetType());
-			return false;
-		}
-	}
-	bool DesignTreeNode(GroupObject* t, std::vector<SceneObject*>& source, int pos) {
 		ImGui::PushID(GetID()++);
 
 		ImGui::Indent(indent);
-		
+
 		bool isSelected;
 		bool open = TreeNode(t, isSelected);
 
@@ -486,26 +437,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		return true;
 	}
-	bool DesignTreeLeaf(LeafObject*  t, std::vector<SceneObject*>& source, int pos) {
-		ImGui::PushID(GetID()++);
 
-		ImGui::Indent(indent);
-
-		bool isSelected;
-		Selectable(t, isSelected);
-
-		ImGuiDragDropFlags src_flags = 0;
-		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
-		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
-		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
-
-		!TryDragDropTarget(t, pos, Top | Bottom) && !TryDragDropSource(t, isSelected, src_flags) && TrySelect(t, isSelected);
-
-		ImGui::Unindent(indent);
-		ImGui::PopID();
-
-		return true;
-	}
 
 	InsertPosition GetPosition(int positionMask) {
 		glm::vec2 nodeScreenPos = ImGui::GetCursorScreenPos();
@@ -906,27 +838,26 @@ class TransformToolWindow : Window, Attributes {
 	}
 
 	bool DesignInternal() {
-		ImGui::Text(GetName(GetTarget()).c_str());
+		//ImGui::Text(GetName(GetTarget()).c_str());
+		//if (ImGui::BeginDragDropTarget()) {
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	std::vector<PON> objects;
+		//	if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+		//	{
+		//		if (!tool->BindSceneObjects(objects))
+		//			return false;
+		//	}
+		//	ImGui::EndDragDropTarget();
+		//}
 
-		if (ImGui::BeginDragDropTarget()) {
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<PON> objects;
-			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
-			{
-				if (!tool->BindSceneObjects(objects))
-					return false;
-			}
-			ImGui::EndDragDropTarget();
-		}
+		//if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
+		//	if (ImGui::Button("Release"))
+		//		tool->UnbindSceneObjects();
 
-		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
-			if (ImGui::Button("Release"))
-				tool->UnbindSceneObjects();
-
-			ImGui::Extensions::PopActive();
-		}
+		//	ImGui::Extensions::PopActive();
+		//}
 
 		auto transformToolModeCopy = tool->GetMode();
 		{
@@ -937,6 +868,7 @@ class TransformToolWindow : Window, Attributes {
 			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate))
 				tool->SetMode(TransformToolMode::Rotate);
 		}
+		ImGui::Checkbox("Trace", &tool->shouldTrace);
 
 		switch (transformToolModeCopy) {
 		case TransformToolMode::Translate:
@@ -967,7 +899,6 @@ class TransformToolWindow : Window, Attributes {
 	}
 
 public:
-	//SceneObject* target = nullptr;
 	TransformTool* tool = nullptr;
 
 	virtual SceneObject* GetTarget() {
@@ -982,10 +913,10 @@ public:
 			std::cout << "Tool wasn't assigned" << std::endl;
 			return false;
 		}
-		
+
 		Window::name = Attributes::name = "transformation";
 		Attributes::isInitialized = true;
-		
+
 		return true;
 	}
 	virtual bool Window::Design() {
@@ -1015,11 +946,7 @@ public:
 		UnbindTargets();
 		return true;
 	}
-	virtual void UnbindTargets() {
-		//target = nullptr;
-	}
-	
-
+	virtual void UnbindTargets() {}
 };
 
 
@@ -1028,7 +955,7 @@ class AttributesWindow : public Window {
 	Attributes* targetAttributes = nullptr;
 	
 public:
-	std::function<void()> onUnbindTool;
+	std::function<void()> onUnbindTool = [] {};
 
 	virtual bool Init() {
 		Window::name = "attributesWindow";
@@ -1069,14 +996,10 @@ public:
 		return true;
 	}
 	bool UnbindTool() {
-		try
-		{
-			onUnbindTool();
-		}
-		catch (const std::exception&)
-		{
+		if (!toolAttributes)
+			return true;
 
-		}
+		onUnbindTool();
 		toolAttributes = nullptr;
 		return true;
 	}
@@ -1105,6 +1028,18 @@ class ToolWindow : Window {
 	CreatingTool<GroupObject> groupObjectTool;
 
 
+
+	template<typename T>
+	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
+		creatingTool.scene.BindAndApply(scene);
+		creatingTool.destination.BindAndApply(scene.Get()->root);
+		creatingTool.init = initFunc;
+	}
+
+public:
+	AttributesWindow* attributesWindow;
+	ReadonlyProperty<Scene*> scene;
+
 	template<typename T>
 	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
 
@@ -1115,6 +1050,7 @@ class ToolWindow : Window {
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
+		tool->tool->Activate();
 
 		auto targetWindow = new SceneObjectPropertiesWindow();
 		attributesWindow->UnbindTarget();
@@ -1134,17 +1070,11 @@ class ToolWindow : Window {
 		};
 	}
 
-
-	template<typename T>
-	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
-		creatingTool.scene.BindAndApply(scene);
-		creatingTool.destination.BindAndApply(scene.Get()->root);
-		creatingTool.func = initFunc;
+	void Unbind() {
+		attributesWindow->UnbindTarget();
+		attributesWindow->UnbindTool();
 	}
 
-public:
-	AttributesWindow* attributesWindow;
-	ReadonlyProperty<Scene*> scene;
 
 	virtual bool Init() {
 		if (attributesWindow == nullptr)

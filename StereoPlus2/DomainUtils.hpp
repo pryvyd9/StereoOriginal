@@ -1,6 +1,7 @@
 #pragma once
 #include "DomainTypes.hpp"
 #include <stack>
+#include <algorithm>
 
 enum SelectPosition {
 	Anchor = 0x01,
@@ -360,8 +361,12 @@ public:
 		return false;
 	}
 	void DeleteSelected() {
-		for (auto o : ObjectSelection::Selected())
-			Delete(const_cast<SceneObject*>(o->GetParent()), o.Get());
+		for (auto o : ObjectSelection::Selected()) {
+			o->Reset();
+			(new FuncCommand())->func = [this, o] {
+				Delete(const_cast<SceneObject*>(o.Get()->GetParent()), o.Get());
+			};
+		}
 	}
 	void DeleteAll() {
 		deleteAll.Invoke();
@@ -413,6 +418,13 @@ public:
 			categorizedObjects.orphanedObjects.push_back({ o, np });
 	}
 	static void CategorizeObjects(SceneObject* root, std::vector<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
+	static void CategorizeObjects(SceneObject* root, const std::set<PON>& items, CategorizedPON& categorizedObjects) {
 		std::set<SceneObject*> is;
 		for (auto o : items)
 			is.emplace(o.Get());

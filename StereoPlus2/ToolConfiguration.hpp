@@ -1,6 +1,7 @@
 #pragma once
 
 #include "InfrastructureTypes.hpp"
+#include "Key.hpp"
 
 enum class PointPenEditingToolMode {
 	Immediate,
@@ -28,6 +29,7 @@ enum class TransformToolMode {
 	Rotate,
 };
 
+
 enum class MoveCoordinateAction {
 	Adapt,
 	None,
@@ -44,4 +46,8 @@ public:
 	StaticProperty(float, CrossSpeed)
 	StaticProperty(std::string, Language)
 	StaticProperty(int, StateBufferLength)
+
+	StaticProperty(Key::Combination, TransformToolShortcut)
+	StaticProperty(Key::Combination, PenToolShortcut)
+	StaticProperty(Key::Combination, ExtrusionToolShortcut)
 };

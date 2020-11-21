@@ -27,6 +27,27 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
+void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb) {
+	Settings::TransformToolShortcut() = Key::Combination({ Key::T });
+	Settings::PenToolShortcut() = Key::Combination({ Key::P });
+	Settings::ExtrusionToolShortcut() = Key::Combination({ Key::E });
+
+	kb.AddHandler([&] (Input* i) {
+		if (ImGui::IsAnyItemFocused())
+			return;
+
+		if (i->IsDown(Key::Escape))
+			tw.Unbind();
+
+		if (i->IsDown(Settings::TransformToolShortcut().Get()))
+			tw.ApplyTool<TransformToolWindow, TransformTool>();
+		if (i->IsDown(Settings::PenToolShortcut().Get()))
+			tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
+		if (i->IsDown(Settings::ExtrusionToolShortcut().Get()))
+			tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
+		});
+}
+
 int main(int, char**) {
 	// Declare main components.
 	PositionDetector positionDetector;
@@ -86,12 +107,15 @@ int main(int, char**) {
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
-	
-	// Return cursor
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
 		if (i->IsDown(Key::N5)) {
-			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight))
-				cross.SetLocalPosition(glm::vec3());
+			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+				glm::vec3 v(0);
+				for (auto& o : ObjectSelection::Selected())
+					v += o.Get()->GetWorldPosition();
+				v /= ObjectSelection::Selected().size();
+				cross.SetWorldPosition(v);
+			}
 			else
 				cross.SetWorldPosition(glm::vec3());
 		}
@@ -108,6 +132,12 @@ int main(int, char**) {
 	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
 	StateBuffer::RootObject().BindTwoWay(scene.root);
 	StateBuffer::Objects() = &scene.objects;
+	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
+		if (i->IsDown(Key::Delete)) {
+			StateBuffer::Commit();
+			s->DeleteSelected();
+			}
+		});
 	if (!StateBuffer::Init())
 		return false;
 
@@ -132,14 +162,14 @@ int main(int, char**) {
 		 
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
+	auto updateCacheForAllObjects = [&scene] {
+		for (auto& o : scene.objects)
+			o->ForceUpdateCache();
+	};
+	customRenderWindow.OnResize() += updateCacheForAllObjects;
+	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 
-	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
-		if (i->IsDown(Key::Delete)) {
-			StateBuffer::Commit();
-			s->DeleteSelected();
-			}
-		});
-
+	ConfigureShortcuts(toolWindow, gui.keyBinding);
 
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |
