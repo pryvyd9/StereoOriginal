@@ -10,6 +10,12 @@
 #include <chrono>
 #include "PositionDetection.hpp"
 #include "SettingsLoader.hpp"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "include/stb/stb_image_write.h"
+
+
+
 using namespace std;
 
 bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
@@ -27,15 +33,18 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
-void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb) {
+void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw) {
 	Settings::TransformToolShortcut() = Key::Combination({ Key::T });
 	Settings::PenToolShortcut() = Key::Combination({ Key::P });
 	Settings::ExtrusionToolShortcut() = Key::Combination({ Key::E });
+	Settings::RenderViewportToFile() = Key::Combination({ Key::F5 });
+	Settings::RenderAdvancedToFile() = Key::Combination({ Key::F6 });
 
 	kb.AddHandler([&] (Input* i) {
 		if (ImGui::IsAnyItemFocused())
 			return;
 
+		// Tools
 		if (i->IsDown(Key::Escape))
 			tw.Unbind();
 
@@ -45,6 +54,12 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb) {
 			tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
 		if (i->IsDown(Settings::ExtrusionToolShortcut().Get()))
 			tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
+
+		// Rendering
+		if (i->IsDown(Settings::RenderViewportToFile().Get()))
+			crw.shouldSaveViewportImage = true;
+		if (i->IsDown(Settings::RenderAdvancedToFile().Get()))
+			crw.shouldSaveAdvancedImage = true;
 		});
 }
 
@@ -99,6 +114,8 @@ int main(int, char**) {
 	gui.scene = &scene;
 	gui.keyBinding.cross = &cross;
 	gui.settingsWindow = &settingsWindow;
+	gui.renderViewport = [&customRenderWindow] { customRenderWindow.shouldSaveViewportImage = true; };
+	gui.renderAdvanced = [&customRenderWindow] { customRenderWindow.shouldSaveAdvancedImage = true; };
 	if (!gui.Init())
 		return false;
 
@@ -169,7 +186,7 @@ int main(int, char**) {
 	customRenderWindow.OnResize() += updateCacheForAllObjects;
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 
-	ConfigureShortcuts(toolWindow, gui.keyBinding);
+	ConfigureShortcuts(toolWindow, gui.keyBinding, customRenderWindow);
 
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |

@@ -109,4 +109,19 @@ namespace Key {
 	const KeyPair X = KeyboardKey(GLFW_KEY_X);
 	const KeyPair Y = KeyboardKey(GLFW_KEY_Y);
 	const KeyPair Z = KeyboardKey(GLFW_KEY_Z);
+
+	// Functional
+	const KeyPair F1 = KeyboardKey(GLFW_KEY_F1);
+	const KeyPair F2 = KeyboardKey(GLFW_KEY_F2);
+	const KeyPair F3 = KeyboardKey(GLFW_KEY_F3);
+	const KeyPair F4 = KeyboardKey(GLFW_KEY_F4);
+	const KeyPair F5 = KeyboardKey(GLFW_KEY_F5);
+	const KeyPair F6 = KeyboardKey(GLFW_KEY_F6);
+	const KeyPair F7 = KeyboardKey(GLFW_KEY_F7);
+	const KeyPair F8 = KeyboardKey(GLFW_KEY_F8);
+	const KeyPair F9 = KeyboardKey(GLFW_KEY_F9);
+	const KeyPair F10 = KeyboardKey(GLFW_KEY_F10);
+	const KeyPair F11 = KeyboardKey(GLFW_KEY_F11);
+	const KeyPair F12 = KeyboardKey(GLFW_KEY_F12);
+
 }

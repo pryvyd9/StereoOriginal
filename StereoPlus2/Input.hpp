@@ -112,9 +112,13 @@ public:
 		return TryGetStatusEnsuringItExists(key)->isDown;
 	}
 	bool IsDown(const Key::Combination& keys) {
-		for (auto k : keys.keys)
-			if (!TryGetStatusEnsuringItExists(k)->isDown)
+		int i = 0;
+		for (; i < keys.keys.size() - 1; i++)
+			if (!TryGetStatusEnsuringItExists(keys.keys[i])->isPressed)
 				return false;
+		
+		if (!TryGetStatusEnsuringItExists(keys.keys[i])->isDown)
+			return false;
 
 		return true;
 	}

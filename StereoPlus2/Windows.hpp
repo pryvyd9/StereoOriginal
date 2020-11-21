@@ -16,6 +16,7 @@
 #include "InfrastructureTypes.hpp"
 #include "Localization.hpp"
 #include "ImGuiExtensions.hpp"
+#include "include/stb/stb_image_write.h"
 
 namespace fs = std::filesystem;
 
@@ -91,7 +92,7 @@ class CustomRenderWindow : Window {
 	}
 	void unbindCurrentFrameBuffer(int width, int height) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, width, height);
+		//glViewport(0, 0, width, height);
 	}
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
 		// resize color attachment
@@ -108,9 +109,25 @@ class CustomRenderWindow : Window {
 		renderSize = newSize;
 	}
 
+	void saveImage(const char* filepath, int width, int height) {
+		GLsizei nrChannels = 3;
+		GLsizei stride = nrChannels * width;
+		stride += (stride % 4) ? (4 - stride % 4) : 0;
+		GLsizei bufferSize = stride * height;
+		std::vector<char> buffer(bufferSize);
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+		glReadBuffer(GL_FRONT);
+		glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		stbi_write_png(filepath, width, height, nrChannels, buffer.data(), stride);
+	}
 public:
 	std::function<bool()> customRenderFunc;
 	glm::vec2 renderSize = glm::vec3(1);
+
+	Property<bool> shouldSaveViewportImage;
+	Property<bool> shouldSaveAdvancedImage;
 
 	IEvent<>& OnResize() {
 		return onResize;
@@ -143,16 +160,43 @@ public:
 		ImGui::Begin(name.c_str());
 
 
+
+		if (shouldSaveAdvancedImage.Get()) {
+			shouldSaveAdvancedImage = false;
+
+			auto copyRenderSize = renderSize;
+			auto nrs = glm::vec2(4000, 4000);
+			
+			ResizeCustomRenderCanvas(nrs);
+			onResize.Invoke();
+
+			bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+
+			customRenderFunc();
+
+			std::stringstream ss;
+			ss << "image_" << Time::GetTime() << "a.png";
+			saveImage(ss.str().c_str(), renderSize.x, renderSize.y);
+
+			ResizeCustomRenderCanvas(copyRenderSize);
+			onResize.Invoke();
+		}
 		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
 
 		if (!customRenderFunc())
 			return false;
 
+		if (shouldSaveViewportImage.Get()) {
+			shouldSaveViewportImage = false;
+
+			std::stringstream ss;
+			ss << "image_" << Time::GetTime() << ".png";
+			saveImage(ss.str().c_str(), renderSize.x, renderSize.y);
+		}
 		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
 		
-		//glBindRenderbuffer(GL_RENDERBUFFER, 0);
 		ImGui::Image((void*)(intptr_t)texture, renderSize);
-		
+
 		HandleResize();
 
 		ImGui::End();

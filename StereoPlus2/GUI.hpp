@@ -79,6 +79,15 @@ class GUI {
 			ImGui::EndMenu();
 		}
 
+		if (ImGui::BeginMenu(LocaleProvider::GetC("render"))) {
+			if (ImGui::MenuItem(LocaleProvider::GetC("renderViewport"), "F5", false))
+				renderViewport();
+			if (ImGui::MenuItem(LocaleProvider::GetC("renderAdvanced"), "F6", false))
+				renderAdvanced();
+
+			ImGui::EndMenu();
+		}
+
 		if (shouldShowFPS) {
 			ImGui::LabelText("", "FPS: %-12f DeltaTime: %-12f", Time::GetFrameRate(), Time::GetDeltaTime());
 		}
@@ -153,6 +162,8 @@ public:
 
 	std::vector<Window*> windows;
 	std::function<bool()> customRenderFunc;
+	std::function<void()> renderViewport;
+	std::function<void()> renderAdvanced;
 
 	bool Init()
 	{

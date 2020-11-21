@@ -50,4 +50,6 @@ public:
 	StaticProperty(Key::Combination, TransformToolShortcut)
 	StaticProperty(Key::Combination, PenToolShortcut)
 	StaticProperty(Key::Combination, ExtrusionToolShortcut)
+	StaticProperty(Key::Combination, RenderViewportToFile)
+	StaticProperty(Key::Combination, RenderAdvancedToFile)
 };
