@@ -18,6 +18,6 @@ A 3d modelling and visualisation solution with stereo output (anaglyph) and mult
 - Change buffer. Ctrl+Z, Ctrl+Y
 - Transformation tracing
 
-![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/mainWindow.png?raw=true)
+![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/mainWindow.PNG?raw=true)
 ![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/moveSelectedClones.png?raw=true)
 ![alt text](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/flower.png?raw=true)
