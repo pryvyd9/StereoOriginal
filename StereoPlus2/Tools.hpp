@@ -158,7 +158,7 @@ public:
 		};
 
 		isAnyActive() = true;
-		activeTool() = this;
+		//activeTool() = this;
 
 		OnSelectionChanged(ObjectSelection::Selected());
 	}
@@ -166,8 +166,8 @@ public:
 		if (!isAnyActive())
 			return;
 
-		if (activeTool())
-			static_cast<EditingTool*>(activeTool())->UnbindSceneObjects();
+		//if (activeTool())
+		//	static_cast<EditingTool*>(activeTool())->UnbindSceneObjects();
 
 		ObjectSelection::OnChanged() -= selectionChangedhandlerId();
 		selectionChangedhandlerId() = 0;
