@@ -272,17 +272,22 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		auto isCtrlPressed = ignoreCtrl
 			? false
 			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
+		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftLeft);
 
-		if (isCtrlPressed) {
-			if (isSelected)
-				t->CallRecursive([](SceneObject* o) { ObjectSelection::Remove(o); });
-			else
-				t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
-		}
-		else {
+		std::function<void(SceneObject*)> func = isSelected
+			? ObjectSelection::Remove
+			: ObjectSelection::Add;
+		bool isRecursive = isShiftPressed;
+		bool mustRemoveAllBeforeSelect = !isCtrlPressed;
+
+
+		if (mustRemoveAllBeforeSelect)
 			ObjectSelection::RemoveAll();
-			t->CallRecursive([](SceneObject* o) { ObjectSelection::Add(o); });
-		}
+
+		if (isRecursive)
+			t->CallRecursive([func](SceneObject* o) { func(o); });
+		else
+			func(t);
 	}
 
 	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
