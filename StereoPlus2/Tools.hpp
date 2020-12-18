@@ -371,19 +371,8 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 		target = t;
 
-		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			cross->SetParent(target.Get(), false, true, true, false);
-			if (target->GetVertices().size() > 0)
-				cross->SetLocalPosition(target->GetVertices().back());
-			else
-				cross->SetLocalPosition(glm::vec3());
-		}
-		else {
-			if (target->GetVertices().size() > 0)
-				cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
-			else
-				cross->SetWorldPosition(target->GetWorldPosition());
-		}
 
 		inutHandlerId = keyBinding->AddHandler([&](Input* input) { ProcessInput(input); });
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {

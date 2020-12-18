@@ -18,10 +18,10 @@ class Renderer {
 	const int stencilBufferMaskDim1 = 0x4;
 	const int stencilBufferMaskDim2 = 0x8;
 
-	glm::vec4 defaultColorLeft = glm::vec4(0, 1, 1, 1);
-	glm::vec4 defaultColorRight = glm::vec4(1, 0, 0, 1);
-	glm::vec4 dimmedColorLeft = glm::vec4(0, 1, 1, 0.5);
-	glm::vec4 dimmedColorRight = glm::vec4(1, 0, 0, 0.5);
+	glm::vec4 defaultColorLeft = glm::vec4(1, 0, 0, 1);
+	glm::vec4 defaultColorRight = glm::vec4(0, 1, 1, 1);
+	glm::vec4 dimmedColorLeft = glm::vec4(1, 0, 0, 0.5);
+	glm::vec4 dimmedColorRight = glm::vec4(0, 1, 1, 0.5);
 
 	glm::vec4 whiteColorBright = glm::vec4(1, 1, 1, 1);
 	glm::vec4 whiteColorDim = glm::vec4(1, 1, 1, 0.5);
