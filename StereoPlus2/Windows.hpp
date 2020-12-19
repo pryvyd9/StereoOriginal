@@ -1392,20 +1392,32 @@ public:
 			return true;
 		}
 
-		if (auto v = Settings::CrossSpeed().Get();
-			ImGui::InputFloat(LocaleProvider::GetC("crossSpeed"), &v, 0.01, 0.1, 4))
-			Settings::CrossSpeed().Set(v);
 		if (auto v = Settings::StateBufferLength().Get();
 			ImGui::InputInt(LocaleProvider::GetC("stateBufferLength"), &v, 0.01, 0.1, 4))
-			Settings::StateBufferLength().Set(v);
+			Settings::StateBufferLength() = v;
 		if (auto v = Settings::Language().Get();
 			ImGui::TreeNode((LocaleProvider::Get("language") + ": " + LocaleProvider::Get(v)).c_str())) {
 
 			if (auto i = v == Locale::EN; ImGui::Selectable(LocaleProvider::GetC(Locale::EN), &i))
-				Settings::Language().Set(Locale::EN);
+				Settings::Language() = Locale::EN;
 			if (auto i = v == Locale::UA; ImGui::Selectable(LocaleProvider::GetC(Locale::UA), &i))
-				Settings::Language().Set(Locale::UA);
+				Settings::Language() = Locale::UA;
 
+			ImGui::TreePop();
+		}
+
+		if (auto v = Settings::Language().Get();
+			ImGui::TreeNode(LocaleProvider::GetC("step"))) {
+
+			if (auto v = Settings::TransitionStep().Get();
+				ImGui::InputFloat(LocaleProvider::GetC("transitionStep"), &v, 0.01, 0.1))
+				Settings::TransitionStep() = v;
+			if (auto v = Settings::RotationStep().Get();
+				ImGui::InputFloat(LocaleProvider::GetC("rotationStep"), &v, 0.01, 0.1))
+				Settings::RotationStep() = v;
+			if (auto v = Settings::ScaleStep().Get();
+				ImGui::InputFloat(LocaleProvider::GetC("scaleStep"), &v, 0.01, 0.1))
+				Settings::ScaleStep() = v;
 			ImGui::TreePop();
 		}
 

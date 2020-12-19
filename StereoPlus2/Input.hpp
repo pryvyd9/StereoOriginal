@@ -287,7 +287,7 @@ public:
 					// regardless of whether we move the cross or not.
 					i->SetMouseBoundlessMode(true);
 
-					auto m = i->MouseMoveDirection() * Settings().CrossSpeed().Get();
+					auto m = i->MouseMoveDirection() * Settings().TransitionStep().Get();
 					i->movement[lockedAxeIndex] += m.x;
 
 					return;
@@ -305,7 +305,7 @@ public:
 				// regardless of whether we move the cross or not.
 				i->SetMouseBoundlessMode(true);
 
-				auto m = i->MouseMoveDirection() * Settings().CrossSpeed().Get();
+				auto m = i->MouseMoveDirection() * Settings().TransitionStep().Get();
 
 				i->movement[lockedPlane[0]] += m.x;
 				i->movement[lockedPlane[1]] -= m.y;
@@ -320,7 +320,7 @@ public:
 			i->SetMouseBoundlessMode(isAltPressed);
 
 			if (isAltPressed) {
-				auto speed = Settings().CrossSpeed().Get();
+				auto speed = Settings().TransitionStep().Get();
 
 				if (auto isHighPrecisionMode = i->IsPressed(Key::ControlLeft); 
 					isHighPrecisionMode)
@@ -352,7 +352,7 @@ public:
 
 			bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
-			m *= Settings().CrossSpeed().Get() * (isHighPrecisionMode ? 0.1f : 1);
+			m *= Settings().TransitionStep().Get() * (isHighPrecisionMode ? 0.1f : 1);
 
 			i->movement.x += m.x;
 			i->movement.y -= m.y;
@@ -374,7 +374,7 @@ public:
 
 			bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
 
-			i->movement += movement * Settings().CrossSpeed().Get() * (isHighPrecisionMode ? 0.1f : 1);
+			i->movement += movement * Settings().TransitionStep().Get() * (isHighPrecisionMode ? 0.1f : 1);
 			});
 	}
 	void Cross() {

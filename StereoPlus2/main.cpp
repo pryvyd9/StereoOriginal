@@ -64,6 +64,7 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 }
 
 int main(int, char**) {
+
 	// Declare main components.
 	PositionDetector positionDetector;
 

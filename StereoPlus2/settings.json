@@ -1,1 +1,1 @@
-{"crossSpeed":0.01,"language":"ua","stateBufferLength":100}
+{"scaleStep":0.01,"language":"ua","stateBufferLength":100,"transitionStep":0.01,"rotationStep":0.01}

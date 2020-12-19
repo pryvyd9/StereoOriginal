@@ -43,9 +43,11 @@ public:
 	StaticProperty(bool, ShouldDetectPosition)
 
 	// Settings
-	StaticProperty(float, CrossSpeed)
 	StaticProperty(std::string, Language)
 	StaticProperty(int, StateBufferLength)
+	StaticProperty(float, TransitionStep)
+	StaticProperty(float, RotationStep)
+	StaticProperty(float, ScaleStep)
 
 	StaticProperty(Key::Combination, TransformToolShortcut)
 	StaticProperty(Key::Combination, PenToolShortcut)
