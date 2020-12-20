@@ -60,6 +60,9 @@
     <ClCompile Include="InfrastructureTypes.hpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="include\imgui\imgui_tables.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\GL\gl3w.h">
@@ -128,9 +131,6 @@
     <ClInclude Include="TemplateExtensions.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ToolConfiguration.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="DomainUtils.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -144,6 +144,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Key.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Settings.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

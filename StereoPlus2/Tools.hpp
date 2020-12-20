@@ -9,7 +9,7 @@
 #include <vector>
 #include <queue>
 #include "TemplateExtensions.hpp"
-#include "ToolConfiguration.hpp"
+#include "Settings.hpp"
 
 class Tool {
 protected:
@@ -371,19 +371,8 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 		target = t;
 
-		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			cross->SetParent(target.Get(), false, true, true, false);
-			if (target->GetVertices().size() > 0)
-				cross->SetLocalPosition(target->GetVertices().back());
-			else
-				cross->SetLocalPosition(glm::vec3());
-		}
-		else {
-			if (target->GetVertices().size() > 0)
-				cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
-			else
-				cross->SetWorldPosition(target->GetWorldPosition());
-		}
 
 		inutHandlerId = keyBinding->AddHandler([&](Input* input) { ProcessInput(input); });
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
@@ -961,10 +950,49 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 	bool wasCommitDone = false;
 	
+
+	const glm::vec3 GetRelativeMovement(Input* input) {
+		static glm::vec3 zero = glm::vec3();
+
+		if (!input->IsPressed(Key::AltLeft) && !input->IsPressed(Key::AltRight)
+			|| input->movement == zero)
+			return transformPos - transformOldPos;
+
+		return input->movement;
+	}
+	const glm::vec3 GetRelativeRotation(Input* input) {
+		static glm::vec3 zero = glm::vec3();
+
+		if (!input->IsPressed(Key::ControlLeft) && !input->IsPressed(Key::ControlRight)
+			|| input->movement == zero)
+			return angle - oldAngle;
+
+		auto na = glm::vec3(
+			input->movement.x == 0.f ? 0 : (input->movement.x > 0 ? 1 : -1),
+			input->movement.y == 0.f ? 0 : (input->movement.y > 0 ? 1 : -1),
+			input->movement.z == 0.f ? 0 : (input->movement.z > 0 ? 1 : -1)
+		) * Settings::RotationStep().Get();
+		
+		angle += na;
+
+		return na;
+	}
+	const float GetRelativeScale(Input* input) {
+		static glm::vec3 zero = glm::vec3();
+
+		if (!input->IsPressed(Key::ShiftLeft) && !input->IsPressed(Key::ShiftRight)
+			|| input->movement == zero)
+			return scale;
+
+		auto v = input->movement.x > 0
+			? scale + Settings::ScaleStep().Get()
+			: scale - Settings::ScaleStep().Get();
+
+		return v;
+	}
+
 	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
 		static glm::vec3 zero = glm::vec3();
-		//if (SceneObjectSelection::Selected().empty())
-		//	return;
 
 		if (!input->IsContinuousInputNoDelay()) {
 			isBeingModified() = false;
@@ -978,11 +1006,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			scale = oldScale = 1;
 		}
 
-		glm::vec3 relativeMovement;
-		if (input->movement == zero)
-			relativeMovement = transformPos - transformOldPos;
-		else
-			relativeMovement = input->movement;
+		const auto relativeScale = GetRelativeScale(input);
+		const auto relativeMovement = GetRelativeMovement(input);
+		const auto relativeRotation = GetRelativeRotation(input);
 
 		// Check if we need to process tool.
 		if (targets.parentObjects.empty() || !targets.parentObjects.front().HasValue()) {
@@ -1004,18 +1030,18 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			break;
 		case Mode::Scale:
 			MoveCross(relativeMovement);
-			if (scale == oldScale || abs(scale) < minScale)
+			if (relativeScale == oldScale)
 				return;
 
-			Scale(cross->GetWorldPosition(), oldScale, scale, targets.parentObjects);
-			oldScale = scale;
+			Scale(cross->GetWorldPosition(), oldScale, relativeScale, targets.parentObjects);
+			oldScale = scale = relativeScale;
 			break;
 		case Mode::Rotate:
 			MoveCross(relativeMovement);
-			if (angle == oldAngle)
+			if (relativeRotation == zero)
 				return;
 
-			Rotate(cross->GetWorldPosition(), targets.parentObjects);
+			Rotate(cross->GetWorldPosition(), relativeRotation, targets.parentObjects);
 			nullifyUntouchedAngles();
 			oldAngle = angle;
 			break;
@@ -1068,11 +1094,11 @@ class TransformTool : public EditingTool<TransformToolMode> {
 				o->SetVertice(i, o->GetVertices()[i] + transformVector);
 		}
 	}
-	void Rotate(const glm::vec3& center, std::list<PON>& targets) {
+	void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::list<PON>& targets) {
 		if (shouldTrace)
 			Trace(targets);
 
-		auto i = getChangedAxe();
+		auto i = getChangedAxe(rotation);
 		if (i < 0) return;
 
 		if (oldAxeId != i && Settings::SpaceMode().Get() == SpaceMode::World)
@@ -1083,7 +1109,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		auto axe = glm::vec3();
 		axe[i] = 1;
 
-		auto trimmedDeltaAngle = getTrimmedAngle((angle - oldAngle)[i]) * 3.1415926f * 2 / 360;
+		auto trimmedDeltaAngle = getTrimmedAngle((rotation)[i]) * 3.1415926f * 2 / 360;
 		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
 
 		auto crossOldRotation = cross->GetLocalRotation();
@@ -1182,10 +1208,9 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			if (da[i] == 0)
 				angle[i] = oldAngle [i] = 0;
 	}
-	int getChangedAxe() {
-		auto da = angle - oldAngle;
+	int getChangedAxe(const glm::vec3& rotation) {
 		for (size_t i = 0; i < 3; i++)
-			if (da[i] != 0)
+			if (rotation[i] != 0)
 				return i;
 
 		return -1;

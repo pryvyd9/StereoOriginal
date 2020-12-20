@@ -39,6 +39,7 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 	Settings::ExtrusionToolShortcut() = Key::Combination({ Key::E });
 	Settings::RenderViewportToFile() = Key::Combination({ Key::F5 });
 	Settings::RenderAdvancedToFile() = Key::Combination({ Key::F6 });
+	Settings::SwitchUseDiscreteMovement() = Key::Combination({ Key::ControlLeft, Key::Q });
 
 	kb.AddHandler([&] (Input* i) {
 		if (ImGui::IsAnyItemFocused())
@@ -60,10 +61,13 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 			crw.shouldSaveViewportImage = true;
 		if (i->IsDown(Settings::RenderAdvancedToFile().Get()))
 			crw.shouldSaveAdvancedImage = true;
+		if (i->IsDown(Settings::SwitchUseDiscreteMovement().Get()))
+			Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get();
 		});
 }
 
 int main(int, char**) {
+
 	// Declare main components.
 	PositionDetector positionDetector;
 
@@ -122,7 +126,12 @@ int main(int, char**) {
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); };
+	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
+		if (!i->IsPressed(Key::AltLeft) && !i->IsPressed(Key::AltRight))
+			return;
+
+		cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); 
+	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
 		if (i->IsDown(Key::N5)) {

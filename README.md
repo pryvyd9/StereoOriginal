@@ -21,3 +21,6 @@ A 3d modelling and visualisation solution with stereo output (anaglyph) and mult
 ![trace object rotation](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/trace.png?raw=true)
 ![select some of the created clones and move them](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/moveSelectedClones.png?raw=true)
 ![rotate what is left of traced object and rotate it to create a flower](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/flower.png?raw=true)
+
+## Known Issues
+Combinations Shift + any Numpad key isn't working. There's a bug in glfw. https://github.com/glfw/glfw/issues/670

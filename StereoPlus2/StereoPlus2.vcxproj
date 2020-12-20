@@ -135,6 +135,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="include\imgui\imgui_stdlib.cpp" />
+    <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="InfrastructureTypes.hpp" />
     <ClCompile Include="PositionDetection.hpp" />
     <ClCompile Include="Windows.hpp">
@@ -174,7 +175,7 @@
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="SettingsLoader.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
-    <ClInclude Include="ToolConfiguration.hpp" />
+    <ClInclude Include="Settings.hpp" />
     <ClInclude Include="ToolPool.hpp" />
     <ClInclude Include="Tools.hpp" />
     <ClInclude Include="Window.hpp" />

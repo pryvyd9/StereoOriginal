@@ -71,22 +71,49 @@ class SettingsLoader {
 
 		setter(v);
 	}
+	template<typename T>
+	static void Load(const std::string& name, Property<T>& (*selector)()) {
+		Load(name, std::function([&](T v) { selector().Set(v); }));
+	}
+	template<typename T>
+	static void Load(Property<T>& (*selector)()) {
+		Load(Settings::Name(selector), selector);
+	}
+
+	template<typename T>
+	static void Insert(Js::Object& jso, const std::string& name, Property<T>&(*selector)()) {
+		jso.objects.insert({ name, JsonConvert::serialize(selector().Get()) });
+	}
+
+	template<typename T>
+	static void Insert(Js::Object& jso, Property<T>& (*selector)()) {
+		jso.objects.insert({ Settings::Name(selector), JsonConvert::serialize(selector().Get()) });
+	}
 
 public:
+	
 	static void Load() {
 		LoadSettings("settings.json");
-		Load("crossSpeed", std::function([](float v) { Settings::CrossSpeed().Set(v); }));
-		Load("language", std::function([](std::string v) { Settings::Language().Set(v); }));
-		Load("stateBufferLength", std::function([](int v) { Settings::StateBufferLength().Set(v); }));
+		
+		Load(&Settings::Language);
+		Load(&Settings::StateBufferLength);
+
+		Load(&Settings::UseDiscreteMovement);
+		Load(&Settings::TransitionStep);
+		Load(&Settings::RotationStep);
+		Load(&Settings::ScaleStep);
 	}
 	static void Save() {
-		auto json = new Js::Object();
+		Js::Object json;
 
-		json->objects.insert({ "crossSpeed", JsonConvert::serialize(Settings::CrossSpeed().Get()) });
-		json->objects.insert({ "language", JsonConvert::serialize(Settings::Language().Get()) });
-		json->objects.insert({ "stateBufferLength", JsonConvert::serialize(Settings::StateBufferLength().Get()) });
+		Insert(json, &Settings::Language);
+		Insert(json, &Settings::StateBufferLength);
 
-		Json::Write("settings.json", json);
-		delete json;
+		Insert(json, &Settings::UseDiscreteMovement);
+		Insert(json, &Settings::TransitionStep);
+		Insert(json, &Settings::RotationStep);
+		Insert(json, &Settings::ScaleStep);
+
+		Json::Write("settings.json", &json);
 	}
 };

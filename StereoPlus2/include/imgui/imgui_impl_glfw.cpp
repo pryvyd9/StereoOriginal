@@ -95,8 +95,14 @@ void ImGui_ImplGlfw_MouseButtonCallback(GLFWwindow* window, int button, int acti
     if (g_PrevUserCallbackMousebutton != NULL && window == g_Window)
         g_PrevUserCallbackMousebutton(window, button, action, mods);
 
-    if (action == GLFW_PRESS && button >= 0 && button < IM_ARRAYSIZE(g_MouseJustPressed))
+    if (action == GLFW_PRESS && button >= 0 && button < IM_ARRAYSIZE(g_MouseJustPressed)) {
         g_MouseJustPressed[button] = true;
+        ImGui::GetIO().NumberOfPressedKeys++;
+    }
+    else
+        ImGui::GetIO().NumberOfPressedKeys--;
+
+    ImGui::GetIO().AnyKeyPressed = ImGui::GetIO().NumberOfPressedKeys > 0;
 }
 
 void ImGui_ImplGlfw_ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
@@ -107,6 +113,8 @@ void ImGui_ImplGlfw_ScrollCallback(GLFWwindow* window, double xoffset, double yo
     ImGuiIO& io = ImGui::GetIO();
     io.MouseWheelH += (float)xoffset;
     io.MouseWheel += (float)yoffset;
+
+    //io.AnyKeyPressed = true;
 }
 
 void ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -115,16 +123,22 @@ void ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int key, int scancode, int a
         g_PrevUserCallbackKey(window, key, scancode, action, mods);
 
     ImGuiIO& io = ImGui::GetIO();
-    if (action == GLFW_PRESS)
+    if (action == GLFW_PRESS) {
         io.KeysDown[key] = true;
-    if (action == GLFW_RELEASE)
+        io.NumberOfPressedKeys++;
+    }
+    if (action == GLFW_RELEASE) {
         io.KeysDown[key] = false;
+        io.NumberOfPressedKeys--;
+    }
 
     // Modifiers are not reliable across systems
     io.KeyCtrl = io.KeysDown[GLFW_KEY_LEFT_CONTROL] || io.KeysDown[GLFW_KEY_RIGHT_CONTROL];
     io.KeyShift = io.KeysDown[GLFW_KEY_LEFT_SHIFT] || io.KeysDown[GLFW_KEY_RIGHT_SHIFT];
     io.KeyAlt = io.KeysDown[GLFW_KEY_LEFT_ALT] || io.KeysDown[GLFW_KEY_RIGHT_ALT];
     io.KeySuper = io.KeysDown[GLFW_KEY_LEFT_SUPER] || io.KeysDown[GLFW_KEY_RIGHT_SUPER];
+
+    io.AnyKeyPressed = io.NumberOfPressedKeys > 0;
 }
 
 void ImGui_ImplGlfw_CharCallback(GLFWwindow* window, unsigned int c)
