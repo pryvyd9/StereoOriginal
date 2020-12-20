@@ -1,6 +1,6 @@
 #pragma once
 #include "GLLoader.hpp"
-#include "ToolConfiguration.hpp"
+#include "Settings.hpp"
 #include <stdlib.h>
 #include <set>
 #include <array>

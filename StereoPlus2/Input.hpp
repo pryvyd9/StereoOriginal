@@ -18,12 +18,6 @@ class Input {
 			return lhs.code < rhs.code || lhs.code == rhs.code && lhs.type < rhs.type;
 		}
 	};
-	struct KeyStatus {
-		Key::Type keyType;
-		bool isPressed;
-		bool isDown;
-		bool isUp;
-	};
 
 	// Continuous input is a state when there is
 	// input with delay in between.
@@ -57,43 +51,40 @@ class Input {
 	bool isMouseBoundlessMode = false;
 	bool isRawMouseMotionSupported = false;
 
-	std::map<Key::KeyPair, KeyStatus*, KeyPairComparator> keyStatuses;
-
 	float mouseSensivity = 1e-2;
 	float mouseMaxMagnitude = 1e4;
-
-	bool isAnythingPressed = false;
 
 	ContinuousInput continuousInputOneSecondDelay = ContinuousInput(1);
 	ContinuousInput continuousInputNoDelay = ContinuousInput(0);
 
-	void UpdateStatus(const Key::KeyPair& key, KeyStatus* status) {
-		bool isPressed = 
-			key.type == Key::Type::Mouse
-			? glfwGetMouseButton(glWindow, key.code) == GLFW_PRESS
-			: glfwGetKey(glWindow, key.code) == GLFW_PRESS;
+	void FillAxes() {
+		mouseOldPos = mouseNewPos;
+		mouseNewPos = ImGui::GetMousePos();
 
-		if (isPressed)
-			isAnythingPressed = true;
+		auto useDiscreteMovement = Settings::UseDiscreteMovement().Get();
+		ArrowAxe = glm::vec3(
+			-IsPressed(Key::Left, useDiscreteMovement) + IsPressed(Key::Right, useDiscreteMovement),
+			IsPressed(Key::Up, useDiscreteMovement) + -IsPressed(Key::Down, useDiscreteMovement),
+			0);
+		NumpadAxe = glm::vec3(
+			-IsPressed(Key::N4, useDiscreteMovement) + IsPressed(Key::N6, useDiscreteMovement),
+			-IsPressed(Key::N2, useDiscreteMovement) + IsPressed(Key::N8, useDiscreteMovement),
+			-IsPressed(Key::N1, useDiscreteMovement) + IsPressed(Key::N9, useDiscreteMovement));
 
-		status->isDown = isPressed && !status->isPressed;
-		status->isUp = !isPressed && status->isPressed;
-		status->isPressed = isPressed;
-	}
-
-	KeyStatus* TryGetStatusEnsuringItExists(const Key::KeyPair& key) {
-		auto status = keyStatuses.find(key);
-		if (status != keyStatuses.end())
-			return status._Ptr->_Myval.second;
-
-		KeyStatus* ns = new KeyStatus();
-		keyStatuses.insert({ key, ns });
-		UpdateStatus(key, ns);
-		return ns;
+		auto mouseMoveDirection = MouseMoveDirection();
+		MouseAxe = IsPressed(Key::MouseRight)
+			? glm::vec3(0, 0, -mouseMoveDirection.y)
+			: glm::vec3(mouseMoveDirection.x, -mouseMoveDirection.y, 0);
 	}
 
 public:
 	GLFWwindow* glWindow;
+	ImGuiIO* io;
+
+	glm::vec3 ArrowAxe;
+	glm::vec3 NumpadAxe;
+	glm::vec3 MouseAxe;
+
 
 	glm::vec3 movement;
 	std::map<size_t, std::function<void()>> handlers;
@@ -102,30 +93,38 @@ public:
 		return movement != glm::vec3();
 	}
 
-	// Is pressed
-	bool IsPressed(Key::KeyPair key) {
-		return TryGetStatusEnsuringItExists(key)->isPressed;
+	bool IsPressed(Key::KeyPair key, bool discreteInput = false) {
+		if (discreteInput)
+			return key.type == Key::Type::Mouse
+				? ImGui::IsMouseClicked(key.code, true)
+				: ImGui::IsKeyPressed(key.code, true);
+
+		return key.type == Key::Type::Mouse
+			? io->MouseDown[key.code]
+			: io->KeysDown[key.code];
 	}
 
-	// Was pressed down
 	bool IsDown(const Key::KeyPair& key) {
-		return TryGetStatusEnsuringItExists(key)->isDown;
+		return key.type == Key::Type::Mouse
+			? ImGui::IsMouseClicked(key.code, true)
+			: ImGui::IsKeyPressed(key.code, true);
 	}
 	bool IsDown(const Key::Combination& keys) {
 		int i = 0;
 		for (; i < keys.keys.size() - 1; i++)
-			if (!TryGetStatusEnsuringItExists(keys.keys[i])->isPressed)
+			if (!IsPressed(keys.keys[i]))
 				return false;
 		
-		if (!TryGetStatusEnsuringItExists(keys.keys[i])->isDown)
+		if (!IsDown(keys.keys[i]))
 			return false;
 
 		return true;
 	}
 
-	// Was lift up
 	bool IsUp(Key::KeyPair key) {
-		return TryGetStatusEnsuringItExists(key)->isUp;
+		return key.type == Key::Type::Mouse
+			? ImGui::IsMouseReleased(key.code)
+			: ImGui::IsKeyReleased(key.code);
 	}
 
 	glm::vec2 MousePosition() {
@@ -135,11 +134,10 @@ public:
 		return glm::length(mouseNewPos - mouseOldPos) == 0 ? glm::vec2(0) : glm::normalize(mouseNewPos - mouseOldPos);
 	}
 
-	// Does not include mouse movement.
+	// Does not include mouse movement nor scrolling.
 	bool IsContinuousInputOneSecondDelay() {
 		return continuousInputOneSecondDelay.isContinuousInput;
 	}
-	// Does not include mouse movement.
 	bool IsContinuousInputNoDelay() {
 		return continuousInputNoDelay.isContinuousInput;
 	}
@@ -147,11 +145,9 @@ public:
 	bool MouseMoved() {
 		return MouseSpeed() > mouseSensivity && MouseSpeed() < mouseMaxMagnitude;
 	}
-
 	float MouseSpeed() {
 		return glm::length(mouseNewPos - mouseOldPos);
 	}
-
 	void SetMouseBoundlessMode(bool enable) {
 		if (enable == isMouseBoundlessMode)
 			return;
@@ -174,25 +170,18 @@ public:
 	}
 
 	void ProcessInput() {
-		// Update mouse position
-		mouseOldPos = mouseNewPos;
-		mouseNewPos = ImGui::GetMousePos();
 		movement = glm::vec3();
+		FillAxes();
 
-		// Update key statuses
-		for (auto node : keyStatuses)
-			UpdateStatus(node.first, node.second);
-
-		continuousInputOneSecondDelay.Process(isAnythingPressed);
-		continuousInputNoDelay.Process(isAnythingPressed);
+		continuousInputOneSecondDelay.Process(io->AnyKeyPressed);
+		continuousInputNoDelay.Process(io->AnyKeyPressed);
 
 		// Handle OnInput actions
 		for (auto [id,handler] : handlers)
 			handler();
 
-		continuousInputOneSecondDelay.UpdateOld(isAnythingPressed);
-		continuousInputNoDelay.UpdateOld(isAnythingPressed);
-		isAnythingPressed = false;
+		continuousInputOneSecondDelay.UpdateOld(io->AnyKeyPressed);
+		continuousInputNoDelay.UpdateOld(io->AnyKeyPressed);
 	}
 
 	bool Init() {
@@ -200,17 +189,9 @@ public:
 
 		return true;
 	}
-
-	~Input() {
-		for (auto node : keyStatuses)
-		{
-			delete node.second;
-		}
-	}
 };
 
 class KeyBinding {
-	bool isAxeModeEnabled;
 public:
 	Input* input;
 	Cross* cross;
@@ -245,141 +226,20 @@ public:
 				ImGui::FocusWindow(NULL);
 			});
 	}
-	void MoveCross() {
-		// Axe mode switch A
-		AddHandler([i = input, c = cross, &axeMode = isAxeModeEnabled] {
-			if (i->IsDown(Key::A))
-				axeMode = !axeMode;
-			});
-		
-		// Advanced mouse+keyboard control
-		AddHandler([i = input, &axeMode = isAxeModeEnabled] {
-			if (axeMode) {
-				// alt x y
-				// ctrl x z
-				// shift y z
-				
-				glm::vec3 axes = glm::vec3(
-					(i->IsPressed(Key::AltLeft) || i->IsPressed(Key::AltRight)) + (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)),
-					(i->IsPressed(Key::AltLeft) || i->IsPressed(Key::AltRight)) + (i->IsPressed(Key::ShiftLeft) || i->IsPressed(Key::ShiftRight)),
-					(i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) + (i->IsPressed(Key::ShiftLeft) || i->IsPressed(Key::ShiftRight))
-				);
-
-				bool isZero = axes.x == 0 && axes.y == 0 && axes.z == 0;
-				// If all three keys are down then it's impossible to move anywhere.
-				bool isBlocked = axes.x == 2 && axes.y == 2 && axes.z == 2;
-
-				bool mustReturn = isBlocked || isZero;
-
-				// Enable or disable Mouose boundless mode 
-				// regardless of whether we move the cross or not.
-				i->SetMouseBoundlessMode(!mustReturn);
-
-				if (mustReturn)
-					return;
-
-				bool isAxeLocked = axes.x == 2 || axes.y == 2 || axes.z == 2;
-				if (isAxeLocked) {
-					int lockedAxeIndex = axes.x == 2 ? 0 : axes.y == 2 ? 1 : 2;
-					axes -= 1;
-
-					// Enable or disable Mouose boundless mode 
-					// regardless of whether we move the cross or not.
-					i->SetMouseBoundlessMode(true);
-
-					auto m = i->MouseMoveDirection() * Settings().TransitionStep().Get();
-					i->movement[lockedAxeIndex] += m.x;
-
-					return;
-				}
-
-				int lockedPlane[2];
-				{
-					int i = 0;
-					if (axes.x != 0) lockedPlane[i++] = 0;
-					if (axes.y != 0) lockedPlane[i++] = 1;
-					if (axes.z != 0) lockedPlane[i++] = 2;
-				}
-
-				// Enable or disable Mouse boundless mode 
-				// regardless of whether we move the cross or not.
-				i->SetMouseBoundlessMode(true);
-
-				auto m = i->MouseMoveDirection() * Settings().TransitionStep().Get();
-
-				i->movement[lockedPlane[0]] += m.x;
-				i->movement[lockedPlane[1]] -= m.y;
-
-				return;
-			}
-
+	void BindInputToMovement() {
+		AddHandler([i = input] {
 			bool isAltPressed = i->IsPressed(Key::AltLeft) || i->IsPressed(Key::AltRight);
 
 			// Enable or disable Mouose boundless mode 
 			// regardless of whether we move the cross or not.
 			i->SetMouseBoundlessMode(isAltPressed);
 
-			if (isAltPressed) {
-				auto speed = Settings().TransitionStep().Get();
-
-				if (auto isHighPrecisionMode = i->IsPressed(Key::ControlLeft); 
-					isHighPrecisionMode)
-					speed *= 0.1f;
-
-				auto m = i->MouseMoveDirection() * speed;
-
-				if (i->IsPressed(Key::MouseRight))
-					i->movement.z -= m.y;
-				else {
-					i->movement.x += m.x;
-					i->movement.y -= m.y;
-				}
-			}
-			});
-
-		// Move cross with arrows/arrows+Ctrl
-		AddHandler([i = input] {
-			// If nothing is pressed then return.
-			if (!i->IsContinuousInputNoDelay())
-				return;
-
-			auto m = glm::vec2(
-				-i->IsPressed(Key::Left) + i->IsPressed(Key::Right),
-				-i->IsPressed(Key::Up) + i->IsPressed(Key::Down));
-
-			if (static auto zero = glm::vec2(); m == zero)
-				return;
-
-			bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
-
-			m *= Settings().TransitionStep().Get() * (isHighPrecisionMode ? 0.1f : 1);
-
-			i->movement.x += m.x;
-			i->movement.y -= m.y;
-			});
-
-		// Move cross with numpad/numpad+Ctrl
-		AddHandler([i = input] {
-			// If nothing is pressed then return.
-			if (!i->IsContinuousInputNoDelay())
-				return;
-
-			auto movement = glm::vec3(
-				-i->IsPressed(Key::N4) + i->IsPressed(Key::N6),
-				-i->IsPressed(Key::N2) + i->IsPressed(Key::N8),
-				-i->IsPressed(Key::N1) + i->IsPressed(Key::N9));
-
-			if (static auto zero = glm::vec3(); movement == zero)
-				return;
-
-			bool isHighPrecisionMode = i->IsPressed(Key::ControlLeft);
-
-			i->movement += movement * Settings().TransitionStep().Get() * (isHighPrecisionMode ? 0.1f : 1);
+			i->movement += i->MouseAxe * Settings().TransitionStep().Get();
+			i->movement += i->ArrowAxe * Settings().TransitionStep().Get();
+			i->movement += i->NumpadAxe * Settings().TransitionStep().Get();
 			});
 	}
 	void Cross() {
-		MoveCross();
-
 		// Resize cross.
 		AddHandler([i = input, c = cross, &sp = crossScaleSpeed, &min = crossMinSize, &max = crossMaxSize] {
 			bool isScaleUp = i->IsPressed(Key::N3);
@@ -418,6 +278,7 @@ public:
 	}
 	bool Init() {
 		ResetFocus();
+		BindInputToMovement();
 		Cross();
 		ChangeBuffer();
 

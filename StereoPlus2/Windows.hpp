@@ -316,7 +316,7 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		auto isCtrlPressed = ignoreCtrl
 			? false
 			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
-		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftLeft);
+		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftRight);
 
 		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
 			? ObjectSelection::Remove
@@ -846,6 +846,7 @@ public:
 
 class TransformToolWindow : Window, Attributes {
 	int maxPrecision = 5;
+	glm::vec3 oldAngle = glm::vec3();
 
 	std::string GetName(SceneObject* obj) {
 		return
@@ -864,16 +865,18 @@ class TransformToolWindow : Window, Attributes {
 		return precision;
 	}
 
-	void DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, float speed) {
+	bool DragVector(glm::vec3& v, std::string s1, std::string s2, std::string s3, float speed) {
+		bool r = false;
 		std::stringstream ss;
 		ss << "%." << getPrecision(v.x) << "f";
-		ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, ss.str().c_str());
+		r |= ImGui::DragFloat(s1.c_str(), &v.x, speed, 0, 0, ss.str().c_str());
 		ss.str(std::string());
 		ss << "%." << getPrecision(v.y) << "f";
-		ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, ss.str().c_str());
+		r |= ImGui::DragFloat(s2.c_str(), &v.y, speed, 0, 0, ss.str().c_str());
 		ss.str(std::string());
 		ss << "%." << getPrecision(v.z) << "f";
-		ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
+		r |= ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
+		return r;
 	}
 	bool DragVector(glm::vec3& v, const char* s1, const char* s2, const char* s3, const char* f, float speed) {
 		return ImGui::DragFloat(s1, &v.x, speed, 0, 0, f)
@@ -932,8 +935,14 @@ class TransformToolWindow : Window, Attributes {
 			ImGui::DragFloat("scale", &tool->scale, 0.01f, 0, 0, "%.2f");
 			break;
 		case TransformToolMode::Rotate:
+			if (!tool->keyBinding->input->IsContinuousInputNoDelay())
+				oldAngle = tool->angle;
+
 			ImGui::Separator();
-			DragVector(tool->angle, "X", "Y", "Z", 1);
+			if (auto angle = tool->angle - oldAngle;
+				DragVector(angle, "X", "Y", "Z", 1))
+				tool->angle = angle;
+
 			break;
 		default:
 			break;
@@ -1172,19 +1181,24 @@ public:
 			ImGui::Separator();
 			static int v = (int)Settings::SpaceMode().Get();
 			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
-				Settings::SpaceMode().Set(SpaceMode::World);
+				Settings::SpaceMode() = SpaceMode::World;
 			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
-				Settings::SpaceMode().Set(SpaceMode::Local);
+				Settings::SpaceMode() = SpaceMode::Local;
 		}
 		{
 			ImGui::Separator();
 			ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
 			static int v = (int)Settings::MoveCoordinateAction().Get();
 			if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
-				Settings::MoveCoordinateAction().Set(MoveCoordinateAction::Adapt);
+				Settings::MoveCoordinateAction() = MoveCoordinateAction::Adapt;
 			if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
-				Settings::MoveCoordinateAction().Set(MoveCoordinateAction::None);
+				Settings::MoveCoordinateAction() = MoveCoordinateAction::None;
 		}
+
+		ImGui::Separator();
+		if (bool v = Settings::UseDiscreteMovement().Get();
+			ImGui::Checkbox(LocaleProvider::GetC(Settings::Name(&Settings::UseDiscreteMovement)), &v))
+			Settings::UseDiscreteMovement() = v;
 
 		ImGui::End();
 
@@ -1393,10 +1407,10 @@ public:
 		}
 
 		if (auto v = Settings::StateBufferLength().Get();
-			ImGui::InputInt(LocaleProvider::GetC("stateBufferLength"), &v, 0.01, 0.1, 4))
+			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 0.01, 0.1, 4))
 			Settings::StateBufferLength() = v;
 		if (auto v = Settings::Language().Get();
-			ImGui::TreeNode((LocaleProvider::Get("language") + ": " + LocaleProvider::Get(v)).c_str())) {
+			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {
 
 			if (auto i = v == Locale::EN; ImGui::Selectable(LocaleProvider::GetC(Locale::EN), &i))
 				Settings::Language() = Locale::EN;
@@ -1410,13 +1424,13 @@ public:
 			ImGui::TreeNode(LocaleProvider::GetC("step"))) {
 
 			if (auto v = Settings::TransitionStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC("transitionStep"), &v, 0.01, 0.1))
+				ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::TransitionStep)), &v, 0.01, 0.1))
 				Settings::TransitionStep() = v;
 			if (auto v = Settings::RotationStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC("rotationStep"), &v, 0.01, 0.1))
+				ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::RotationStep)), &v, 0.01, 0.1))
 				Settings::RotationStep() = v;
 			if (auto v = Settings::ScaleStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC("scaleStep"), &v, 0.01, 0.1))
+				ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::ScaleStep)), &v, 0.01, 0.1))
 				Settings::ScaleStep() = v;
 			ImGui::TreePop();
 		}

@@ -156,6 +156,8 @@ public:
 };
 
 class Time {
+	static const int timeLogSize = 60;
+
 	static std::chrono::steady_clock::time_point* GetBegin() {
 		static std::chrono::steady_clock::time_point instance;
 		return &instance;
@@ -164,17 +166,42 @@ class Time {
 		static size_t instance;
 		return &instance;
 	}
+
+	static std::vector<size_t>& TimeLog() {
+		static std::vector<size_t> v(timeLogSize);
+		return v;
+	}
+
+	static void UpdateTimeLog(size_t v) {
+		static int i = 0;
+		TimeLog()[i] = v;
+		i++;
+		if (i >= timeLogSize)
+			i = 0;
+	}
 public:
 	static void UpdateFrame() {
 		auto end = std::chrono::steady_clock::now();
 		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
 		*GetBegin() = end;
+
+		UpdateTimeLog(*GetDeltaTimeMicroseconds());
 	}
-	static float GetFrameRate() {
-		return 1 / GetDeltaTime();
+	static int GetFrameRate() {
+		return round(1 / GetDeltaTime());
+	}
+	static int GetAverageFrameRate() {
+		return round(1 / GetAverageDeltaTime());
 	}
 	static float GetDeltaTime() {
 		return (float)*GetDeltaTimeMicroseconds() / 1e6;
+	}
+	static float GetAverageDeltaTime() {
+		size_t t = 0;
+		for (auto a : TimeLog())
+			t += a;
+
+		return (float)t / 1e6 / timeLogSize;
 	}
 	static size_t GetTime() {
 		return std::chrono::time_point_cast<std::chrono::milliseconds>(*GetBegin()).time_since_epoch().count();

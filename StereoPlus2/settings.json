@@ -1,1 +1,1 @@
-{"scaleStep":0.01,"language":"ua","stateBufferLength":100,"transitionStep":0.01,"rotationStep":0.01}
+{"scaleStep":0.01,"language":"ua","stateBufferLength":100,"useDiscreteMovement":0,"transitionStep":0.01,"rotationStep":1}

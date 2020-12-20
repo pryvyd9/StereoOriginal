@@ -1852,6 +1852,9 @@ struct ImGuiIO
     bool        KeySuper;                       // Keyboard modifier pressed: Cmd/Super/Windows
     bool        KeysDown[512];                  // Keyboard keys that are pressed (ideally left in the "native" order your engine has access to keyboard keys, so you can use your own defines/enums for keys).
     float       NavInputs[ImGuiNavInput_COUNT]; // Gamepad inputs. Cleared back to zero by EndFrame(). Keyboard keys will be auto-mapped and be written here by NewFrame().
+    
+    bool        AnyKeyPressed;                  // True if any key pressed.
+    int         NumberOfPressedKeys;            // Used for optimizing AnyKeyPressed calculation.
 
     // Functions
     IMGUI_API void  AddInputCharacter(unsigned int c);          // Queue new character input

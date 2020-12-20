@@ -89,7 +89,7 @@ class GUI {
 		}
 
 		if (shouldShowFPS) {
-			ImGui::LabelText("", "FPS: %-12f DeltaTime: %-12f", Time::GetFrameRate(), Time::GetDeltaTime());
+			ImGui::LabelText("", "FPS: %-12i DeltaTime: %-12f", Time::GetAverageFrameRate(), Time::GetAverageDeltaTime());
 		}
 
 		return true;
@@ -170,14 +170,11 @@ public:
 		keyBinding.input = &input;
 		input.glWindow = glWindow;
 
-		if (!input.Init() || 
-			!keyBinding.Init())
-			return false;
-
+		
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
-		io = &ImGui::GetIO(); (void)io;
+		io = &ImGui::GetIO();
 		//io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 		io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
@@ -239,6 +236,10 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("open-sans.ttf", 20);
 		//IM_ASSERT(font != NULL);
 
+		input.io = io;
+		if (!input.Init() ||
+			!keyBinding.Init())
+			return false;
 
 		for (auto window : windows)
 			if (!window->Init())
