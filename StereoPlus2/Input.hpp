@@ -69,7 +69,7 @@ class Input {
 		NumpadAxe = glm::vec3(
 			-IsPressed(Key::N4, useDiscreteMovement) + IsPressed(Key::N6, useDiscreteMovement),
 			-IsPressed(Key::N2, useDiscreteMovement) + IsPressed(Key::N8, useDiscreteMovement),
-			-IsPressed(Key::N1, useDiscreteMovement) + IsPressed(Key::N9, useDiscreteMovement));
+			-IsPressed(Key::N9, useDiscreteMovement) + IsPressed(Key::N1, useDiscreteMovement));
 
 		auto mouseMoveDirection = MouseMoveDirection();
 		MouseAxe = IsPressed(Key::MouseRight)

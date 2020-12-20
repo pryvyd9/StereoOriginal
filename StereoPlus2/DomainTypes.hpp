@@ -906,10 +906,8 @@ class StereoCamera : public LeafObject
 		return positionModifier + GetLocalPosition();
 	}
 
-	glm::vec3 getLeft(const glm::vec3& pos1) {
+	glm::vec3 getLeft(const glm::vec3& pos) {
 		auto cameraPos = GetPos();
-		auto pos = pos1;
-		pos.z = -pos.z;
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
 			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
@@ -917,10 +915,8 @@ class StereoCamera : public LeafObject
 			0
 		);
 	}
-	glm::vec3 getRight(const glm::vec3& pos1) {
+	glm::vec3 getRight(const glm::vec3& pos) {
 		auto cameraPos = GetPos();
-		auto pos = pos1;
-		pos.z = -pos.z;
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
 			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
