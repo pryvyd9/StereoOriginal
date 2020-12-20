@@ -906,8 +906,10 @@ class StereoCamera : public LeafObject
 		return positionModifier + GetLocalPosition();
 	}
 
-	glm::vec3 getLeft(const glm::vec3& pos) {
+	glm::vec3 getLeft(const glm::vec3& pos1) {
 		auto cameraPos = GetPos();
+		auto pos = pos1;
+		pos.z = -pos.z;
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
 			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
@@ -915,8 +917,10 @@ class StereoCamera : public LeafObject
 			0
 		);
 	}
-	glm::vec3 getRight(const glm::vec3& pos) {
+	glm::vec3 getRight(const glm::vec3& pos1) {
 		auto cameraPos = GetPos();
+		auto pos = pos1;
+		pos.z = -pos.z;
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
 			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
@@ -932,7 +936,7 @@ class StereoCamera : public LeafObject
 	}
 public:
 	glm::vec2* viewSize = nullptr;
-	glm::vec3 positionModifier = glm::vec3(0, 3, -10);
+	glm::vec3 positionModifier = glm::vec3(0, 0.5, 10);
 
 	float eyeToCenterDistance = 0.5;
 
@@ -1008,52 +1012,6 @@ public:
 	}
 };
 
-
-//class TraceObjectNode : public LeafObject {
-//	SceneObject* cache = nullptr;
-//
-//	virtual void HandleBeforeUpdate() override {
-//		if (auto p = GetParent();
-//			!p || p->GetType() != TraceObjectT || !p->GetParent()) {
-//			
-//			if (cache)
-//				delete cache;
-//			cache = nullptr;
-//			return;
-//		}
-//
-//		if (cache)
-//			return;
-//			//delete cache;
-//
-//		cache = GetParent()->GetParent()->Clone();
-//		cache->children.clear();
-//		cache->SetParent(nullptr, false, true, false, false);
-//		cache->SetWorldPosition(GetWorldPosition());
-//		cache->SetWorldRotation(GetWorldRotation());
-//	}
-//public:
-//	virtual ObjectType GetType() const override {
-//		return TraceObjectNodeT;
-//	}
-//	virtual void Draw(
-//		std::function<glm::vec3(glm::vec3)> toLeft,
-//		std::function<glm::vec3(glm::vec3)> toRight,
-//		GLuint shaderLeft,
-//		GLuint shaderRight,
-//		GLuint stencilMaskLeft,
-//		GLuint stencilMaskRight) override {
-//		if (!cache)
-//			return;
-//
-//		cache->Draw(toLeft, toRight, shaderLeft, shaderRight, stencilMaskLeft, stencilMaskRight);
-//	}
-//
-//	~TraceObjectNode() {
-//		if (cache)
-//			delete cache;
-//	}
-//};
 class TraceObject : public GroupObject {
 	bool shouldIgnoreParent;
 	virtual void HandleBeforeUpdate() override {

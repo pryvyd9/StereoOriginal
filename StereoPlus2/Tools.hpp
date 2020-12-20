@@ -1002,8 +1002,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		// We can move cross without having any objects bind.
 		if (!input->IsContinuousInputNoDelay()) {
 			transformPos = transformOldPos = zero;
-			static size_t i = 0;
-			Logger.Information(i++);
 			angle = oldAngle = zero;
 			scale = oldScale = 1;
 		}
