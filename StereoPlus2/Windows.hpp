@@ -104,7 +104,7 @@ class CustomRenderWindow : Window {
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 		// update internal dimensions
-		renderSize = newSize;
+		RenderSize = newSize;
 	}
 
 	void saveImage(const char* filepath, int width, int height) {
@@ -122,7 +122,7 @@ class CustomRenderWindow : Window {
 	}
 public:
 	std::function<bool()> customRenderFunc;
-	glm::vec2 renderSize = glm::vec3(1);
+	Property<glm::vec2> RenderSize;
 
 	Property<bool> shouldSaveViewportImage;
 	Property<bool> shouldSaveAdvancedImage;
@@ -134,9 +134,9 @@ public:
 	virtual bool Init() {
 		Window::name = "renderWindow";
 		fbo = createFrameBuffer();
-		texture = createTextureAttachment(renderSize.x, renderSize.y);
-		depthBuffer = createDepthBufferAttachment(renderSize.x, renderSize.y);
-		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+		texture = createTextureAttachment(RenderSize->x, RenderSize->y);
+		depthBuffer = createDepthBufferAttachment(RenderSize->x, RenderSize->y);
+		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 
 		return true;
 	}
@@ -147,7 +147,7 @@ public:
 		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
 		glm::vec2 newSize = vMax - vMin;
 		
-		if (renderSize != newSize) {
+		if (RenderSize.Get() != newSize) {
 			ResizeCustomRenderCanvas(newSize);
 			onResize.Invoke();
 		}
@@ -162,24 +162,24 @@ public:
 		if (shouldSaveAdvancedImage.Get()) {
 			shouldSaveAdvancedImage = false;
 
-			auto copyRenderSize = renderSize;
+			auto copyRenderSize = RenderSize.Get();
 			auto nrs = glm::vec2(4000, 4000);
 			
 			ResizeCustomRenderCanvas(nrs);
 			onResize.Invoke();
 
-			bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+			bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
 
 			customRenderFunc();
 
 			std::stringstream ss;
 			ss << "image_" << Time::GetTime() << "a.png";
-			saveImage(ss.str().c_str(), renderSize.x, renderSize.y);
+			saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
 
 			ResizeCustomRenderCanvas(copyRenderSize);
 			onResize.Invoke();
 		}
-		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+		bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
 
 		if (!customRenderFunc())
 			return false;
@@ -189,11 +189,11 @@ public:
 
 			std::stringstream ss;
 			ss << "image_" << Time::GetTime() << ".png";
-			saveImage(ss.str().c_str(), renderSize.x, renderSize.y);
+			saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
 		}
-		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 		
-		ImGui::Image((void*)(intptr_t)texture, renderSize);
+		ImGui::Image((void*)(intptr_t)texture, RenderSize.Get());
 
 		HandleResize();
 

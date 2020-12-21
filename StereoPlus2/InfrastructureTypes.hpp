@@ -530,9 +530,7 @@ class Property {
 			return value;
 		}
 		void Set(const T& v) {
-			auto old = value;
 			value = v;
-			if (old != v)
 				changed.Invoke(v);
 		}
 		IEvent<T>& OnChanged() const {
@@ -542,6 +540,11 @@ class Property {
 
 	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
 public:
+	Property() {}
+	Property(T o) {
+		Set(o);
+	}
+
 	const T& Get() const {
 		return node->Get();
 	}
@@ -569,7 +572,7 @@ public:
 		Set(v);
 		return *this;
 	}
-	T* operator->() const {
+	const T* operator->() const {
 		return &Get();
 	}
 };

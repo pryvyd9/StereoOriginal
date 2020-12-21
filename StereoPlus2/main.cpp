@@ -109,7 +109,7 @@ int main() {
 
 	scene.camera = &camera;
 	scene.glWindow = renderPipeline.glWindow;
-	scene.camera->viewSize = &customRenderWindow.renderSize;
+	scene.camera->ViewSize.BindAndApply(customRenderWindow.RenderSize);
 	scene.cross = &cross;
 
 	gui.windows = {

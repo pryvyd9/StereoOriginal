@@ -898,12 +898,16 @@ public:
 
 class StereoCamera : public LeafObject
 {
+	// View coordinates
+	float eyeToCenterDistance;
+	glm::vec3 positionModifier;
+
 	glm::vec3 GetPos() {
 		return positionModifier + GetLocalPosition();
 	}
 
 	glm::vec3 getLeft(const glm::vec3& posMillimeters) {
-		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, *viewSize, viewSizeZ);
+		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
@@ -913,7 +917,7 @@ class StereoCamera : public LeafObject
 		);
 	}
 	glm::vec3 getRight(const glm::vec3& posMillimeters) {
-		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, *viewSize, viewSizeZ);
+		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
@@ -957,6 +961,17 @@ class StereoCamera : public LeafObject
 		return vView;
 	}
 
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static float ConvertMillimetersToViewCoordinates(const float& vMillimeters, const float& viewSizePixels) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
+
+		auto vView = vMillimeters * Settings::PPI().Get() * inchToMillimeter / vsph;
+		return vView;
+	}
+
 
 	// Pixels to Millimeters
 	static glm::vec3 ConvertPixelsToMillimeters(const glm::vec3& vPixels) {
@@ -980,15 +995,25 @@ class StereoCamera : public LeafObject
 
 public:
 	// Pixels
-	glm::vec2* viewSize = nullptr;
+	Property<glm::vec2> ViewSize;
 	// Millimeters
 	float viewSizeZ = 100;
-	glm::vec3 positionModifier = glm::vec3(0, 0.5, 10);
-
-	float eyeToCenterDistance = 0.5;
+	Property<float> EyeToCenterDistance = 50;
+	Property<glm::vec3> PositionModifier = glm::vec3(0, 5, 600);
+	
 
 	StereoCamera() {
 		Name = "camera";
+		EyeToCenterDistance.OnChanged() += [&](const float& v) {
+			eyeToCenterDistance = ConvertMillimetersToViewCoordinates(v, ViewSize->x); };
+		PositionModifier.OnChanged() += [&](const glm::vec3& v) {
+			positionModifier = ConvertMillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
+
+		ViewSize.OnChanged() += [&](const glm::vec2 v) {
+			// Trigger conversion.
+			EyeToCenterDistance.Set(EyeToCenterDistance.Get());
+			PositionModifier.Set(PositionModifier.Get());
+		};
 	}
 
 	IEvent<>& OnPropertiesChanged() {
@@ -1011,17 +1036,22 @@ public:
 			ImGui::Indent(propertyIndent);
 
 			ImGui::Extensions::PushActive(false);
-			if (viewSize != nullptr) {
-				ImGui::DragFloat2("view size", (float*)viewSize);
-				auto viewSizeMillimeters = ConvertPixelsToMillimeters(*viewSize);
-				ImGui::DragFloat2("view size millimeters", (float*)(&viewSizeMillimeters), 1, 0, 0, "%.1f");
-			}
+			ImGui::DragFloat2("view size", (float*)&ViewSize.Get());
+			auto viewSizeMillimeters = ConvertPixelsToMillimeters(ViewSize.Get());
+			ImGui::DragFloat2("view size millimeters", (float*)(&viewSizeMillimeters), 1, 0, 0, "%.1f");
 			ImGui::Extensions::PopActive();
 
-			if (ImGui::DragFloat3("position modifier", (float*)&positionModifier), 1, 0, 0, "%.1f")
+			if (auto v = PositionModifier.Get();
+				ImGui::DragFloat3("user position", (float*)&v, 1, 0, 0, "%.0f")) {
+				PositionModifier = v;
 				ForceUpdateCache();
-			if (ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f"))
+			}
+
+			if (auto v = EyeToCenterDistance.Get();
+				ImGui::DragFloat("eye to center distance", &v, 1, 0, 0, "%.0f")) {
+				EyeToCenterDistance = v;
 				ForceUpdateCache();
+			}
 
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();
