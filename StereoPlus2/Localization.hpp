@@ -81,7 +81,7 @@ public:
 		if (auto v = localizations().find(name); v != localizations().end())
 			return v._Ptr->_Myval.second;
 
-		Log::For<LocaleProvider>().Warning("Localization for ", name, " was not found.");
+		Log::For<LocaleProvider>("localeProviderLog").Warning("Localization for ", name, " was not found.");
 		return name;
 	}
 	static const char* GetC(const std::string& name) {

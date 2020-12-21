@@ -9,7 +9,6 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <filesystem> // C++17 standard header file name
 #include "include/imgui/imgui_stdlib.h"
 #include "FileManager.hpp"
 #include "TemplateExtensions.hpp"
@@ -18,7 +17,6 @@
 #include "ImGuiExtensions.hpp"
 #include "include/stb/stb_image_write.h"
 
-namespace fs = std::filesystem;
 
 //class TemplateWindow : Window {
 //	const Log log = Log::For<TemplateWindow>();
@@ -106,7 +104,7 @@ class CustomRenderWindow : Window {
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 		// update internal dimensions
-		renderSize = newSize;
+		RenderSize = newSize;
 	}
 
 	void saveImage(const char* filepath, int width, int height) {
@@ -124,7 +122,7 @@ class CustomRenderWindow : Window {
 	}
 public:
 	std::function<bool()> customRenderFunc;
-	glm::vec2 renderSize = glm::vec3(1);
+	Property<glm::vec2> RenderSize;
 
 	Property<bool> shouldSaveViewportImage;
 	Property<bool> shouldSaveAdvancedImage;
@@ -136,9 +134,9 @@ public:
 	virtual bool Init() {
 		Window::name = "renderWindow";
 		fbo = createFrameBuffer();
-		texture = createTextureAttachment(renderSize.x, renderSize.y);
-		depthBuffer = createDepthBufferAttachment(renderSize.x, renderSize.y);
-		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+		texture = createTextureAttachment(RenderSize->x, RenderSize->y);
+		depthBuffer = createDepthBufferAttachment(RenderSize->x, RenderSize->y);
+		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 
 		return true;
 	}
@@ -149,7 +147,7 @@ public:
 		glm::vec2 vMax = ImGui::GetWindowContentRegionMax();
 		glm::vec2 newSize = vMax - vMin;
 		
-		if (renderSize != newSize) {
+		if (RenderSize.Get() != newSize) {
 			ResizeCustomRenderCanvas(newSize);
 			onResize.Invoke();
 		}
@@ -164,24 +162,24 @@ public:
 		if (shouldSaveAdvancedImage.Get()) {
 			shouldSaveAdvancedImage = false;
 
-			auto copyRenderSize = renderSize;
+			auto copyRenderSize = RenderSize.Get();
 			auto nrs = glm::vec2(4000, 4000);
 			
 			ResizeCustomRenderCanvas(nrs);
 			onResize.Invoke();
 
-			bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+			bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
 
 			customRenderFunc();
 
 			std::stringstream ss;
 			ss << "image_" << Time::GetTime() << "a.png";
-			saveImage(ss.str().c_str(), renderSize.x, renderSize.y);
+			saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
 
 			ResizeCustomRenderCanvas(copyRenderSize);
 			onResize.Invoke();
 		}
-		bindFrameBuffer(fbo, renderSize.x, renderSize.y);
+		bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
 
 		if (!customRenderFunc())
 			return false;
@@ -191,11 +189,11 @@ public:
 
 			std::stringstream ss;
 			ss << "image_" << Time::GetTime() << ".png";
-			saveImage(ss.str().c_str(), renderSize.x, renderSize.y);
+			saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
 		}
-		unbindCurrentFrameBuffer(renderSize.x, renderSize.y);
+		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 		
-		ImGui::Image((void*)(intptr_t)texture, renderSize);
+		ImGui::Image((void*)(intptr_t)texture, RenderSize.Get());
 
 		HandleResize();
 
@@ -1217,38 +1215,6 @@ public:
 		Save,
 	};
 private:
-	class Path {
-		fs::path path;
-		std::string pathBuffer;
-	public:
-		const fs::path& get() {
-			return path;
-		}
-		std::string& getBuffer() {
-			return pathBuffer;
-		}
-
-		void apply() {
-			apply(pathBuffer);
-		}
-		void apply(fs::path n) {
-			path = fs::absolute(n);
-			pathBuffer = path.u8string();
-		}
-
-		bool isSome() {
-			return !pathBuffer.empty();
-		}
-
-		std::string join(Path path) {
-			auto last = pathBuffer[pathBuffer.size() - 1];
-		
-			if (last == '/' || last == '\\')
-				return pathBuffer + path.getBuffer();
-
-			return pathBuffer + '/' + path.getBuffer();
-		}
-	};
 
 	const Log log = Log::For<FileWindow>();
 
@@ -1420,20 +1386,42 @@ public:
 			ImGui::TreePop();
 		}
 
-		if (auto v = Settings::Language().Get();
-			ImGui::TreeNode(LocaleProvider::GetC("step"))) {
+		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
 
-			if (auto v = Settings::TransitionStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::TransitionStep)), &v, 0.01, 0.1))
-				Settings::TransitionStep() = v;
+			if (auto v = Settings::TranslationStep().Get();
+				ImGui::InputFloat(LocaleProvider::GetC("step:" + Settings::Name(&Settings::TranslationStep)), &v, 0.01, 0.1))
+				Settings::TranslationStep() = v;
 			if (auto v = Settings::RotationStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::RotationStep)), &v, 0.01, 0.1))
+				ImGui::InputFloat(LocaleProvider::GetC("step:" + Settings::Name(&Settings::RotationStep)), &v, 0.01, 0.1))
 				Settings::RotationStep() = v;
-			if (auto v = Settings::ScaleStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::ScaleStep)), &v, 0.01, 0.1))
-				Settings::ScaleStep() = v;
+			if (auto v = Settings::ScalingStep().Get();
+				ImGui::InputFloat(LocaleProvider::GetC("step:" + Settings::Name(&Settings::ScalingStep)), &v, 0.01, 0.1))
+				Settings::ScalingStep() = v;
 			ImGui::TreePop();
 		}
+
+		if (ImGui::TreeNode(LocaleProvider::GetC("color"))) {
+
+			if (auto v = Settings::ColorLeft().Get();
+				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::ColorLeft)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				Settings::ColorLeft() = v;
+			if (auto v = Settings::ColorRight().Get();
+				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::ColorRight)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				Settings::ColorRight() = v;
+			if (auto v = Settings::DimmedColorLeft().Get();
+				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::DimmedColorLeft)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				Settings::DimmedColorLeft() = v;
+			if (auto v = Settings::DimmedColorRight().Get();
+				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::DimmedColorRight)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				Settings::DimmedColorRight() = v;
+
+			ImGui::TreePop();
+		}
+
+		if (auto v = Settings::LogFileName().Get();
+			ImGui::InputText(LocaleProvider::GetC(Settings::Name(&Settings::LogFileName)), &v))
+			Settings::LogFileName() = v;
+		ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 
 		ImGui::End();
 		return true;
@@ -1442,4 +1430,24 @@ public:
 		return true;
 	}
 
+};
+
+class LogWindow : Window {
+	const Log log = Log::For<LogWindow>();
+public:
+	std::string Logs;
+
+	virtual bool Init() {
+		Window::name = "logWindow";
+
+		return true;
+	}
+	virtual bool Design() {
+		//ImGui::Extensions::LogTextMultiline(&Logs);
+		ImGui::InputTextMultiline("", &Logs, glm::vec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), ImGuiInputTextFlags_ReadOnly);
+		return true;
+	}
+	virtual bool OnExit() {
+		return true;
+	}
 };

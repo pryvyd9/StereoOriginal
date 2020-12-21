@@ -23,10 +23,6 @@ enum InsertPosition {
 	Any = Top | Bottom | Center,
 };
 
-struct Pair {
-	glm::vec3 p1, p2;
-};
-
 // Abstract scene object.
 // Parent to all scene objects.
 class SceneObject {
@@ -327,7 +323,7 @@ public:
 		if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 			
-			if (auto v = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&v, 0.01, 0, 0, "%.5f"))
+			if (auto v = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&v, 1, 0, 0, "%.1f"))
 				SetLocalPosition(v);
 			if (auto v = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
 				SetLocalRotation(v);
@@ -339,7 +335,7 @@ public:
 		if (ImGui::TreeNodeEx("world")) {
 			ImGui::Indent(propertyIndent);
 
-			if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 0.01, 0, 0, "%.3f"))
+			if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 1, 0, 0, "%.1f"))
 				SetWorldPosition(v);
 			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
 				SetWorldRotation(v);
@@ -839,7 +835,7 @@ class Cross : public LeafObject {
 	// Cross is being continuously modified so don't notify it's updates.
 	virtual void HandleBeforeUpdate() override {}
 public:
-	float size = 0.1;
+	float size = 10;
 	std::function<void()> keyboardBindingHandler;
 	size_t keyboardBindingHandlerId;
 
@@ -859,7 +855,7 @@ public:
 		if (ImGui::TreeNodeEx("cross", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
-			if (ImGui::DragFloat("size", &size, 0.01, 0, 0, "%.5f"))
+			if (ImGui::DragFloat("size", &size, 1, 0, 0, "%.1f"))
 				ForceUpdateCache();
 
 			ImGui::Unindent(propertyIndent);
@@ -902,11 +898,16 @@ public:
 
 class StereoCamera : public LeafObject
 {
+	// View coordinates
+	float eyeToCenterDistance;
+	glm::vec3 positionModifier;
+
 	glm::vec3 GetPos() {
 		return positionModifier + GetLocalPosition();
 	}
 
-	glm::vec3 getLeft(const glm::vec3& pos) {
+	glm::vec3 getLeft(const glm::vec3& posMillimeters) {
+		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
@@ -915,7 +916,8 @@ class StereoCamera : public LeafObject
 			0
 		);
 	}
-	glm::vec3 getRight(const glm::vec3& pos) {
+	glm::vec3 getRight(const glm::vec3& posMillimeters) {
+		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
 		auto cameraPos = GetPos();
 		float denominator = cameraPos.z - pos.z;
 		return glm::vec3(
@@ -925,62 +927,104 @@ class StereoCamera : public LeafObject
 		);
 	}
 
+
 	Event<> onPropertiesChanged;
 
 	virtual void HandleBeforeUpdate() override {
 		onPropertiesChanged.Invoke();
 	}
-public:
-	glm::vec2* viewSize = nullptr;
-	glm::vec3 positionModifier = glm::vec3(0, 0.5, 10);
 
-	float eyeToCenterDistance = 0.5;
+	// Millimeters to pixels
+	static glm::vec3 ConvertMillimetersToPixels(const glm::vec3& vMillimeters) {
+		static float inchToMillimeter = 0.0393701;
+		// vMillimiters[millimiter]
+		// inchToMillemeter[inch/millimeter]
+		// PPI[pixel/inch]
+		// vMillimiters*PPI*inchToMillemeter[millimeter*(pixel/inch)*(inch/millimeter) = millimeter*(pixel/millimeter) = pixel]
+		auto vPixels = Settings::PPI().Get() * inchToMillimeter * vMillimeters;
+		return vPixels;
+	}
+
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static glm::vec3 ConvertMillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels, const float& viewSizeZMillimeters) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
+		auto vszmh = viewSizeZMillimeters / 2.f;
+
+		auto vView = glm::vec3(
+			vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
+			vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
+			vMillimeters.z / vszmh
+		);
+		return vView;
+	}
+
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static float ConvertMillimetersToViewCoordinates(const float& vMillimeters, const float& viewSizePixels) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
+
+		auto vView = vMillimeters * Settings::PPI().Get() * inchToMillimeter / vsph;
+		return vView;
+	}
+
+
+	// Pixels to Millimeters
+	static glm::vec3 ConvertPixelsToMillimeters(const glm::vec3& vPixels) {
+		static float inchToMillimeter = 0.0393701;
+		// vPixels[pixel]
+		// inchToMillimeter[inch/centimeter]
+		// PPI[pixel/inch]
+		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
+		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
+		return vMillimiters;
+	}
+	static glm::vec2 ConvertPixelsToMillimeters(const glm::vec2& vPixels) {
+		static float inchToMillimeter = 0.0393701;
+		// vPixels[pixel]
+		// inchToMillimeter[inch/centimeter]
+		// PPI[pixel/inch]
+		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
+		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
+		return vMillimiters;
+	}
+
+public:
+	// Pixels
+	Property<glm::vec2> ViewSize;
+	// Millimeters
+	float viewSizeZ = 100;
+	Property<float> EyeToCenterDistance = 50;
+	Property<glm::vec3> PositionModifier = glm::vec3(0, 5, 600);
+	
 
 	StereoCamera() {
 		Name = "camera";
+		EyeToCenterDistance.OnChanged() += [&](const float& v) {
+			eyeToCenterDistance = ConvertMillimetersToViewCoordinates(v, ViewSize->x); };
+		PositionModifier.OnChanged() += [&](const glm::vec3& v) {
+			positionModifier = ConvertMillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
+
+		ViewSize.OnChanged() += [&](const glm::vec2 v) {
+			// Trigger conversion.
+			EyeToCenterDistance.Set(EyeToCenterDistance.Get());
+			PositionModifier.Set(PositionModifier.Get());
+		};
 	}
 
 	IEvent<>& OnPropertiesChanged() {
 		return onPropertiesChanged;
 	}
 
-
-	// Preserve aspect ratio
-	// From [0;1] to ([0;viewSize->x];[0;viewSize->y])
-	glm::vec3 PreserveAspectRatio(glm::vec3 pos) {
-		return glm::vec3(
-			pos.x * viewSize->y / viewSize->x,
-			pos.y,
-			pos.z
-		);
-	}
-
-
-	Pair GetLeft(const Pair& stereoLine)
-	{
-		Pair line;
-
-		line.p1 = PreserveAspectRatio(getLeft(stereoLine.p1));
-		line.p2 = PreserveAspectRatio(getLeft(stereoLine.p2));
-
-		return line;
-	}
-	Pair GetRight(const Pair& stereoLine)
-	{
-		Pair line;
-
-		line.p1 = PreserveAspectRatio(getRight(stereoLine.p1));
-		line.p2 = PreserveAspectRatio(getRight(stereoLine.p2));
-
-		return line;
-	}
-
-
 	glm::vec3 GetLeft(const glm::vec3& v) {
-		return PreserveAspectRatio(getLeft(v));
+		return getLeft(v);
 	}
 	glm::vec3 GetRight(const glm::vec3& v) {
-		return PreserveAspectRatio(getRight(v));
+		return getRight(v);
 	}
 
 
@@ -992,14 +1036,22 @@ public:
 			ImGui::Indent(propertyIndent);
 
 			ImGui::Extensions::PushActive(false);
-			if (viewSize != nullptr)
-				ImGui::DragFloat2("view size", (float*)viewSize, 0.01, 0, 0, "%.5f");
+			ImGui::DragFloat2("view size", (float*)&ViewSize.Get());
+			auto viewSizeMillimeters = ConvertPixelsToMillimeters(ViewSize.Get());
+			ImGui::DragFloat2("view size millimeters", (float*)(&viewSizeMillimeters), 1, 0, 0, "%.1f");
 			ImGui::Extensions::PopActive();
 
-			if (ImGui::DragFloat3("position modifier", (float*)&positionModifier, 0.01, 0, 0, "%.5f"))
+			if (auto v = PositionModifier.Get();
+				ImGui::DragFloat3("user position", (float*)&v, 1, 0, 0, "%.0f")) {
+				PositionModifier = v;
 				ForceUpdateCache();
-			if (ImGui::DragFloat("eye to center distance", &eyeToCenterDistance, 0.01, 0, 0, "%.5f"))
+			}
+
+			if (auto v = EyeToCenterDistance.Get();
+				ImGui::DragFloat("eye to center distance", &v, 1, 0, 0, "%.0f")) {
+				EyeToCenterDistance = v;
 				ForceUpdateCache();
+			}
 
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();

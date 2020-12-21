@@ -196,9 +196,9 @@ public:
 	Input* input;
 	Cross* cross;
 
-	float crossScaleSpeed = 0.01;
-	float crossMinSize = 0.001;
-	float crossMaxSize = 1;
+	float crossScaleSpeed = 1;
+	float crossMinSize = 0.1;
+	float crossMaxSize = 100;
 
 
 	size_t AddHandler(std::function<void()> func) {
@@ -234,29 +234,31 @@ public:
 			// regardless of whether we move the cross or not.
 			i->SetMouseBoundlessMode(isAltPressed);
 
-			i->movement += i->MouseAxe * Settings().TransitionStep().Get();
-			i->movement += i->ArrowAxe * Settings().TransitionStep().Get();
-			i->movement += i->NumpadAxe * Settings().TransitionStep().Get();
+			i->movement += i->MouseAxe * Settings().TranslationStep().Get();
+			i->movement += i->ArrowAxe * Settings().TranslationStep().Get();
+			i->movement += i->NumpadAxe * Settings().TranslationStep().Get();
 			});
 	}
 	void Cross() {
 		// Resize cross.
 		AddHandler([i = input, c = cross, &sp = crossScaleSpeed, &min = crossMinSize, &max = crossMaxSize] {
-			bool isScaleUp = i->IsPressed(Key::N3);
-			bool isScaleDown = i->IsPressed(Key::N7);
+			bool isScaleUp = i->IsPressed(Key::N3, true);
+			bool isScaleDown = i->IsPressed(Key::N7, true);
 
 			if (isScaleUp == isScaleDown)
 				return;
 
 			if (isScaleUp) {
-				float newSize = c->size *= 1 + sp;
+				//float newSize = c->size *= 1 + sp;
+				float newSize = c->size += sp;
 				if (max < newSize)
 					c->size = max;
 				else
 					c->size = newSize;
 			}
 			else {
-				float newSize = c->size *= 1 - sp;
+				//float newSize = c->size *= 1 - sp;
+				float newSize = c->size -= sp;
 				if (newSize < min)
 					c->size = min;
 				else
