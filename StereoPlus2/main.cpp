@@ -66,10 +66,18 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 		});
 }
 
-int main(int, char**) {
+
+//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+int main() {
+	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
+	SettingsLoader::Load();
+
+	//LogWindow logWindow;
+	//Log::AdditionalLogOutput() = [&](const std::string& v) { logWindow.Logs += v; };
 
 	// Declare main components.
 	PositionDetector positionDetector;
+
 
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow cameraPropertiesWindow;
@@ -112,6 +120,7 @@ int main(int, char**) {
 		(Window*)&attributesWindow,
 		(Window*)&toolWindow,
 		(Window*)&settingsWindow,
+		//(Window*)&logWindow,
 	};
 	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
@@ -147,7 +156,7 @@ int main(int, char**) {
 		}
 	});
 
-	SettingsLoader::Load();
+
 
 	ToolPool::Cross() = &cross;
 	ToolPool::Scene() = &scene;
@@ -209,4 +218,8 @@ int main(int, char**) {
 	StateBuffer::Clear();
 	SettingsLoader::Save();
     return true;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+	return main();
 }

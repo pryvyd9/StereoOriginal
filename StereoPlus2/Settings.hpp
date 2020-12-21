@@ -45,12 +45,22 @@ public:
 	// Settings
 	StaticProperty(std::string, Language)
 	StaticProperty(int, StateBufferLength)
-	
-	StaticProperty(bool, UseDiscreteMovement)
-	StaticProperty(float, TransitionStep)
-	StaticProperty(float, RotationStep)
-	StaticProperty(float, ScaleStep)
+	StaticProperty(std::string, LogFileName)
+	// Display Pixels Per Centimeter
+	StaticProperty(float, PPI)
 
+	StaticProperty(bool, UseDiscreteMovement)
+	StaticProperty(float, TranslationStep)
+	StaticProperty(float, RotationStep)
+	StaticProperty(float, ScalingStep)
+
+	StaticProperty(glm::vec4, ColorLeft)
+	StaticProperty(glm::vec4, ColorRight)
+	StaticProperty(glm::vec4, DimmedColorLeft)
+	StaticProperty(glm::vec4, DimmedColorRight)
+
+
+	// Shortcuts
 	StaticProperty(Key::Combination, TransformToolShortcut)
 	StaticProperty(Key::Combination, PenToolShortcut)
 	StaticProperty(Key::Combination, ExtrusionToolShortcut)
@@ -63,11 +73,21 @@ public:
 		static std::map<void*, const std::string> v = {
 			{&Language,"language"},
 			{&StateBufferLength,"stateBufferLength"},
+			{&LogFileName,"logFileName"},
+			{&PPI,"ppi"},
 
 			{&UseDiscreteMovement,"useDiscreteMovement"},
-			{&TransitionStep,"transitionStep"},
+			{&TranslationStep,"translationStep"},
 			{&RotationStep,"rotationStep"},
-			{&ScaleStep,"scaleStep"},
+			{&ScalingStep,"scalingStep"},
+
+			{&RotationStep,"rotationStep"},
+			{&ScalingStep,"scalingStep"},
+
+			{&ColorLeft,"colorLeft"},
+			{&ColorRight,"colorRight"},
+			{&DimmedColorLeft,"dimmedColorLeft"},
+			{&DimmedColorRight,"dimmedColorRight"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())

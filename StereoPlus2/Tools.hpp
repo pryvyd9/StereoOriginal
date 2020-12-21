@@ -985,8 +985,8 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			return scale;
 
 		auto v = input->movement.x > 0
-			? scale + Settings::ScaleStep().Get()
-			: scale - Settings::ScaleStep().Get();
+			? scale + Settings::ScalingStep().Get()
+			: scale - Settings::ScalingStep().Get();
 
 		return v;
 	}

@@ -9,3 +9,7 @@
 - implemented discrete movement;
 - average deltatime + framerate;
 - reversed Z;
+# 0.10
+- added color settings;
+- moved logs to file;
+- moved to World center-centered Millimeter based coordinate system;

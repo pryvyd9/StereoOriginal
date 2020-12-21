@@ -12,6 +12,10 @@
 #include <map>
 #include <glm/vec3.hpp>
 
+#include <fstream>
+#include <filesystem>// C++17 standard header file name
+namespace fs = std::filesystem;
+
 template<typename T>
 int find(const std::vector<T>& source, const T& item) {
 	for (size_t i = 0; i < source.size(); i++)
@@ -96,67 +100,53 @@ bool keyExists(const std::set<K,V>& source, const K& item) {
 	return source.find(item) != source.end();
 }
 
-
-
-class Log {
-	template<typename T>
-	using isOstreamable = decltype(std::declval<std::ostringstream>() << std::declval<T>());
-
-	template<typename T>
-	static constexpr bool isOstreamableT = is_detected_v<isOstreamable, T>;
-
-	std::string contextName = "";
-
-	static void Line(const std::string& message) {
-		std::cout << message << std::endl;
-	}
-	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
-	static std::string ToString(const T& message) {
-		std::ostringstream ss;
-		ss << message;
-		return ss.str();
-	}
-	static std::string ToString(const glm::vec3& message) {
-		std::ostringstream ss;
-		ss << "(" << message.x << ";" << message.y << ";" << message.z << ")";
-		return ss.str();
-	}
-
+class Path {
+	fs::path path;
+	std::string pathBuffer;
 public:
-	template<typename T>
-	static const Log For() {
-		Log log;
-		log.contextName = typeid(T).name();
-		return log;
+	const fs::path& get() const {
+		return path;
+	}
+	std::string& getBuffer() {
+		return pathBuffer;
 	}
 
-	template<typename... T>
-	void Error(const T&... message) const {
-		Error((Log::ToString(message) + ...));
+	Path() {}
+	Path(fs::path n) {
+		apply(n);
 	}
-	template<typename... T>
-	void Warning(const T&... message) const {
-		Warning((Log::ToString(message) + ...));
+	void apply() {
+		apply(pathBuffer);
 	}
-	template<typename... T>
-	void Information(const T&... message) const {
-		Information((Log::ToString(message) + ...));
+	void apply(fs::path n) {
+		path = fs::absolute(n);
+		pathBuffer = path.u8string();
 	}
 
+	bool isSome() {
+		return !pathBuffer.empty();
+	}
 
-	void Error(const std::string& message) const {
-		Line("[Error](" + contextName + ") " + message);
+	std::string join(Path path) {
+		auto last = pathBuffer[pathBuffer.size() - 1];
+
+		if (last == '/' || last == '\\')
+			return pathBuffer + path.getBuffer();
+
+		return pathBuffer + '/' + path.getBuffer();
 	}
-	void Warning(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message);
-	}
-	void Information(const std::string& message) const {
-		Line("[Information](" + contextName + ") " + message);
+	fs::path joinPath(const std::string& path) {
+		auto last = pathBuffer[pathBuffer.size() - 1];
+
+		if (last == '/' || last == '\\')
+			return fs::absolute(pathBuffer + path);
+
+		return fs::absolute(pathBuffer + '/' + path);
 	}
 };
 
 class Time {
-	static const int timeLogSize = 60;
+	static const int timeLogSize = 5;
 
 	static std::chrono::steady_clock::time_point* GetBegin() {
 		static std::chrono::steady_clock::time_point instance;
@@ -206,7 +196,103 @@ public:
 	static size_t GetTime() {
 		return std::chrono::time_point_cast<std::chrono::milliseconds>(*GetBegin()).time_since_epoch().count();
 	}
+	static std::string GetTimeFormatted(const std::string& format = "%Y-%m-%d %H:%M:%S") {
+		std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+		std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+
+#pragma warning(push)
+#pragma warning(disable: 4996)
+		std::tm tm = *std::gmtime(&now_c);
+#pragma warning(pop)
+		
+		std::stringstream ss;
+		ss << std::put_time(&tm, format.c_str());
+		return ss.str();
+	}
+
 };
+
+class Log {
+	template<typename T>
+	using isOstreamable = decltype(std::declval<std::ostringstream>() << std::declval<T>());
+
+	template<typename T>
+	static constexpr bool isOstreamableT = is_detected_v<isOstreamable, T>;
+
+	std::string contextName = "";
+	std::string logFileName = "";
+
+	static void Line(const std::string& message, const std::string& logFileName) {
+		static Path logDirectory("logs/");
+		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
+		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
+			fs::create_directory(logDirectory.get());
+
+		std::stringstream ss;
+		ss << Time::GetTimeFormatted() << message << std::endl;
+		auto log = ss.str();
+
+		std::ofstream f(logDirectory.joinPath(logFileName + startTime), std::ios_base::app);
+		f << log;
+		f.close();
+
+		AdditionalLogOutput()(log);
+	}
+	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
+	static std::string ToString(const T& message) {
+		std::ostringstream ss;
+		ss << message;
+		return ss.str();
+	}
+	static std::string ToString(const glm::vec3& message) {
+		std::ostringstream ss;
+		ss << "(" << message.x << ";" << message.y << ";" << message.z << ")";
+		return ss.str();
+	}
+
+public:
+	template<typename T>
+	static const Log For(std::string logFileName = LogFileName()) {
+		Log log;
+		log.contextName = typeid(T).name();
+		log.logFileName = logFileName;
+		return log;
+	}
+
+	template<typename... T>
+	void Error(const T&... message) const {
+		Error((Log::ToString(message) + ...));
+	}
+	template<typename... T>
+	void Warning(const T&... message) const {
+		Warning((Log::ToString(message) + ...));
+	}
+	template<typename... T>
+	void Information(const T&... message) const {
+		Information((Log::ToString(message) + ...));
+	}
+
+
+	void Error(const std::string& message) const {
+		Line("[Error](" + contextName + ") " + message, logFileName);
+	}
+	void Warning(const std::string& message) const {
+		Line("[Warning](" + contextName + ") " + message, logFileName);
+	}
+	void Information(const std::string& message) const {
+		Line("[Information](" + contextName + ") " + message, logFileName);
+	}
+
+	static std::string& LogFileName() {
+		static std::string v = "defaultLog";
+		return v;
+	}
+	static std::function<void(const std::string&)>& AdditionalLogOutput() {
+		static std::function<void(const std::string&)> v = [](const std::string&) {};
+		return v;
+	}
+};
+
 
 class Command {
 	static std::list<Command*>& GetQueue() {

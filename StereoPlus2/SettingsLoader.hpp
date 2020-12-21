@@ -8,6 +8,11 @@ class SettingsLoader {
 		return v;
 	}
 
+	static const Log& Logger() {
+		static Log v = Log::For<SettingsLoader>("settingsLoaderLog");
+		return v;
+	}
+
 	static void LoadJson(const std::string& key, Js::ObjectAbstract* joa) {
 		switch (joa->GetType()) {
 		case Js::JPrimitiveString:
@@ -31,8 +36,18 @@ class SettingsLoader {
 
 			break;
 		}
+		case Js::JArray:
+		{
+			for (size_t i = 0; i < ((Js::Array*)joa)->objects.size(); i++) {
+				std::stringstream ss;
+				ss << i;
+				LoadJson(key + ":" + ss.str(), ((Js::Array*)joa)->objects[i]);
+			}
+
+			break;
+		}
 		default:
-			Log::For<LocaleProvider>().Error("Unsupported Json object was passed.");
+			Logger().Error("Unsupported Json object was passed.");
 			break;
 		}
 	}
@@ -47,7 +62,7 @@ class SettingsLoader {
 			delete json;
 		}
 		catch (std::exception & e) {
-			Log::For<LocaleProvider>().Error("Settings could not be loaded.");
+			Logger().Error("Settings could not be loaded.");
 
 			if (json)
 				delete json;
@@ -60,7 +75,7 @@ class SettingsLoader {
 	static void Load(const std::string& name, std::function<void(T)> setter) {
 		auto node = settings().find(name);
 		if (node == settings().end()) {
-			Log::For<Settings>().Error("Failed to load setting: ", name);
+			Logger().Error("Failed to load setting: ", name);
 			return;
 		}
 
@@ -71,6 +86,33 @@ class SettingsLoader {
 
 		setter(v);
 	}
+	template<>
+	static void Load(const std::string& name, std::function<void(glm::vec4)> setter) {
+		static const int size = sizeof(glm::vec4) / sizeof(float);
+
+		std::string nodes[size];
+
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << i;
+			auto node = settings().find(name + ":" + ss.str());
+			if (node == settings().end()) {
+				Logger().Error("Failed to load setting: ", name, ":", i);
+				return;
+			}
+			nodes[i] = node._Ptr->_Myval.second;
+		}
+		
+		glm::vec4 v;
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << nodes[i];
+			ss >> ((float*)&v)[i];
+		}
+
+		setter(v);
+	}
+
 	template<typename T>
 	static void Load(const std::string& name, Property<T>& (*selector)()) {
 		Load(name, std::function([&](T v) { selector().Set(v); }));
@@ -97,22 +139,36 @@ public:
 		
 		Load(&Settings::Language);
 		Load(&Settings::StateBufferLength);
+		Load(&Settings::LogFileName);
+		Load(&Settings::PPI);
 
 		Load(&Settings::UseDiscreteMovement);
-		Load(&Settings::TransitionStep);
+		Load(&Settings::TranslationStep);
 		Load(&Settings::RotationStep);
-		Load(&Settings::ScaleStep);
+		Load(&Settings::ScalingStep);
+
+		Load(&Settings::ColorLeft);
+		Load(&Settings::ColorRight);
+		Load(&Settings::DimmedColorLeft);
+		Load(&Settings::DimmedColorRight);
 	}
 	static void Save() {
 		Js::Object json;
 
 		Insert(json, &Settings::Language);
 		Insert(json, &Settings::StateBufferLength);
+		Insert(json, &Settings::LogFileName);
+		Insert(json, &Settings::PPI);
 
 		Insert(json, &Settings::UseDiscreteMovement);
-		Insert(json, &Settings::TransitionStep);
+		Insert(json, &Settings::TranslationStep);
 		Insert(json, &Settings::RotationStep);
-		Insert(json, &Settings::ScaleStep);
+		Insert(json, &Settings::ScalingStep);
+
+		Insert(json, &Settings::ColorLeft);
+		Insert(json, &Settings::ColorRight);
+		Insert(json, &Settings::DimmedColorLeft);
+		Insert(json, &Settings::DimmedColorRight);
 
 		Json::Write("settings.json", &json);
 	}

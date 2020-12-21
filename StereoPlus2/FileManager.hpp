@@ -408,6 +408,12 @@ public:
 		return j;
 	}
 	template<>
+	static Js::ObjectAbstract* serialize(const glm::vec4& o) {
+		auto j = new Js::Array();
+		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z), serialize(o.w) };
+		return j;
+	}
+	template<>
 	static Js::ObjectAbstract* serialize(const glm::fquat& o) {
 		auto j = new Js::Array();
 		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z), serialize(o.w) };
