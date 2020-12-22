@@ -40,6 +40,8 @@ class CustomRenderWindow : Window {
 	GLuint depthBuffer;
 	GLuint depthBufferTexture;
 
+	glm::vec4 windowBackgroundColor = glm::vec4(0, 0, 0, 1);
+
 	Event<> onResize;
 
 
@@ -120,6 +122,41 @@ class CustomRenderWindow : Window {
 
 		stbi_write_png(filepath, width, height, nrChannels, buffer.data(), stride);
 	}
+
+	void RenderToFileAdvanced() {
+		if (!shouldSaveAdvancedImage.Get())
+			return;
+
+		shouldSaveAdvancedImage = false;
+
+		auto copyRenderSize = RenderSize.Get();
+		auto nrs = glm::vec2(4000, 4000);
+
+		ResizeCustomRenderCanvas(nrs);
+		onResize.Invoke();
+
+		bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
+
+
+		customRenderFunc();
+
+		std::stringstream ss;
+		ss << "image_" << Time::GetTime() << "a.png";
+		saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
+
+		ResizeCustomRenderCanvas(copyRenderSize);
+		onResize.Invoke();
+	}
+	void RenderToFileBasic() {
+		if (!shouldSaveViewportImage.Get())
+			return;
+
+		shouldSaveViewportImage = false;
+
+		std::stringstream ss;
+		ss << "image_" << Time::GetTime() << ".png";
+		saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
+	}
 public:
 	std::function<bool()> customRenderFunc;
 	Property<glm::vec2> RenderSize;
@@ -138,6 +175,9 @@ public:
 		depthBuffer = createDepthBufferAttachment(RenderSize->x, RenderSize->y);
 		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 
+		Settings::CustomRenderWindowAlpha().OnChanged() += [&](const float& v) { windowBackgroundColor.a = v; };
+		windowBackgroundColor.a = Settings::CustomRenderWindowAlpha().Get();
+
 		return true;
 	}
 
@@ -155,46 +195,25 @@ public:
 
 	virtual bool Design() {
 		auto name = LocaleProvider::Get(Window::name) + "###" + Window::name;
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, glm::vec2());
+		
+		// If the window is detached.
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, windowBackgroundColor);
+		// If the window is docked.
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, windowBackgroundColor);
+
 		ImGui::Begin(name.c_str());
 
+		ImGui::PopStyleColor(2);
+		ImGui::PopStyleVar();
 
-
-		if (shouldSaveAdvancedImage.Get()) {
-			shouldSaveAdvancedImage = false;
-
-			auto copyRenderSize = RenderSize.Get();
-			auto nrs = glm::vec2(4000, 4000);
-			
-			ResizeCustomRenderCanvas(nrs);
-			onResize.Invoke();
-
-			bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
-
-			customRenderFunc();
-
-			std::stringstream ss;
-			ss << "image_" << Time::GetTime() << "a.png";
-			saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
-
-			ResizeCustomRenderCanvas(copyRenderSize);
-			onResize.Invoke();
-		}
+		RenderToFileAdvanced();
 		bindFrameBuffer(fbo, RenderSize->x, RenderSize->y);
-
 		if (!customRenderFunc())
 			return false;
-
-		if (shouldSaveViewportImage.Get()) {
-			shouldSaveViewportImage = false;
-
-			std::stringstream ss;
-			ss << "image_" << Time::GetTime() << ".png";
-			saveImage(ss.str().c_str(), RenderSize->x, RenderSize->y);
-		}
+		RenderToFileBasic();
 		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
-		
 		ImGui::Image((void*)(intptr_t)texture, RenderSize.Get());
-
 		HandleResize();
 
 		ImGui::End();
@@ -1183,15 +1202,15 @@ public:
 			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
 				Settings::SpaceMode() = SpaceMode::Local;
 		}
-		{
-			ImGui::Separator();
-			ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
-			static int v = (int)Settings::MoveCoordinateAction().Get();
-			if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
-				Settings::MoveCoordinateAction() = MoveCoordinateAction::Adapt;
-			if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
-				Settings::MoveCoordinateAction() = MoveCoordinateAction::None;
-		}
+		//{
+		//	ImGui::Separator();
+		//	ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
+		//	static int v = (int)Settings::MoveCoordinateAction().Get();
+		//	if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
+		//		Settings::MoveCoordinateAction() = MoveCoordinateAction::Adapt;
+		//	if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
+		//		Settings::MoveCoordinateAction() = MoveCoordinateAction::None;
+		//}
 
 		ImGui::Separator();
 		if (bool v = Settings::UseDiscreteMovement().Get();
@@ -1352,6 +1371,10 @@ public:
 
 class SettingsWindow : Window {
 	const Log log = Log::For<SettingsWindow>();
+
+	static const char* GetC(const char* path, void* settingReference) {
+		return LocaleProvider::GetC(path + Settings::Name(settingReference));
+	}
 public:
 
 	Property<bool> IsOpen;
@@ -1389,30 +1412,30 @@ public:
 		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
 
 			if (auto v = Settings::TranslationStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC("step:" + Settings::Name(&Settings::TranslationStep)), &v, 0.01, 0.1))
+				ImGui::InputFloat(GetC("step:", &Settings::TranslationStep), &v, 0.01, 0.1))
 				Settings::TranslationStep() = v;
 			if (auto v = Settings::RotationStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC("step:" + Settings::Name(&Settings::RotationStep)), &v, 0.01, 0.1))
+				ImGui::InputFloat(GetC("step:", &Settings::RotationStep), &v, 0.01, 0.1))
 				Settings::RotationStep() = v;
 			if (auto v = Settings::ScalingStep().Get();
-				ImGui::InputFloat(LocaleProvider::GetC("step:" + Settings::Name(&Settings::ScalingStep)), &v, 0.01, 0.1))
+				ImGui::InputFloat(GetC("step:", &Settings::ScalingStep), &v, 0.01, 0.1))
 				Settings::ScalingStep() = v;
 			ImGui::TreePop();
 		}
 
-		if (ImGui::TreeNode(LocaleProvider::GetC("color"))) {
+		if (ImGui::TreeNode(LocaleProvider::GetC("color:color"))) {
 
 			if (auto v = Settings::ColorLeft().Get();
-				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::ColorLeft)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				ImGui::ColorEdit4(GetC("color:", &Settings::ColorLeft), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
 				Settings::ColorLeft() = v;
 			if (auto v = Settings::ColorRight().Get();
-				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::ColorRight)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				ImGui::ColorEdit4(GetC("color:", &Settings::ColorRight), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
 				Settings::ColorRight() = v;
 			if (auto v = Settings::DimmedColorLeft().Get();
-				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::DimmedColorLeft)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				ImGui::ColorEdit4(GetC("color:", &Settings::DimmedColorLeft), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
 				Settings::DimmedColorLeft() = v;
 			if (auto v = Settings::DimmedColorRight().Get();
-				ImGui::ColorEdit4(LocaleProvider::GetC(Settings::Name(&Settings::DimmedColorRight)), (float*)&v, ImGuiColorEditFlags_NoInputs))
+				ImGui::ColorEdit4(GetC("color:", &Settings::DimmedColorRight), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
 				Settings::DimmedColorRight() = v;
 
 			ImGui::TreePop();
@@ -1421,7 +1444,16 @@ public:
 		if (auto v = Settings::LogFileName().Get();
 			ImGui::InputText(LocaleProvider::GetC(Settings::Name(&Settings::LogFileName)), &v))
 			Settings::LogFileName() = v;
-		ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
+
+		if (auto v = Settings::PPI().Get();
+			ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::PPI)), &v))
+			Settings::PPI() = v;
+
+		if (auto v = Settings::CustomRenderWindowAlpha().Get();
+			ImGui::DragFloat(LocaleProvider::GetC(Settings::Name(&Settings::CustomRenderWindowAlpha)), &v, 0.01, 0, 1))
+			Settings::CustomRenderWindowAlpha() = v;
+
+		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 
 		ImGui::End();
 		return true;

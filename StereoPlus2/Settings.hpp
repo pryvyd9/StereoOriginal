@@ -59,6 +59,8 @@ public:
 	StaticProperty(glm::vec4, DimmedColorLeft)
 	StaticProperty(glm::vec4, DimmedColorRight)
 
+	StaticProperty(float, CustomRenderWindowAlpha)
+
 
 	// Shortcuts
 	StaticProperty(Key::Combination, TransformToolShortcut)
@@ -88,6 +90,7 @@ public:
 			{&ColorRight,"colorRight"},
 			{&DimmedColorLeft,"dimmedColorLeft"},
 			{&DimmedColorRight,"dimmedColorRight"},
+			{&CustomRenderWindowAlpha,"customRenderWindowAlpha"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())

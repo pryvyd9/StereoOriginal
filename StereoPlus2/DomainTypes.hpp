@@ -977,7 +977,7 @@ class StereoCamera : public LeafObject
 	static glm::vec3 ConvertPixelsToMillimeters(const glm::vec3& vPixels) {
 		static float inchToMillimeter = 0.0393701;
 		// vPixels[pixel]
-		// inchToMillimeter[inch/centimeter]
+		// inchToMillimeter[inch/millimeter]
 		// PPI[pixel/inch]
 		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
 		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
@@ -986,7 +986,7 @@ class StereoCamera : public LeafObject
 	static glm::vec2 ConvertPixelsToMillimeters(const glm::vec2& vPixels) {
 		static float inchToMillimeter = 0.0393701;
 		// vPixels[pixel]
-		// inchToMillimeter[inch/centimeter]
+		// inchToMillimeter[inch/millimeter]
 		// PPI[pixel/inch]
 		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
 		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
@@ -998,8 +998,8 @@ public:
 	Property<glm::vec2> ViewSize;
 	// Millimeters
 	float viewSizeZ = 100;
-	Property<float> EyeToCenterDistance = 50;
-	Property<glm::vec3> PositionModifier = glm::vec3(0, 5, 600);
+	Property<float> EyeToCenterDistance = 34;
+	Property<glm::vec3> PositionModifier = glm::vec3(0, 50, 600);
 	
 
 	StereoCamera() {
