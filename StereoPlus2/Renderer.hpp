@@ -49,6 +49,7 @@ class Renderer {
 		glsl_version = "#version 130";
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+		glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, true);
 		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
 		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
@@ -154,7 +155,7 @@ public:
 	GLFWwindow* glWindow;
 	const char* glsl_version;
 	float LineThickness = 1;
-	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 1);
+	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 0);
 
 	WhiteSquare whiteSquare;
 	WhiteSquare whiteSquareDim;

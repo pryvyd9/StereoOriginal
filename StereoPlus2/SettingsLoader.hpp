@@ -151,6 +151,7 @@ public:
 		Load(&Settings::ColorRight);
 		Load(&Settings::DimmedColorLeft);
 		Load(&Settings::DimmedColorRight);
+		Load(&Settings::CustomRenderWindowAlpha);
 	}
 	static void Save() {
 		Js::Object json;
@@ -169,6 +170,7 @@ public:
 		Insert(json, &Settings::ColorRight);
 		Insert(json, &Settings::DimmedColorLeft);
 		Insert(json, &Settings::DimmedColorRight);
+		Insert(json, &Settings::CustomRenderWindowAlpha);
 
 		Json::Write("settings.json", &json);
 	}

@@ -85,7 +85,9 @@ int main() {
 	SceneObjectInspectorWindow inspectorWindow;
 	AttributesWindow attributesWindow;
 	ToolWindow toolWindow;
+
 	SettingsWindow settingsWindow;
+	settingsWindow.IsOpen = true;
 
 	Renderer renderPipeline;
 	GUI gui;

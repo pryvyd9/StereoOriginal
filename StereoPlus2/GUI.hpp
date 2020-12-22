@@ -116,17 +116,16 @@ class GUI {
 		// any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 		
+		// Make the window behind docking space transparent 
+		// to enable transparency for CustomRenderWindow when docked.
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, glm::vec4());
+
 		// Main window docking space cannot be closed.
 		bool open = true;
 		ImGui::Begin("MainWindowDockspace", &open, window_flags);
-		
-		// This place is a mystery for me.
-		// Need to investigate it.
-		// 2 is a magic number for now.
-		{
-			ImGui::PopStyleVar();
-			ImGui::PopStyleVar(2);
-		}
+
+		ImGui::PopStyleVar(3);
+		ImGui::PopStyleColor();
 
 		// DockSpace
 		ImGuiIO& io = ImGui::GetIO();
@@ -183,16 +182,9 @@ public:
 		//io.ConfigViewportsNoTaskBarIcon = true;
 
 		// Setup Dear ImGui style
-		ImGui::StyleColorsDark();
+		ImGui::Extensions::StyleColorsStereo();
+		//ImGui::StyleColorsDark();
 		//ImGui::StyleColorsClassic();
-
-		// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-		ImGuiStyle& style = ImGui::GetStyle();
-		if (io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			style.WindowRounding = 0.0f;
-			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-		}
 
 		// Setup Platform/Renderer bindings
 		ImGui_ImplGlfw_InitForOpenGL(glWindow, true);
