@@ -14,3 +14,5 @@
 - moved logs to file;
 - moved to World center-centered Millimeter based coordinate system;
 - user position is calculated based on the screen center position;
+# 0.11
+- added scene window transparency;
