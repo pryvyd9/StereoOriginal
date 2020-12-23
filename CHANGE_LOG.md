@@ -16,3 +16,6 @@
 - user position is calculated based on the screen center position;
 # 0.11
 - added scene window transparency;
+# 0.12
+- reworked hotkeys. Now hotkeys without modifiers(Ctrl, Alt) won't be triggered while typing text. Modifier Shift is ignored while in text inputting state;
+- fixed the issue with Pen tool removing more last vertices than expected;

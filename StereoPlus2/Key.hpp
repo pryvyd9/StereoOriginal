@@ -6,6 +6,11 @@ namespace Key {
 		Mouse,
 		Keyboard,
 	};
+	enum class Modifier {
+		Control,
+		Shift,
+		Alt,
+	};
 
 	struct KeyPair {
 		Type type;
@@ -30,16 +35,21 @@ namespace Key {
 	};
 
 	struct Combination {
-		std::vector<KeyPair> keys;
+		std::vector<Modifier> modifiers;
+		KeyPair key;
 		Combination() {}
-		Combination(std::vector<KeyPair> keys) : keys(keys) {}
+		Combination(std::vector<Modifier> modifiers, KeyPair key) : modifiers(modifiers), key(key) {}
+		Combination(KeyPair key) : key(key) {}
 
 		bool operator!=(const Combination& v) {
-			if (keys.size() != v.keys.size())
+			if (key != v.key)
 				return false;
 
-			for (auto i = 0; i < keys.size(); i++)
-				if (keys[i] != v.keys[i])
+			if (modifiers.size() != v.modifiers.size())
+				return false;
+
+			for (auto i = 0; i < modifiers.size(); i++)
+				if (modifiers[i] != v.modifiers[i])
 					return false;
 
 			return true;
@@ -69,7 +79,7 @@ namespace Key {
 	const KeyPair N8 = KeyboardKey(GLFW_KEY_KP_8);
 	const KeyPair N9 = KeyboardKey(GLFW_KEY_KP_9);
 	const KeyPair NEnter = KeyboardKey(GLFW_KEY_KP_ENTER);
-
+	
 	// Special
 	const KeyPair ControlLeft = KeyboardKey(GLFW_KEY_LEFT_CONTROL);
 	const KeyPair ControlRight = KeyboardKey(GLFW_KEY_RIGHT_CONTROL);

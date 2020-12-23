@@ -332,8 +332,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	void Select(SceneObject* t, bool isSelected = false, bool ignoreCtrl = false) {
 		auto isCtrlPressed = ignoreCtrl
 			? false
-			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
-		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftRight);
+			: input->IsPressed(Key::Modifier::Control);
+		auto isShiftPressed = input->IsPressed(Key::Modifier::Shift);
 
 		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
 			? ObjectSelection::Remove

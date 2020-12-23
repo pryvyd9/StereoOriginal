@@ -60,7 +60,7 @@ class Input {
 	void FillAxes() {
 		mouseOldPos = mouseNewPos;
 		mouseNewPos = ImGui::GetMousePos();
-
+		
 		auto useDiscreteMovement = Settings::UseDiscreteMovement().Get();
 		ArrowAxe = glm::vec3(
 			-IsPressed(Key::Left, useDiscreteMovement) + IsPressed(Key::Right, useDiscreteMovement),
@@ -103,6 +103,16 @@ public:
 			? io->MouseDown[key.code]
 			: io->KeysDown[key.code];
 	}
+	bool IsPressed(Key::Modifier key) {
+		auto* io = &ImGui::GetIO();
+
+		switch (key)
+		{
+		case Key::Modifier::Control: return io->KeyCtrl;
+		case Key::Modifier::Shift: return io->KeyShift;
+		case Key::Modifier::Alt: return io->KeyAlt;
+		}
+	}
 
 	bool IsDown(const Key::KeyPair& key) {
 		return key.type == Key::Type::Mouse
@@ -110,12 +120,17 @@ public:
 			: ImGui::IsKeyPressed(key.code, true);
 	}
 	bool IsDown(const Key::Combination& keys) {
-		int i = 0;
-		for (; i < keys.keys.size() - 1; i++)
-			if (!IsPressed(keys.keys[i]))
-				return false;
-		
-		if (!IsDown(keys.keys[i]))
+		auto& io = ImGui::GetIO();
+
+		if (keys.modifiers.size() > 0) {
+			for (int i = 0; i < keys.modifiers.size() - 1; i++)
+				if (!IsPressed(keys.modifiers[i]) || keys.modifiers[i] == Key::Modifier::Shift && io.WantCaptureKeyboard)
+					return false;
+		}
+		else if (io.WantCaptureKeyboard)
+			return false;
+
+		if (!IsDown(keys.key))
 			return false;
 
 		return true;
@@ -228,7 +243,7 @@ public:
 	}
 	void BindInputToMovement() {
 		AddHandler([i = input] {
-			bool isAltPressed = i->IsPressed(Key::AltLeft) || i->IsPressed(Key::AltRight);
+			bool isAltPressed = i->IsPressed(Key::Modifier::Alt);
 
 			// Enable or disable Mouose boundless mode 
 			// regardless of whether we move the cross or not.
@@ -270,7 +285,7 @@ public:
 	}
 	void ChangeBuffer() {
 		AddHandler([i = input] {
-			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+			if (i->IsPressed(Key::Modifier::Control)) {
 				if (i->IsDown(Key::Z))
 					StateBuffer::Rollback();
 				else if (i->IsDown(Key::Y))

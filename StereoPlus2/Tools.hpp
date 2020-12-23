@@ -127,6 +127,7 @@ protected:
 	}
 
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) {}
+	virtual void OnToolActivated(const ObjectSelection::Selection& v) { OnSelectionChanged(v); }
 	//virtual void OnBeforeDeactivate() {}
 public:
 	enum Type {
@@ -160,7 +161,7 @@ public:
 		isAnyActive() = true;
 		//activeTool() = this;
 
-		OnSelectionChanged(ObjectSelection::Selected());
+		OnToolActivated(ObjectSelection::Selected());
 	}
 	static void Deactivate() {
 		if (!isAnyActive())
@@ -179,30 +180,6 @@ public:
 
 template<ObjectType type>
 class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
-#pragma region Types
-	template<ObjectType type, Mode mode>
-	struct Config : EditingTool::Config {
-
-	};
-	template<>
-	struct Config<StereoPolyLineT, Mode::Immediate> : EditingTool::Config {
-		bool isPointCreated = false;
-
-		// If the cos between vectors is less than E
-		// then we merge those vectors.
-		double E = 1e-6;
-
-		// If distance between previous point and 
-		// cursor is less than this number 
-		// then don't create a new point.
-		double Precision = 1e-4;
-	};
-	template<>
-	struct Config<StereoPolyLineT, Mode::Step> : EditingTool::Config {
-		bool isPointCreated = false;
-	};
-#pragma endregion
-
 	Log Logger = Log::For<PointPenEditingTool>();
 	size_t inutHandlerId;
 	size_t spaceModeChangeHandlerId;
@@ -217,14 +194,16 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	SceneObject* crossOriginalParent;
 	bool wasCommitDone = false;
 
+	int createdAdditionalPoints = 0;
+	
+	// If the cos between vectors is less than E
+	// then we merge those vectors.
+	double E = 1e-6;
 
-	template<Mode mode>
-	Config<type, mode>* GetConfig() {
-		if (config == nullptr)
-			config = new Config<type, mode>();
-
-		return (Config<type, mode>*) config;
-	}
+	// If distance between previous point and 
+	// cursor is less than this number 
+	// then don't create a new point.
+	double Precision = 1e-4;
 
 	const glm::vec3 GetPos() {
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
@@ -257,11 +236,11 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		if (pointsCount > 0 && GetPos() == points.back())
 			return;
 
-		if (pointsCount < 3 || !GetConfig<Mode::Immediate>()->isPointCreated) {
+		if (pointsCount < 3 || createdAdditionalPoints == 0) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
 			target->AddVertice(cross->GetLocalPosition());
-			GetConfig<Mode::Immediate>()->isPointCreated = true;
+			createdAdditionalPoints++;
 			return;
 		}
 
@@ -270,7 +249,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		
 		// If cross is located at distance less than Precision then don't create a new point
 		// but move the last one to cross position.
-		if (glm::length(GetPos() - points[pointsCount - 2]) < GetConfig<Mode::Immediate>()->Precision) {
+		if (glm::length(GetPos() - points[pointsCount - 2]) < Precision) {
 			target->SetVertice(pointsCount - 1, GetPos());
 			return;
 		}
@@ -278,8 +257,6 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 		// If the line goes straight then instead of adding 
 		// a new point - move the previous point to current cross position.
-		auto E = GetConfig<Mode::Immediate>()->E;
-
 		glm::vec3 r1 = GetPos() - points[pointsCount - 1];
 		glm::vec3 r2 = points[pointsCount - 3] - points[pointsCount - 2];
 
@@ -297,8 +274,6 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		else {
 			target->AddVertice(GetPos());
 		}
-
-		//std::cout << "PointPen tool Immediate mode points count: " << pointsCount << std::endl;
 	}
 	template<>
 	void ProcessInput<StereoPolyLineT, Mode::Step>(Input* input) {
@@ -310,11 +285,11 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		auto pointsCount = points.size();
 
 
-		if (!GetConfig<Mode::Step>()->isPointCreated || points.empty()) {
+		if (createdAdditionalPoints == 0 || points.empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
 			target->AddVertice(GetPos());
-			GetConfig<Mode::Step>()->isPointCreated = true;
+			createdAdditionalPoints++;
 			return;
 		}
 
@@ -408,9 +383,66 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		};
 
 	}
+
+	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
+		if (v.empty())
+			return;
+
+		if (v.size() > 1) {
+			Logger.Warning("Cannot work with multiple objects");
+			return;
+		}
+
+		auto t = v.begin()._Ptr->_Myval;
+
+		if (t->GetType() != type) {
+			Logger.Warning("Invalid Object passed");
+			return;
+		}
+		createdAdditionalPoints = 0;
+
+		target = t;
+
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			cross->SetParent(target.Get(), false, true, true, false);
+
+		inutHandlerId = keyBinding->AddHandler([&](Input* input) { ProcessInput(input); });
+		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
+			if (v == SpaceMode::Local) {
+				cross->SetParent(target.Get(), false, true, true, false);
+				if (target->GetVertices().size() > 0)
+					cross->SetLocalPosition(target->GetVertices().back());
+				else
+					cross->SetLocalPosition(glm::vec3());
+			}
+			else {
+				cross->SetParent(crossOriginalParent, false, true, true, false);
+				if (target->GetVertices().size() > 0)
+					cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
+				else
+					cross->SetWorldPosition(target->GetWorldPosition());
+			}
+		};
+		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
+			cross->SetParent(target.Get(), false, true, true, false);
+			if (!target.HasValue() || target->GetVertices().empty())
+				cross->SetLocalPosition(glm::vec3());
+			else
+				cross->SetLocalPosition(target->GetVertices().back());
+		};
+		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
+			if (wasCommitDone)
+				return;
+
+			StateBuffer::Commit();
+			wasCommitDone = true;
+			Logger.Information("commit");
+		};
+
+	}
+
 public:
 	ReadonlyProperty<Cross*> cross;
-	std::vector<std::function<void()>> onTargetReleased;
 
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
@@ -484,19 +516,15 @@ public:
 		if (!target.HasValue())
 			return true;
 
-		target->RemoveVertice();
-
-		for (auto func : onTargetReleased)
-			func();
-
+		for (; createdAdditionalPoints > 0; createdAdditionalPoints--)
+			target->RemoveVertice();
+	
 		cross->SetParent(crossOriginalParent, false, true, true, false);
 		cross->SetLocalPosition(crossOriginalPosition);
 		keyBinding->RemoveHandler(inutHandlerId);
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
-
-		DeleteConfig();
 
 		return true;
 	}
@@ -505,10 +533,8 @@ public:
 		if (!target.HasValue())
 			return;
 
-		target->RemoveVertice();
-
-		for (auto func : onTargetReleased)
-			func();
+		for (; createdAdditionalPoints > 0; createdAdditionalPoints--)
+			target->RemoveVertice();
 
 		cross->SetParent(crossOriginalParent, false, true, true, false);
 		cross->SetLocalPosition(crossOriginalPosition);
@@ -516,9 +542,6 @@ public:
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
-
-		DeleteConfig();
-
 	}
 
 	SceneObject* GetTarget() {
@@ -954,7 +977,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	const glm::vec3 GetRelativeMovement(Input* input) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::AltLeft) && !input->IsPressed(Key::AltRight)
+		if (!input->IsPressed(Key::Modifier::Alt)
 			|| input->movement == zero)
 			return transformPos - transformOldPos;
 
@@ -963,7 +986,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	const glm::vec3 GetRelativeRotation(Input* input) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::ControlLeft) && !input->IsPressed(Key::ControlRight)
+		if (!input->IsPressed(Key::Modifier::Control)
 			|| input->movement == zero)
 			return angle - oldAngle;
 

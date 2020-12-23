@@ -34,12 +34,12 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw) {
-	Settings::TransformToolShortcut() = Key::Combination({ Key::T });
-	Settings::PenToolShortcut() = Key::Combination({ Key::P });
-	Settings::ExtrusionToolShortcut() = Key::Combination({ Key::E });
-	Settings::RenderViewportToFile() = Key::Combination({ Key::F5 });
-	Settings::RenderAdvancedToFile() = Key::Combination({ Key::F6 });
-	Settings::SwitchUseDiscreteMovement() = Key::Combination({ Key::ControlLeft, Key::Q });
+	Settings::TransformToolShortcut() = Key::Combination(Key::T);
+	Settings::PenToolShortcut() = Key::Combination(Key::P);
+	Settings::ExtrusionToolShortcut() = Key::Combination(Key::E);
+	Settings::RenderViewportToFile() = Key::Combination(Key::F5);
+	Settings::RenderAdvancedToFile() = Key::Combination(Key::F6);
+	Settings::SwitchUseDiscreteMovement() = Key::Combination({ Key::Modifier::Control }, Key::Q);
 
 	kb.AddHandler([&] (Input* i) {
 		if (ImGui::IsAnyItemFocused())
@@ -67,7 +67,6 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 }
 
 
-//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 int main() {
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
@@ -138,7 +137,7 @@ int main() {
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
-		if (!i->IsPressed(Key::AltLeft) && !i->IsPressed(Key::AltRight))
+		if (!i->IsPressed(Key::Modifier::Alt))
 			return;
 
 		cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); 
@@ -146,7 +145,7 @@ int main() {
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
 		if (i->IsDown(Key::N5)) {
-			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+			if (i->IsPressed(Key::Modifier::Control)) {
 				glm::vec3 v(0);
 				for (auto& o : ObjectSelection::Selected())
 					v += o.Get()->GetWorldPosition();
