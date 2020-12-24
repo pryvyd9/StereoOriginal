@@ -16,13 +16,6 @@ class GUI {
 
 	FileWindow* fileWindow = nullptr;
 
-	//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-	//---------------------------------------------------------------------------------------------------------
-	void ProcessInput(GLFWwindow* glWindow)
-	{
-		input.ProcessInput();
-	}
-
 	bool CreateFileWindow(FileWindow::Mode mode) {
 		auto fileWindow = new FileWindow();
 
@@ -167,7 +160,7 @@ public:
 	bool Init()
 	{
 		keyBinding.input = &input;
-		input.glWindow = glWindow;
+		input.GLFWindow() = glWindow;
 
 		
 		// Setup Dear ImGui context
@@ -271,7 +264,7 @@ public:
 			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
 			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 			glfwPollEvents();
-			ProcessInput(glWindow);
+			input.ProcessInput();
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL3_NewFrame();

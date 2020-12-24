@@ -146,6 +146,7 @@ public:
 		Load(&Settings::TranslationStep);
 		Load(&Settings::RotationStep);
 		Load(&Settings::ScalingStep);
+		Load(&Settings::MouseSensivity);
 
 		Load(&Settings::ColorLeft);
 		Load(&Settings::ColorRight);
@@ -165,6 +166,7 @@ public:
 		Insert(json, &Settings::TranslationStep);
 		Insert(json, &Settings::RotationStep);
 		Insert(json, &Settings::ScalingStep);
+		Insert(json, &Settings::MouseSensivity);
 
 		Insert(json, &Settings::ColorLeft);
 		Insert(json, &Settings::ColorRight);

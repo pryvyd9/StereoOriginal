@@ -34,6 +34,11 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw) {
+	// Internal shortcuts.
+	kb.input->AddShortcut(Key::Combination(Key::Escape),
+		[&] { tw.Unbind(); });
+
+	
 	Settings::TransformToolShortcut() = Key::Combination(Key::T);
 	Settings::PenToolShortcut() = Key::Combination(Key::P);
 	Settings::ExtrusionToolShortcut() = Key::Combination(Key::E);
@@ -41,29 +46,21 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 	Settings::RenderAdvancedToFile() = Key::Combination(Key::F6);
 	Settings::SwitchUseDiscreteMovement() = Key::Combination({ Key::Modifier::Control }, Key::Q);
 
-	kb.AddHandler([&] (Input* i) {
-		if (ImGui::IsAnyItemFocused())
-			return;
 
-		// Tools
-		if (i->IsDown(Key::Escape))
-			tw.Unbind();
+	kb.input->AddShortcut(Settings::TransformToolShortcut().Get(), 
+		[&] { tw.ApplyTool<TransformToolWindow, TransformTool>(); });
+	kb.input->AddShortcut(Settings::PenToolShortcut().Get(), 
+		[&] { tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>(); });
+	kb.input->AddShortcut(Settings::ExtrusionToolShortcut().Get(), 
+		[&] { tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>(); });
+	kb.input->AddShortcut(Settings::RenderViewportToFile().Get(),
+		[&] { crw.shouldSaveViewportImage = true; });
+	kb.input->AddShortcut(Settings::RenderAdvancedToFile().Get(),
+		[&] { crw.shouldSaveAdvancedImage = true; });
+	kb.input->AddShortcut(Settings::SwitchUseDiscreteMovement().Get(),
+		[&] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
 
-		if (i->IsDown(Settings::TransformToolShortcut().Get()))
-			tw.ApplyTool<TransformToolWindow, TransformTool>();
-		if (i->IsDown(Settings::PenToolShortcut().Get()))
-			tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		if (i->IsDown(Settings::ExtrusionToolShortcut().Get()))
-			tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
 
-		// Rendering
-		if (i->IsDown(Settings::RenderViewportToFile().Get()))
-			crw.shouldSaveViewportImage = true;
-		if (i->IsDown(Settings::RenderAdvancedToFile().Get()))
-			crw.shouldSaveAdvancedImage = true;
-		if (i->IsDown(Settings::SwitchUseDiscreteMovement().Get()))
-			Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get();
-		});
 }
 
 
@@ -140,7 +137,7 @@ int main() {
 		if (!i->IsPressed(Key::Modifier::Alt))
 			return;
 
-		cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); 
+		cross.SetLocalPosition(cross.GetLocalPosition() + i->movement * Settings::TranslationStep().Get()); 
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {

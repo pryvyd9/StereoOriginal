@@ -271,7 +271,7 @@ public:
 		return rotation;
 	}
 	const virtual glm::quat GetWorldRotation() const {
-		return GetParent()
+		return shouldTransformRotation && GetParent()
 			? GetParent()->GetWorldRotation() * GetLocalRotation()
 			: GetLocalRotation();
 	}

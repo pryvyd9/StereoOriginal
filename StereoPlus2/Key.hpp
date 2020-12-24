@@ -7,6 +7,7 @@ namespace Key {
 		Keyboard,
 	};
 	enum class Modifier {
+		None,
 		Control,
 		Shift,
 		Alt,
@@ -18,6 +19,9 @@ namespace Key {
 
 		bool operator!=(const KeyPair& v) {
 			return type != v.type || code != v.code;
+		}
+		bool operator==(const KeyPair& v) {
+			return !(operator!=(v));
 		}
 	};
 

@@ -213,7 +213,17 @@ public:
 			return false;
 		RenderToFileBasic();
 		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
-		ImGui::Image((void*)(intptr_t)texture, RenderSize.Get());
+
+		ImGui::PushStyleColor(ImGuiCol_Button, glm::vec4());
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, glm::vec4());
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, glm::vec4());
+		
+		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1),0);
+
+		ImGui::PopStyleColor(3);
+	
+		Input::IsCustomRenderImageActive() = ImGui::IsItemActive();
+
 		HandleResize();
 
 		ImGui::End();
@@ -940,10 +950,10 @@ class TransformToolWindow : Window, Attributes {
 			ImGui::Checkbox("Relative", &tool->isRelativeMode);
 
 			if (tool->isRelativeMode)
-				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01f);
+				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 1);
 			else {
 				auto crossPosCopy = tool->cross->GetLocalPosition();
-				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 0.01f))
+				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 1))
 					tool->transformPos += crossPosCopy - tool->cross->GetLocalPosition();
 			}
 			break;
@@ -1420,6 +1430,9 @@ public:
 			if (auto v = Settings::ScalingStep().Get();
 				ImGui::InputFloat(GetC("step:", &Settings::ScalingStep), &v, 0.01, 0.1))
 				Settings::ScalingStep() = v;
+			if (auto v = Settings::MouseSensivity().Get();
+				ImGui::InputFloat(GetC("step:", &Settings::MouseSensivity), &v, 0.01, 0.1))
+				Settings::MouseSensivity() = v;
 			ImGui::TreePop();
 		}
 

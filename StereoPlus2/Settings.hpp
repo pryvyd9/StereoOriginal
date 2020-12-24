@@ -53,6 +53,7 @@ public:
 	StaticProperty(float, TranslationStep)
 	StaticProperty(float, RotationStep)
 	StaticProperty(float, ScalingStep)
+	StaticProperty(float, MouseSensivity)
 
 	StaticProperty(glm::vec4, ColorLeft)
 	StaticProperty(glm::vec4, ColorRight)
@@ -82,6 +83,7 @@ public:
 			{&TranslationStep,"translationStep"},
 			{&RotationStep,"rotationStep"},
 			{&ScalingStep,"scalingStep"},
+			{&MouseSensivity,"mouseSensivity"},
 
 			{&RotationStep,"rotationStep"},
 			{&ScalingStep,"scalingStep"},

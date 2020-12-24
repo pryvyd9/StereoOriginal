@@ -977,41 +977,58 @@ class TransformTool : public EditingTool<TransformToolMode> {
 	const glm::vec3 GetRelativeMovement(Input* input) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::Modifier::Alt)
-			|| input->movement == zero)
+		if (!input->IsPressed(Key::Modifier::Alt) || input->movement == zero)
 			return transformPos - transformOldPos;
 
-		return input->movement;
+		return input->movement * Settings::TranslationStep().Get();
 	}
 	const glm::vec3 GetRelativeRotation(Input* input) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::Modifier::Control)
-			|| input->movement == zero)
+		if (!input->IsPressed(Key::Modifier::Control) || input->movement == zero)
 			return angle - oldAngle;
 
-		auto na = glm::vec3(
-			input->movement.x == 0.f ? 0 : (input->movement.x > 0 ? 1 : -1),
-			input->movement.y == 0.f ? 0 : (input->movement.y > 0 ? 1 : -1),
-			input->movement.z == 0.f ? 0 : (input->movement.z > 0 ? 1 : -1)
-		) * Settings::RotationStep().Get();
-		
-		angle += na;
+		// If all 3 axes are modified then don't apply such rotation.
+		// Quaternion can't rotate around 3 axes.
+		if (input->movement.x && input->movement.y && input->movement.z)
+			return angle - oldAngle;
 
+		auto mouseThresholdMin = 0.8;
+		auto mouseThresholdMax = 1.25;
+		auto mouseAxe = input->MouseAxe;
+		auto maxAxe = 0;
+
+		// Find non-zero axes
+		int t[2] = {0,0};
+		size_t n = 0;
+		for (size_t i = 0; i < 3; i++) {
+			if (mouseAxe[i] != 0)
+				t[n] = i;
+		}
+
+		// Nullify weak axes (those with small values)
+		auto ratio = abs(mouseAxe[t[0]]) / abs(mouseAxe[t[1]]);
+		if (ratio < mouseThresholdMin)
+			mouseAxe[t[0]] = 0;
+		else if (ratio > mouseThresholdMax)
+			mouseAxe[t[1]] = 0;
+		// If 2 axes are used simultaneously it breaks the quaternion somehow.
+		else
+			mouseAxe = zero;
+
+		mouseAxe *= Settings::MouseSensivity().Get() * input->MouseSpeed();
+
+		auto na = (input->ArrowAxe + input->NumpadAxe + mouseAxe) * Settings::RotationStep().Get();
+		angle += na;
 		return na;
 	}
 	const float GetRelativeScale(Input* input) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::ShiftLeft) && !input->IsPressed(Key::ShiftRight)
-			|| input->movement == zero)
+		if (!input->IsPressed(Key::Modifier::Shift) || input->movement == zero)
 			return scale;
 
-		auto v = input->movement.x > 0
-			? scale + Settings::ScalingStep().Get()
-			: scale - Settings::ScalingStep().Get();
-
-		return v;
+		return scale + input->movement.x * Settings::ScalingStep().Get();
 	}
 
 	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
@@ -1093,13 +1110,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
 		if (Settings::SpaceMode().Get() == SpaceMode::Local){
-			//if (!haveSingleParent(targets)) {
-			if (targets.size() > 1) {
-				Logger.Warning("Cannot move more than 1 object in local space mode.");
-				return;
-			}
-			
-			auto r = glm::rotate(targets.front()->GetWorldRotation(), transformVector);
+			auto r = glm::rotate(cross->GetWorldRotation(), transformVector);
 
 			MoveCross(r);
 			for (auto o : targets) {
@@ -1121,18 +1132,33 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		if (shouldTrace)
 			Trace(targets);
 
-		auto i = getChangedAxe(rotation);
-		if (i < 0) return;
+		auto axe = glm::vec3();
+		{
+			glm::vec3 t[2] = { glm::vec3(), glm::vec3() };
+			size_t n = 0;
+			for (size_t i = 0; i < 3; i++) {
+				assert(n < 3);
+				if (rotation[i] != 0)
+					t[n++][i] = rotation[i] > 0 ? 1 : -1;
+			}
 
-		if (oldAxeId != i && Settings::SpaceMode().Get() == SpaceMode::World)
+			if (n == 0)
+				return;
+
+			axe = t[1] + t[0];
+		}
+
+		float angle = 0;
+		{
+			for (size_t i = 0; i < 3; i++)
+				angle += abs(rotation[i]);
+		}
+
+
+		if (Settings::SpaceMode().Get() == SpaceMode::World)
 			cross->SetWorldRotation(cross->unitQuat());
 
-		oldAxeId = i;
-
-		auto axe = glm::vec3();
-		axe[i] = 1;
-
-		auto trimmedDeltaAngle = getTrimmedAngle((rotation)[i]) * 3.1415926f * 2 / 360;
+		auto trimmedDeltaAngle = getTrimmedAngle(angle) * 3.1415926f * 2 / 360;
 		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
 
 		auto crossOldRotation = cross->GetLocalRotation();
