@@ -32,7 +32,7 @@ protected:
 };
 
 template<typename T>
-class CreatingTool : Tool, public ISceneHolder {
+class CreatingTool : Tool {
 	//static std::stack<SceneObject*>& GetCreatedObjects() {
 	//	static std::stack<SceneObject*> val;
 	//	return val;
@@ -46,9 +46,8 @@ public:
 		StateBuffer::Commit();
 
 		auto command = new CreateCommand();
-		command->scene.BindAndApply(scene);
 		command->destination = destination.Get().Get();
-		command->func = [=] {
+		command->init = [=] {
 			T* obj = new T();
 			init(obj);
 			//GetCreatedObjects().push(obj);
@@ -60,7 +59,7 @@ public:
 	}
 };
 
-class CloneTool : Tool, public ISceneHolder {
+class CloneTool : Tool {
 	
 public:
 	ReadonlyProperty<PON> destination;
@@ -71,9 +70,8 @@ public:
 		StateBuffer::Commit();
 
 		auto command = new CreateCommand();
-		command->scene.BindAndApply(scene);
 		command->destination = destination.Get().Get();
-		command->func = [=] {
+		command->init = [=] {
 			auto obj = target->Clone();
 			init(obj);
 			return obj;
@@ -178,23 +176,25 @@ public:
 
 };
 
-template<ObjectType type>
 class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	Log Logger = Log::For<PointPenEditingTool>();
-	size_t inutHandlerId;
+	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
 	size_t stateChangedHandlerId;
 	size_t anyObjectChangedHandlerId;
 
-	Mode mode;
+	// Create new object by pressing Enter.
+	size_t createNewObjectHandlerId;
+	bool lockCreateNewObjectHandlerId;
 
+	Mode mode;
 	PON target;
 
-	glm::vec3 crossOriginalPosition;
 	SceneObject* crossOriginalParent;
 	bool wasCommitDone = false;
 
-	int createdAdditionalPoints = 0;
+	bool createdAdditionalPoints;
+	bool createdNewObject;
 	
 	// If the cos between vectors is less than E
 	// then we merge those vectors.
@@ -205,106 +205,82 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 	// then don't create a new point.
 	double Precision = 1e-4;
 
-	const glm::vec3 GetPos() {
-		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			return cross->GetLocalPosition();
+	void Immediate(Input* input) {
+		createdNewObject = false;
 
-		return target->ToLocalPosition(cross->GetLocalPosition());
-	}
-
-#pragma region ProcessInput
-
-	template<ObjectType type, Mode mode>
-	void ProcessInput(Input* input) {
-		Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode");
-	}
-	template<>
-	void ProcessInput<StereoPolyLineT, Mode::Immediate>(Input* input) {
 		if (!input->IsContinuousInputOneSecondDelay()) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 		}
 
-		if (input->IsDown(Key::Escape)) {
+		if (Input::IsDown(Key::Enter) || Input::IsDown(Key::NEnter)) {
 			UnbindSceneObjects();
+			TryCreateNewObject();
 			return;
 		}
-		
+
 		auto& points = target->GetVertices();
 		auto pointsCount = points.size();
 
-		if (pointsCount > 0 && GetPos() == points.back())
-			return;
-
-		if (pointsCount < 3 || createdAdditionalPoints == 0) {
-			// We need to select one point and create an additional point
-			// so that we can perform some optimizations.
+		// Create 2 points to be able to measure distance between them.
+		if (pointsCount < 2) {
 			target->AddVertice(cross->GetLocalPosition());
-			createdAdditionalPoints++;
 			return;
 		}
 
-
-		// Drawing optimization
-		
 		// If cross is located at distance less than Precision then don't create a new point
 		// but move the last one to cross position.
-		if (glm::length(GetPos() - points[pointsCount - 2]) < Precision) {
-			target->SetVertice(pointsCount - 1, GetPos());
+		if (glm::length(cross->GetWorldPosition() - points[pointsCount - 2]) < Precision) {
+			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
 			return;
 		}
 
+		// Create the third point to be able to measure the angle between the last 3 points.
+		if (pointsCount < 3) {
+			target->AddVertice(cross->GetLocalPosition());
+			return;
+		}
 
 		// If the line goes straight then instead of adding 
 		// a new point - move the previous point to current cross position.
-		glm::vec3 r1 = GetPos() - points[pointsCount - 1];
+		glm::vec3 r1 = cross->GetWorldPosition() - points[pointsCount - 1];
 		glm::vec3 r2 = points[pointsCount - 3] - points[pointsCount - 2];
 
 		auto p = glm::dot(r1, r2);
 		auto l1 = glm::length(r1);
 		auto l2 = glm::length(r2);
 
-
 		auto cos = p / l1 / l2;
-				
+
 		if (abs(cos) > 1 - E || isnan(cos)) {
-			target->SetVertice(pointsCount - 2,  GetPos());
-			target->SetVertice(pointsCount - 1,  GetPos());
+			target->SetVertice(pointsCount - 2, cross->GetWorldPosition());
+			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
 		}
 		else {
-			target->AddVertice(GetPos());
+			target->AddVertice(cross->GetWorldPosition());
 		}
 	}
-	template<>
-	void ProcessInput<StereoPolyLineT, Mode::Step>(Input* input) {
-		if (input->IsDown(Key::Escape)) {
-			UnbindSceneObjects();
-			return;
-		}
-		auto& points = target->GetVertices();
-		auto pointsCount = points.size();
-
-
-		if (createdAdditionalPoints == 0 || points.empty()) {
+	void Step() {
+		if (!createdAdditionalPoints || target->GetVertices().empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			target->AddVertice(GetPos());
-			createdAdditionalPoints++;
+			target->AddVertice(cross->GetWorldPosition());
+			createdAdditionalPoints = true;
 			return;
 		}
 
-		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter)) {
+		if (Input::IsDown(Key::Enter) || Input::IsDown(Key::NEnter) || createdNewObject) {
 			isBeingModified() = false;
 			wasCommitDone = false;
-			target->AddVertice(GetPos());
-
+			createdNewObject = false;
+			target->AddVertice(cross->GetWorldPosition());
 			return;
 		}
 
-		if (pointsCount > 0 && GetPos() == points.back())
+		if (cross->GetWorldPosition() == target->GetVertices().back())
 			return;
 
-		target->SetVertice(points.size() - 1, GetPos());
+		target->SetVertice(target->GetVertices().size() - 1, cross->GetWorldPosition());
 	}
 
 	void ProcessInput(Input* input) {
@@ -315,78 +291,52 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 			
 		switch (mode)
 		{
-		case Mode::Immediate:
-			return ProcessInput<type, Mode::Immediate>(input);
-		case Mode::Step:
-			return ProcessInput<type, Mode::Step>(input);
+		case Mode::Immediate: return Immediate(input);
+		case Mode::Step: return Step();
 		default:
 			Logger.Warning("Not suported mode was given");
 			return;
 		}
 	}
 
-#pragma endregion
+	void TryCreateNewObject() {
+		if (createNewObjectHandlerId)
+			return;
+
+		createNewObjectHandlerId = keyBinding->AddHandler([&]() {
+			if ((Input::IsDown(Key::Enter) || Input::IsDown(Key::NEnter)) && !ImGui::IsAnyItemActive()) {
+				lockCreateNewObjectHandlerId = true;
+
+				auto cmd = new CreateCommand();
+
+				if (ObjectSelection::Selected().size() == 1) {
+					auto d = ObjectSelection::Selected().begin()._Ptr->_Myval.Get();
+					cmd->destination = d->GetParent() ? const_cast<SceneObject*>(d->GetParent()) : d;
+				}
+
+				cmd->init = [] {
+					auto o = new StereoPolyLine();
+					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
+					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
+					return o;
+				};
+				cmd->onCreated = [&](SceneObject* o) {
+					createdNewObject = true;
+					ObjectSelection::Set(o);
+					keyBinding->RemoveHandler(createNewObjectHandlerId);
+					lockCreateNewObjectHandlerId = false;
+				};
+			}
+			});
+	}
 
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) override {
 		UnbindTool();
-		if (v.empty())
-			return;
-
-		if (v.size() > 1) {
-			Logger.Warning("Cannot work with multiple objects");
-			return;
-		}
-
-		auto t = v.begin()._Ptr->_Myval;
-
-		if (t->GetType() != type) {
-			Logger.Warning("Invalid Object passed");
-			return;
-		}
-
-		target = t;
-
-		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetParent(target.Get(), false, true, true, false);
-
-		inutHandlerId = keyBinding->AddHandler([&](Input* input) { ProcessInput(input); });
-		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			if (v == SpaceMode::Local) {
-				cross->SetParent(target.Get(), false, true, true, false);
-				if (target->GetVertices().size() > 0)
-					cross->SetLocalPosition(target->GetVertices().back());
-				else
-					cross->SetLocalPosition(glm::vec3());
-			}
-			else {
-				cross->SetParent(crossOriginalParent, false, true, true, false);
-				if (target->GetVertices().size() > 0)
-					cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
-				else
-					cross->SetWorldPosition(target->GetWorldPosition());
-			}
-		};
-		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
-			cross->SetParent(target.Get(), false, true, true, false);
-			if (!target.HasValue() || target->GetVertices().empty())
-				cross->SetLocalPosition(glm::vec3());
-			else
-				cross->SetLocalPosition(target->GetVertices().back());
-		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
-			Logger.Information("commit");
-		};
-
+		OnToolActivated(v);
 	}
-
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
 		if (v.empty())
-			return;
+			return TryCreateNewObject();
 
 		if (v.size() > 1) {
 			Logger.Warning("Cannot work with multiple objects");
@@ -395,40 +345,43 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 		auto t = v.begin()._Ptr->_Myval;
 
-		if (t->GetType() != type) {
-			Logger.Warning("Invalid Object passed");
-			return;
-		}
-		createdAdditionalPoints = 0;
+		if (t->GetType() != StereoPolyLineT)
+			return TryCreateNewObject();
+
+		createdAdditionalPoints = false;
 
 		target = t;
 
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetParent(target.Get(), false, true, true, false);
+			cross->SetWorldRotation(target.Get()->GetWorldRotation());
 
-		inutHandlerId = keyBinding->AddHandler([&](Input* input) { ProcessInput(input); });
+		if (!target->GetVertices().empty())
+			cross->SetWorldPosition(target->GetVertices().back());
+
+		inputHandlerId = keyBinding->AddHandler([&](Input* input) { 
+			// If handler was removed via shortcuts then don't execute it.
+			if (inputHandlerId)
+				ProcessInput(input);
+			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			if (v == SpaceMode::Local) {
-				cross->SetParent(target.Get(), false, true, true, false);
-				if (target->GetVertices().size() > 0)
-					cross->SetLocalPosition(target->GetVertices().back());
-				else
-					cross->SetLocalPosition(glm::vec3());
-			}
-			else {
-				cross->SetParent(crossOriginalParent, false, true, true, false);
-				if (target->GetVertices().size() > 0)
-					cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
-				else
-					cross->SetWorldPosition(target->GetWorldPosition());
-			}
+			if (v == SpaceMode::Local)
+				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+			else
+				cross->SetWorldRotation(glm::quat());
 		};
 		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
-			cross->SetParent(target.Get(), false, true, true, false);
-			if (!target.HasValue() || target->GetVertices().empty())
-				cross->SetLocalPosition(glm::vec3());
-			else
-				cross->SetLocalPosition(target->GetVertices().back());
+			if (!target.HasValue()) {
+				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (Settings::SpaceMode().Get() == SpaceMode::Local)
+				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+			if (target->GetVertices().empty())
+				return;
+
+			cross->SetWorldPosition(target->GetVertices().back());
 		};
 		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
 			if (wasCommitDone)
@@ -436,7 +389,6 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 			StateBuffer::Commit();
 			wasCommitDone = true;
-			Logger.Information("commit");
 		};
 
 	}
@@ -449,99 +401,81 @@ public:
 		if (target.HasValue() && !UnbindSceneObjects())
 			return false;
 
-		if (!keyBinding.Get()) {
-			Logger.Warning("KeyBinding wasn't assigned");
-			return false;
-		}
-
-		if (objs[0]->GetType() != type) {
+		if (objs[0]->GetType() != StereoPolyLineT) {
 			Logger.Warning("Invalid Object passed to PointPenEditingTool");
 			return true;
 		}
 		target = objs[0];
 
-		crossOriginalPosition = cross->GetLocalPosition();
-		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
+		createdAdditionalPoints = false;
 
-		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
-			cross->SetParent(target.Get(), false, true, true, false);
-			if (target->GetVertices().size() > 0)
-				cross->SetLocalPosition(target->GetVertices().back());
-			else
-				cross->SetLocalPosition(glm::vec3());
-		}
-		else {
-			if (target->GetVertices().size() > 0)
-				cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
-			else
-				cross->SetWorldPosition(target->GetWorldPosition());
-		}
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			cross->SetWorldRotation(target.Get()->GetWorldRotation());
 
-		inutHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
+		if (!target->GetVertices().empty())
+			cross->SetWorldPosition(target->GetVertices().back());
+
+		inputHandlerId = keyBinding->AddHandler([&](Input* input) {
+			// If handler was removed via shortcuts then don't execute it.
+			if (inputHandlerId)
+				ProcessInput(input);
+			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			if (v == SpaceMode::Local) {
-				cross->SetParent(target.Get(), false, true, true, false);
-				if (target->GetVertices().size() > 0)
-					cross->SetLocalPosition(target->GetVertices().back());
-				else
-					cross->SetLocalPosition(glm::vec3());
-			}
-			else {
-				cross->SetParent(crossOriginalParent, false, true, true, false);
-				if (target->GetVertices().size() > 0)
-					cross->SetWorldPosition(target->ToWorldPosition(target->GetVertices().back()));
-				else
-					cross->SetWorldPosition(target->GetWorldPosition());
-			}
-			};
-		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
-			cross->SetParent(target.Get(), false, true, true, false);
-			if (!target.HasValue() || target->GetVertices().empty())
-				cross->SetLocalPosition(glm::vec3());
+			if (v == SpaceMode::Local)
+				cross->SetWorldRotation(target.Get()->GetWorldRotation());
 			else
-				cross->SetLocalPosition(target->GetVertices().back());
-			};
+				cross->SetWorldRotation(glm::quat());
+		};
+		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
+			if (!target.HasValue()) {
+				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (Settings::SpaceMode().Get() == SpaceMode::Local)
+				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+			if (target->GetVertices().empty())
+				return;
+
+			cross->SetWorldPosition(target->GetVertices().back());
+		};
 		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
 			if (wasCommitDone)
 				return;
 
 			StateBuffer::Commit();
 			wasCommitDone = true;
-			Logger.Information("commit");
-			};
+		};
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
+		if (!lockCreateNewObjectHandlerId)
+			keyBinding->RemoveHandler(createNewObjectHandlerId);
+
 		if (!target.HasValue())
 			return true;
 
-		for (; createdAdditionalPoints > 0; createdAdditionalPoints--)
+		if (mode == Mode::Step && createdAdditionalPoints) {
 			target->RemoveVertice();
+			createdAdditionalPoints = false;
+		}
 	
-		cross->SetParent(crossOriginalParent, false, true, true, false);
-		cross->SetLocalPosition(crossOriginalPosition);
-		keyBinding->RemoveHandler(inutHandlerId);
+		keyBinding->RemoveHandler(inputHandlerId);
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
+
+		target = PON();
+		
+		// Go to creating mode after unbinding target;
+		TryCreateNewObject();
 
 		return true;
 	}
-
 	void UnbindTool() {
-		if (!target.HasValue())
-			return;
-
-		for (; createdAdditionalPoints > 0; createdAdditionalPoints--)
-			target->RemoveVertice();
-
-		cross->SetParent(crossOriginalParent, false, true, true, false);
-		cross->SetLocalPosition(crossOriginalPosition);
-		keyBinding->RemoveHandler(inutHandlerId);
-		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
-		StateBuffer::OnStateChange() -= stateChangedHandlerId;
-		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
+		UnbindSceneObjects();
 	}
 
 	SceneObject* GetTarget() {
@@ -551,7 +485,6 @@ public:
 	}
 
 	void SetMode(Mode mode) {
-		DeleteConfig();
 		this->mode = mode;
 	}
 };
@@ -1389,9 +1322,6 @@ public:
 		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
 		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 		DeleteConfig();
-
-		cross->SetLocalRotation(cross->unitQuat());
-		cross->SetLocalPosition(glm::vec3());
 	}
 	SceneObject* GetTarget() {
 		if (targets.parentObjects.empty() || !targets.parentObjects.front().HasValue())

@@ -23,4 +23,4 @@ A 3d modelling and visualisation solution with stereo output (anaglyph) and mult
 ![rotate what is left of traced object and rotate it to create a flower](https://github.com/prizrak9/StereoOriginal/blob/dev/docs/flower.png?raw=true)
 
 ## Known Issues
-Combinations Shift + any Numpad key isn't working. There's a bug in glfw. https://github.com/glfw/glfw/issues/670
+Combinations Shift + any Numpad key isn't working. It's a windows' "feature". https://github.com/glfw/glfw/issues/670

@@ -173,6 +173,7 @@
     <ClInclude Include="Key.hpp" />
     <ClInclude Include="Localization.hpp" />
     <ClInclude Include="Renderer.hpp" />
+    <ClInclude Include="SceneObject.hpp" />
     <ClInclude Include="SettingsLoader.hpp" />
     <ClInclude Include="TemplateExtensions.hpp" />
     <ClInclude Include="Settings.hpp" />

@@ -5,14 +5,13 @@
 #include <sstream>
 
 class ToolPool {
-	static void Init(PointPenEditingTool<StereoPolyLineT>* tool) {
+	static void Init(PointPenEditingTool* tool) {
 		tool->cross.BindAndApply(Cross());
 		tool->keyBinding.BindAndApply(KeyBinding());
 	}
 
 	static void Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
-		tool->destination.BindAndApply(Scene().Get()->root);
-		tool->scene.BindAndApply(Scene());
+		tool->destination.BindAndApply(Scene()->root());
 		tool->cross.BindAndApply(Cross());
 		tool->keyBinding.BindAndApply(KeyBinding());
 	}
@@ -20,8 +19,6 @@ class ToolPool {
 	static void Init(TransformTool* tool) {
 		tool->cross.BindAndApply(Cross());
 		tool->keyBinding.BindAndApply(KeyBinding());
-		tool->traceObjectTool.scene.BindAndApply(Scene());
-		tool->cloneTool.scene.BindAndApply(Scene());
 	}
 
 public:

@@ -517,10 +517,10 @@ class FileManager {
 	static void SaveJson(std::string filename, Scene* inScene) {
 		if (inScene == nullptr)
 			Fail("InScene was null");
-		if (!inScene->root.Get().HasValue())
+		if (!inScene->root().Get().HasValue())
 			Fail("InScene Root was null");
 
-		auto json = JsonConvert::serialize(*inScene->root.Get().Get());
+		auto json = JsonConvert::serialize(*inScene->root().Get().Get());
 		Json::Write(filename, json);
 		delete json;
 	}
@@ -529,20 +529,20 @@ class FileManager {
 		JsonConvert::Reset();
 		auto root = JsonConvert::get<SceneObject*>(json);
 		
-		inScene->root = root;
+		inScene->root() = root;
 
 		std::vector<PON> newObjects;
 		for (auto o : JsonConvert::objects())
 			newObjects.push_back(o);
 
-		inScene->objects = newObjects;
+		inScene->Objects() = newObjects;
 	}
 
 	static void SaveBinary(std::string filename, Scene* inScene) {
 		std::ofstream file(filename, std::ios::binary | std::ios::out);
 
 		auto bs = obstream();
-		bs.put(*inScene->root.Get().Get());
+		bs.put(*inScene->root().Get().Get());
 
 		file.write(bs.getBuffer(), bs.getSize());
 
@@ -560,13 +560,13 @@ class FileManager {
 		str.setBuffer(buffer);
 
 		auto o = str.get<SceneObject*>();
-		inScene->root = o;
+		inScene->root() = o;
 
 		std::vector<PON> newObjects;
 		for (auto o : str.objects)
 			newObjects.push_back(o);
 
-		inScene->objects = newObjects;
+		inScene->Objects() = newObjects;
 
 		delete[] buffer;
 		file.close();

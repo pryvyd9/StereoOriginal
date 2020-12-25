@@ -155,6 +155,9 @@
     <ClInclude Include="Localization.hpp">
       <Filter>infrastructure</Filter>
     </ClInclude>
+    <ClInclude Include="SceneObject.hpp">
+      <Filter>domain</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\.vert">

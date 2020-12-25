@@ -9,48 +9,32 @@
 
 
 
-class ISceneHolder {
-protected:
-	bool CheckScene() {
-		if (scene.Get() == nullptr) {
-			std::cout << "Scene wasn't bind" << std::endl;
-			return false;
-		}
-		return true;
-	}
-public:
-	ReadonlyProperty<Scene*> scene;
-};
-
-class CreateCommand : Command, public ISceneHolder {
+class CreateCommand : Command {
 protected:
 	virtual bool Execute() {
-		if (!CheckScene())
-			return false;
-
+		SceneObject* o;
 		if (destination == nullptr)
-			scene.Get()->Insert(func());
+			Scene::Insert(o = init());
 		else
-			scene.Get()->Insert(destination, func());
+			Scene::Insert(destination, o = init());
 
+		onCreated(o);
 		return true;
 	};
 public:
 	SceneObject* destination = nullptr;
-	std::function<SceneObject* ()> func;
+	std::function<SceneObject*()> init;
+	std::function<void(SceneObject*)> onCreated = [] (SceneObject*) {};
 
 	CreateCommand() {
 		isReady = true;
 	}
 };
 
-class DeleteCommand : Command, public ISceneHolder {
+class DeleteCommand : Command {
 protected:
 	virtual bool Execute() {
-		if (!CheckScene())
-			return false;
-
-		scene.Get()->Delete(source, target);
+		Scene::Delete(source, target);
 		return true;
 	};
 public:

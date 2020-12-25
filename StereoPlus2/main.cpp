@@ -37,30 +37,32 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 	// Internal shortcuts.
 	kb.input->AddShortcut(Key::Combination(Key::Escape),
 		[&] { tw.Unbind(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
+		[&] { StateBuffer::Rollback(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
+		[&] { StateBuffer::Repeat(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
+		[&] { ObjectSelection::RemoveAll(); });
 
-	
-	Settings::TransformToolShortcut() = Key::Combination(Key::T);
-	Settings::PenToolShortcut() = Key::Combination(Key::P);
-	Settings::ExtrusionToolShortcut() = Key::Combination(Key::E);
-	Settings::RenderViewportToFile() = Key::Combination(Key::F5);
-	Settings::RenderAdvancedToFile() = Key::Combination(Key::F6);
-	Settings::SwitchUseDiscreteMovement() = Key::Combination({ Key::Modifier::Control }, Key::Q);
-
-
-	kb.input->AddShortcut(Settings::TransformToolShortcut().Get(), 
+	// Tools
+	kb.input->AddShortcut(Key::Combination(Key::T),
 		[&] { tw.ApplyTool<TransformToolWindow, TransformTool>(); });
-	kb.input->AddShortcut(Settings::PenToolShortcut().Get(), 
-		[&] { tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>(); });
-	kb.input->AddShortcut(Settings::ExtrusionToolShortcut().Get(), 
+	kb.input->AddShortcut(Key::Combination(Key::P),
+		[&] { tw.ApplyTool<PointPenToolWindow, PointPenEditingTool>(); });
+	kb.input->AddShortcut(Key::Combination(Key::E),
 		[&] { tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>(); });
-	kb.input->AddShortcut(Settings::RenderViewportToFile().Get(),
+
+	// Render
+	kb.input->AddShortcut(Key::Combination(Key::F5),
 		[&] { crw.shouldSaveViewportImage = true; });
-	kb.input->AddShortcut(Settings::RenderAdvancedToFile().Get(),
+	kb.input->AddShortcut(Key::Combination(Key::F6),
 		[&] { crw.shouldSaveAdvancedImage = true; });
-	kb.input->AddShortcut(Settings::SwitchUseDiscreteMovement().Get(),
+	
+	// State
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Q),
 		[&] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
-
-
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
+		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 }
 
 
@@ -99,7 +101,7 @@ int main() {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject.BindAndApply(scene.root);
+	inspectorWindow.rootObject.BindAndApply(scene.root());
 	inspectorWindow.input = &gui.input;
 
 	cameraPropertiesWindow.Object = &camera;
@@ -108,7 +110,7 @@ int main() {
 	scene.camera = &camera;
 	scene.glWindow = renderPipeline.glWindow;
 	scene.camera->ViewSize.BindAndApply(customRenderWindow.RenderSize);
-	scene.cross = &cross;
+	scene.cross() = &cross;
 
 	gui.windows = {
 		(Window*)&customRenderWindow,
@@ -137,7 +139,12 @@ int main() {
 		if (!i->IsPressed(Key::Modifier::Alt))
 			return;
 
-		cross.SetLocalPosition(cross.GetLocalPosition() + i->movement * Settings::TranslationStep().Get()); 
+		auto m = i->movement * Settings::TranslationStep().Get();
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			m = glm::rotate(cross.GetWorldRotation(), m);
+
+		//cross.SetLocalPosition(cross.GetLocalPosition() + i->movement * Settings::TranslationStep().Get()); 
+		cross.SetWorldPosition(cross.GetWorldPosition() + m); 
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
@@ -163,8 +170,8 @@ int main() {
 		return false;
 
 	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
-	StateBuffer::RootObject().BindTwoWay(scene.root);
-	StateBuffer::Objects() = &scene.objects;
+	StateBuffer::RootObject().BindTwoWay(scene.root());
+	StateBuffer::Objects() = &scene.Objects().Get();
 	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
 		if (i->IsDown(Key::Delete)) {
 			StateBuffer::Commit();
@@ -196,7 +203,7 @@ int main() {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 	auto updateCacheForAllObjects = [&scene] {
-		for (auto& o : scene.objects)
+		for (auto& o : scene.Objects().Get())
 			o->ForceUpdateCache();
 	};
 	customRenderWindow.OnResize() += updateCacheForAllObjects;

@@ -102,7 +102,7 @@ class Input {
 		const Key::KeyPair& endKey,
 		const std::function<void()>& callback) {
 		if (modifiersCurrent == modifiersEnd) {
-			if (node.children.find(*modifiersCurrent._Ptr) != node.children.end())
+			if (node.callbacks.find(endKey) != node.callbacks.end())
 				return false;
 
 			node.callbacks[endKey] = callback;
@@ -171,8 +171,8 @@ public:
 				: ImGui::IsKeyPressed(key.code, true);
 
 		return key.type == Key::Type::Mouse
-			? io->MouseDown[key.code]
-			: io->KeysDown[key.code];
+			? ImGui::IsMouseDown(key.code)
+			: ImGui::IsKeyDown(key.code);
 	}
 	static bool IsPressed(Key::Modifier key) {
 		auto* io = &ImGui::GetIO();
@@ -187,8 +187,8 @@ public:
 
 	static bool IsDown(const Key::KeyPair& key) {
 		return key.type == Key::Type::Mouse
-			? ImGui::IsMouseClicked(key.code, true)
-			: ImGui::IsKeyPressed(key.code, true);
+			? ImGui::IsMouseClicked(key.code, false)
+			: ImGui::IsKeyPressed(key.code, false);
 	}
 
 	bool IsUp(Key::KeyPair key) {
@@ -235,7 +235,7 @@ public:
 	}
 
 	void AddShortcut(const Key::Combination& combination, const std::function<void()>& callback) {
-		if (InsertCombination(combinations, combination.modifiers.begin(), combination.modifiers.end(), combination.key, callback))
+		if (InsertCombination(combinations, combination.modifiers.cbegin(), combination.modifiers.cend(), combination.key, callback))
 			return;
 		Logger.Error("Shortcut is already taken.");
 	}
@@ -279,7 +279,8 @@ public:
 
 
 	size_t AddHandler(std::function<void()> func) {
-		static size_t id = 0;
+		// 0 means it isn't assigned.
+		static size_t id = 1;
 
 		(new FuncCommand())->func = [id = id, input = input, func = func] {
 			input->handlers[id] = func;
@@ -290,11 +291,12 @@ public:
 	size_t AddHandler(std::function<void(Input*)> func) {
 		return AddHandler([i = input, func] { func(i); });
 	}
-	void RemoveHandler(size_t id) {
+	void RemoveHandler(size_t& id) {
 		auto cmd = new FuncCommand();
-		cmd->func = [id = id, input = input] {
+		cmd->func = [id, input = input] {
 			input->handlers.erase(id);
 		};
+		id = 0;
 	}
 
 	void ResetFocus() {
@@ -343,21 +345,21 @@ public:
 			c->ForceUpdateCache();
 			});
 	}
-	void ChangeBuffer() {
-		AddHandler([i = input] {
-			if (i->IsPressed(Key::Modifier::Control)) {
-				if (i->IsDown(Key::Z))
-					StateBuffer::Rollback();
-				else if (i->IsDown(Key::Y))
-					StateBuffer::Repeat();
-			}
-			});
-	}
+	//void ChangeBuffer() {
+	//	AddHandler([i = input] {
+	//		if (i->IsPressed(Key::Modifier::Control)) {
+	//			if (i->IsDown(Key::Z))
+	//				StateBuffer::Rollback();
+	//			else if (i->IsDown(Key::Y))
+	//				StateBuffer::Repeat();
+	//		}
+	//		});
+	//}
 	bool Init() {
 		ResetFocus();
 		BindInputToMovement();
 		Cross();
-		ChangeBuffer();
+		//ChangeBuffer();
 
 		return true;
 	}
