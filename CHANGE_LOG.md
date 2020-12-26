@@ -25,4 +25,6 @@
 - fixed ObjectSelection sending 2 events on Set();
 - fixed IsDown/IsPressed(<key>, false) methods working the other way around;
 - added shortcut Ctrl+D for deselect all;
-
+- fixed pen drawing in deleted selected object;
+- fixed tracing only tracing the original object;
+- fixed pen thinking the line continuing to be drawn in straight line when it's drawn in the opposite direction;

@@ -39,45 +39,53 @@ class CreatingTool : Tool {
 	//}
 public:
 	std::function<void(T*)> init;
+	std::function<void(SceneObject*)> onCreated = [](SceneObject*) {};
 
 	ReadonlyProperty<PON> destination;
 
-	bool Create() {
+	T* Create() {
 		StateBuffer::Commit();
+
+		T* obj = new T();
 
 		auto command = new CreateCommand();
 		command->destination = destination.Get().Get();
 		command->init = [=] {
-			T* obj = new T();
 			init(obj);
-			//GetCreatedObjects().push(obj);
-
 			return obj;
 		};
+		command->onCreated = onCreated;
 
-		return true;
+		return obj;
 	}
 };
 
 class CloneTool : Tool {
 	
 public:
-	ReadonlyProperty<PON> destination;
-	ReadonlyProperty<PON> target;
+	PON destination;
+	PON target;
+
 	std::function<void(SceneObject*)> init;
 
-	bool Create() {
+	SceneObject* Create() {
 		StateBuffer::Commit();
 
+		// Clone the object before it's modified
+		// and initialize later.
+		auto clone = target->Clone();
+
 		auto command = new CreateCommand();
-		command->destination = destination.Get().Get();
-		command->init = [=] {
-			auto obj = target->Clone();
-			init(obj);
-			return obj;
+		if (destination.HasValue())
+			command->destination = destination.Get();
+		else
+			command->destination = Scene::root().Get().Get();
+		command->init = [clone = clone, init = init] {
+			init(clone);
+			return clone;
 		};
 
-		return true;
+		return clone;
 	}
 };
 
@@ -237,28 +245,23 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 
 		// Create the third point to be able to measure the angle between the last 3 points.
 		if (pointsCount < 3) {
-			target->AddVertice(cross->GetLocalPosition());
+			target->AddVertice(cross->GetWorldPosition());
 			return;
 		}
 
 		// If the line goes straight then instead of adding 
 		// a new point - move the previous point to current cross position.
-		glm::vec3 r1 = cross->GetWorldPosition() - points[pointsCount - 1];
-		glm::vec3 r2 = points[pointsCount - 3] - points[pointsCount - 2];
-
-		auto p = glm::dot(r1, r2);
-		auto l1 = glm::length(r1);
-		auto l2 = glm::length(r2);
-
-		auto cos = p / l1 / l2;
-
-		if (abs(cos) > 1 - E || isnan(cos)) {
+		if (IsStraightLineMaintained(
+			points[pointsCount - 3], 
+			points[pointsCount - 2], 
+			points[pointsCount - 1], 
+			cross->GetWorldPosition(), 
+			E)) {
 			target->SetVertice(pointsCount - 2, cross->GetWorldPosition());
 			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
 		}
-		else {
+		else
 			target->AddVertice(cross->GetWorldPosition());
-		}
 	}
 	void Step() {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
@@ -281,6 +284,21 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 			return;
 
 		target->SetVertice(target->GetVertices().size() - 1, cross->GetWorldPosition());
+	}
+
+	// Determines if the line will continue being straight after adding v4 to v1,v2,v3.
+	static bool IsStraightLineMaintained(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& v4, const float E) {
+		glm::vec3 r1 = v4 - v3;
+		glm::vec3 r2 = v1 - v2;
+
+		auto p = glm::dot(r1, r2);
+		auto l1 = glm::length(r1);
+		auto l2 = glm::length(r2);
+
+		auto cos = p / l1 / l2;
+
+		// Use abs(cos) to check if the line is maintained while moving backwards.
+		return cos > 1 - E || isnan(cos);
 	}
 
 	void ProcessInput(Input* input) {
@@ -330,20 +348,32 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 			});
 	}
 
+	ObjectSelection::Selection GetExistingObjects(const ObjectSelection::Selection& v) {
+		ObjectSelection::Selection ns;
+		for (auto& o : Scene::Objects().Get())
+			if (v.find(o) != v.end())
+				ns.insert(o);
+
+		return ns;
+	}
+
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) override {
 		UnbindTool();
 		OnToolActivated(v);
 	}
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
-		if (v.empty())
+		// Don't work with deleted objects even if they stay selected.
+		auto targets = GetExistingObjects(v);
+
+		if (targets.empty())
 			return TryCreateNewObject();
 
-		if (v.size() > 1) {
+		if (targets.size() > 1) {
 			Logger.Warning("Cannot work with multiple objects");
 			return;
 		}
 
-		auto t = v.begin()._Ptr->_Myval;
+		auto t = targets.begin()._Ptr->_Myval;
 
 		if (t->GetType() != StereoPolyLineT)
 			return TryCreateNewObject();
@@ -372,6 +402,11 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (!exists(Scene::Objects().Get(), target)) {
+				target = PON();
 				return;
 			}
 
@@ -1122,41 +1157,36 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		static int id = 0;
 
 		for (auto& o : targets) {
+			if (o->GetType() == TraceObjectT)
+				continue;
+
 			auto pos = findBack(o->children, std::function([](SceneObject* so) {
 				return so->GetType() == TraceObjectT;
 				}));
 
 			if (pos < 0) {
 				traceObjectTool.destination = o;
-				traceObjectTool.init = [&, id = id, target = o](SceneObject* o) {
+				traceObjectTool.init = [&, id = id](SceneObject* o) {
 					std::stringstream ss;
 					ss << "TraceObject" << id;
 					o->Name = ss.str();
-					
-					cloneTool.destination = PON(o);
-					cloneTool.target = target;
-					cloneTool.init = [target](SceneObject* obj) {
-						obj->children.clear();
-						//obj->SetLocalPosition(target.Get()->GetWorldPosition());
-						//obj->SetLocalRotation(target.Get()->GetWorldRotation());
-					};
-					cloneTool.Create();
 				};
-				traceObjectTool.Create();
+
+				cloneTool.destination = traceObjectTool.Create();
+				cloneTool.target = o.Get();
+				cloneTool.init = [](SceneObject* obj) {
+					obj->children.clear();
+				};
+				cloneTool.Create();
 
 				id++;
 			}
+
 			else {
-				auto to = PON(o->children[pos]);
-
-				//Logger.Information(to->GetWorldPosition());
-
-				cloneTool.destination = to;
+				cloneTool.destination = o->children[pos];
 				cloneTool.target = o;
-				cloneTool.init = [o](SceneObject* obj) {
+				cloneTool.init = [p = o->GetWorldPosition(), r = o->GetWorldRotation()](SceneObject* obj) {
 					obj->children.clear();
-					obj->SetWorldPosition(o.Get()->GetWorldPosition());
-					obj->SetWorldRotation(o.Get()->GetWorldRotation());
 				};
 				cloneTool.Create();
 			}

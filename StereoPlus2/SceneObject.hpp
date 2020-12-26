@@ -256,7 +256,7 @@ public:
 	void SetWorldPosition(const glm::vec3& v) {
 		ForceUpdateCache();
 
-		position = GetParent()
+		position = shouldTransformPosition && GetParent()
 			// Set world position means to set local position
 			// relative to parent.
 			? GetParent()->ToLocalPosition(v)
@@ -278,7 +278,7 @@ public:
 	void SetWorldRotation(const glm::quat& v) {
 		ForceUpdateCache();
 
-		rotation = GetParent()
+		rotation = shouldTransformRotation && GetParent()
 			// Set world rotation means to set local rotation
 			// relative to parent.
 			? glm::inverse(GetParent()->GetWorldRotation()) * v

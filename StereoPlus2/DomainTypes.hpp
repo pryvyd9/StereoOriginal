@@ -714,6 +714,7 @@ public:
 	}
 	
 };
+
 // Persistent object node
 class PON {
 	struct Node {
@@ -796,6 +797,10 @@ public:
 	SceneObject* operator->() {
 		return Get();
 	}
+	const SceneObject* operator->() const {
+		return Get();
+	}
+
 
 	constexpr PON& operator=(const PON& o) {
 		Init(o);
@@ -806,6 +811,9 @@ public:
 	}
 	constexpr bool operator!=(const PON& o) const {
 		return node != o.node;
+	}
+	constexpr bool operator==(const PON& o) const {
+		return node == o.node;
 	}
 
 	struct less {
