@@ -34,40 +34,38 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw) {
-	Settings::TransformToolShortcut() = Key::Combination({ Key::T });
-	Settings::PenToolShortcut() = Key::Combination({ Key::P });
-	Settings::ExtrusionToolShortcut() = Key::Combination({ Key::E });
-	Settings::RenderViewportToFile() = Key::Combination({ Key::F5 });
-	Settings::RenderAdvancedToFile() = Key::Combination({ Key::F6 });
-	Settings::SwitchUseDiscreteMovement() = Key::Combination({ Key::ControlLeft, Key::Q });
+	// Internal shortcuts.
+	kb.input->AddShortcut(Key::Combination(Key::Escape),
+		[&] { tw.Unbind(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
+		[&] { StateBuffer::Rollback(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
+		[&] { StateBuffer::Repeat(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
+		[&] { ObjectSelection::RemoveAll(); });
 
-	kb.AddHandler([&] (Input* i) {
-		if (ImGui::IsAnyItemFocused())
-			return;
+	// Tools
+	kb.input->AddShortcut(Key::Combination(Key::T),
+		[&] { tw.ApplyTool<TransformToolWindow, TransformTool>(); });
+	kb.input->AddShortcut(Key::Combination(Key::P),
+		[&] { tw.ApplyTool<PointPenToolWindow, PointPenEditingTool>(); });
+	kb.input->AddShortcut(Key::Combination(Key::E),
+		[&] { tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>(); });
 
-		// Tools
-		if (i->IsDown(Key::Escape))
-			tw.Unbind();
-
-		if (i->IsDown(Settings::TransformToolShortcut().Get()))
-			tw.ApplyTool<TransformToolWindow, TransformTool>();
-		if (i->IsDown(Settings::PenToolShortcut().Get()))
-			tw.ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
-		if (i->IsDown(Settings::ExtrusionToolShortcut().Get()))
-			tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
-
-		// Rendering
-		if (i->IsDown(Settings::RenderViewportToFile().Get()))
-			crw.shouldSaveViewportImage = true;
-		if (i->IsDown(Settings::RenderAdvancedToFile().Get()))
-			crw.shouldSaveAdvancedImage = true;
-		if (i->IsDown(Settings::SwitchUseDiscreteMovement().Get()))
-			Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get();
-		});
+	// Render
+	kb.input->AddShortcut(Key::Combination(Key::F5),
+		[&] { crw.shouldSaveViewportImage = true; });
+	kb.input->AddShortcut(Key::Combination(Key::F6),
+		[&] { crw.shouldSaveAdvancedImage = true; });
+	
+	// State
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Q),
+		[&] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
+	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
+		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 }
 
 
-//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 int main() {
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
@@ -103,7 +101,7 @@ int main() {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject.BindAndApply(scene.root);
+	inspectorWindow.rootObject.BindAndApply(scene.root());
 	inspectorWindow.input = &gui.input;
 
 	cameraPropertiesWindow.Object = &camera;
@@ -112,7 +110,7 @@ int main() {
 	scene.camera = &camera;
 	scene.glWindow = renderPipeline.glWindow;
 	scene.camera->ViewSize.BindAndApply(customRenderWindow.RenderSize);
-	scene.cross = &cross;
+	scene.cross() = &cross;
 
 	gui.windows = {
 		(Window*)&customRenderWindow,
@@ -138,15 +136,19 @@ int main() {
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
-		if (!i->IsPressed(Key::AltLeft) && !i->IsPressed(Key::AltRight))
+		if (!i->IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
 			return;
 
-		cross.SetLocalPosition(cross.GetLocalPosition() + i->movement); 
+		auto m = i->movement * Settings::TranslationStep().Get();
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			m = glm::rotate(cross.GetWorldRotation(), m);
+
+		cross.SetWorldPosition(cross.GetWorldPosition() + m); 
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
 		if (i->IsDown(Key::N5)) {
-			if (i->IsPressed(Key::ControlLeft) || i->IsPressed(Key::ControlRight)) {
+			if (i->IsPressed(Key::Modifier::Control)) {
 				glm::vec3 v(0);
 				for (auto& o : ObjectSelection::Selected())
 					v += o.Get()->GetWorldPosition();
@@ -167,8 +169,8 @@ int main() {
 		return false;
 
 	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
-	StateBuffer::RootObject().BindTwoWay(scene.root);
-	StateBuffer::Objects() = &scene.objects;
+	StateBuffer::RootObject().BindTwoWay(scene.root());
+	StateBuffer::Objects() = &scene.Objects().Get();
 	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
 		if (i->IsDown(Key::Delete)) {
 			StateBuffer::Commit();
@@ -200,7 +202,7 @@ int main() {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 	auto updateCacheForAllObjects = [&scene] {
-		for (auto& o : scene.objects)
+		for (auto& o : scene.Objects().Get())
 			o->ForceUpdateCache();
 	};
 	customRenderWindow.OnResize() += updateCacheForAllObjects;

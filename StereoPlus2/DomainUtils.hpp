@@ -209,8 +209,8 @@ public:
 	}
 
 	static void Set(SceneObject* o) {
-		RemoveAll();
-		Add(o);
+		selected().clear();
+		selected().emplace(o);
 		onChanged().Invoke(selected());
 	}
 	static void Add(SceneObject* o) {
@@ -313,11 +313,10 @@ private:
 	}
 public:
 	// Stores all objects.
-	std::vector<PON> objects;
-
-	Property<PON> root;
+	StaticProperty(std::vector<PON>, Objects);
+	StaticProperty(PON, root);
+	StaticProperty(Cross*, cross);
 	StereoCamera* camera;
-	Cross* cross;
 
 	GLFWwindow* glWindow;
 
@@ -328,36 +327,36 @@ public:
 	}
 
 	Scene() {
-		root = CreateRoot();
+		root() = CreateRoot();
 	}
 	
-	bool Insert(SceneObject* destination, SceneObject* obj) {
+	static bool Insert(SceneObject* destination, SceneObject* obj) {
 		obj->SetParent(destination);
-		objects.push_back(obj);
+		Objects().Get().push_back(obj);
 		return true;
 	}
-	bool Insert(SceneObject* obj) {
-		obj->SetParent(root.Get().Get());
-		objects.push_back(obj);
+	static bool Insert(SceneObject* obj) {
+		obj->SetParent(root().Get().Get());
+		Objects().Get().push_back(obj);
 		return true;
 	}
 
-	bool Delete(SceneObject* source, SceneObject* obj) {
+	static bool Delete(SceneObject* source, SceneObject* obj) {
 		if (!source) {
-			Logger.Warning("You cannot delete root object");
+			Log::For<Scene>().Warning("You cannot delete root object");
 			return true;
 		}
 
 		for (size_t i = 0; i < source->children.size(); i++)
 			if (source->children[i] == obj)
-				for (size_t j = 0; i < objects.size(); j++)
-					if (objects[j].Get() == obj) {
+				for (size_t j = 0; i < Objects()->size(); j++)
+					if (Objects().Get()[j].Get() == obj) {
 						source->children.erase(source->children.begin() + i);
-						objects.erase(objects.begin() + j);
+						Objects().Get().erase(Objects()->begin() + j);
 						return true;
 					}
 
-		Logger.Error("The object for deletion was not found");
+		Log::For<Scene>().Error("The object for deletion was not found");
 		return false;
 	}
 	void DeleteSelected() {
@@ -370,10 +369,10 @@ public:
 	}
 	void DeleteAll() {
 		deleteAll.Invoke();
-		cross->SetParent(nullptr);
+		cross().Get()->SetParent(nullptr);
 
-		objects.clear();
-		root = CreateRoot();
+		Objects().Get().clear();
+		root() = CreateRoot();
 	}
 
 	struct CategorizedObjects {
@@ -472,6 +471,6 @@ public:
 	}
 
 	~Scene() {
-		objects.clear();
+		Objects().Get().clear();
 	}
 };

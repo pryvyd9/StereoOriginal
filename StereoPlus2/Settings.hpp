@@ -53,6 +53,7 @@ public:
 	StaticProperty(float, TranslationStep)
 	StaticProperty(float, RotationStep)
 	StaticProperty(float, ScalingStep)
+	StaticProperty(float, MouseSensivity)
 
 	StaticProperty(glm::vec4, ColorLeft)
 	StaticProperty(glm::vec4, ColorRight)
@@ -61,15 +62,6 @@ public:
 
 	StaticProperty(float, CustomRenderWindowAlpha)
 
-
-	// Shortcuts
-	StaticProperty(Key::Combination, TransformToolShortcut)
-	StaticProperty(Key::Combination, PenToolShortcut)
-	StaticProperty(Key::Combination, ExtrusionToolShortcut)
-	StaticProperty(Key::Combination, RenderViewportToFile)
-	StaticProperty(Key::Combination, RenderAdvancedToFile)
-
-	StaticProperty(Key::Combination, SwitchUseDiscreteMovement)
 
 	static const std::string& Name(void* reference) {
 		static std::map<void*, const std::string> v = {
@@ -82,6 +74,7 @@ public:
 			{&TranslationStep,"translationStep"},
 			{&RotationStep,"rotationStep"},
 			{&ScalingStep,"scalingStep"},
+			{&MouseSensivity,"mouseSensivity"},
 
 			{&RotationStep,"rotationStep"},
 			{&ScalingStep,"scalingStep"},

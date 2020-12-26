@@ -213,7 +213,17 @@ public:
 			return false;
 		RenderToFileBasic();
 		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
-		ImGui::Image((void*)(intptr_t)texture, RenderSize.Get());
+
+		ImGui::PushStyleColor(ImGuiCol_Button, glm::vec4());
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, glm::vec4());
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, glm::vec4());
+		
+		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1),0);
+
+		ImGui::PopStyleColor(3);
+	
+		Input::IsCustomRenderImageActive() = ImGui::IsItemActive();
+
 		HandleResize();
 
 		ImGui::End();
@@ -332,8 +342,8 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	void Select(SceneObject* t, bool isSelected = false, bool ignoreCtrl = false) {
 		auto isCtrlPressed = ignoreCtrl
 			? false
-			: input->IsPressed(Key::ControlLeft) || input->IsPressed(Key::ControlRight);
-		auto isShiftPressed = input->IsPressed(Key::ShiftLeft) || input->IsPressed(Key::ShiftRight);
+			: input->IsPressed(Key::Modifier::Control);
+		auto isShiftPressed = input->IsPressed(Key::Modifier::Shift);
 
 		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
 			? ObjectSelection::Remove
@@ -591,10 +601,6 @@ public:
 	}
 };
 
-
-
-
-template<ObjectType type>
 class PointPenToolWindow : Window, Attributes {
 	const Log log = Log::For<SceneObjectInspectorWindow>();
 
@@ -641,33 +647,32 @@ class PointPenToolWindow : Window, Attributes {
 	}
 
 	bool DesignInternal() {
-		ImGui::Text(GetName(type, GetTarget()).c_str());
+		//ImGui::Text(GetName(type, GetTarget()).c_str());
+		//if (ImGui::BeginDragDropTarget())
+		//{
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	std::vector<PON> objects;
+		//	if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+		//	{
+		//		if (objects.size() > 1) {
+		//			log.Warning("Drawing instrument can't accept multiple scene objects");
+		//		}
+		//		else {
+		//			if (!tool->BindSceneObjects(objects))
+		//				return false;
+		//		}
+		//	}
 
-		if (ImGui::BeginDragDropTarget())
-		{
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<PON> objects;
-			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
-			{
-				if (objects.size() > 1) {
-					log.Warning("Drawing instrument can't accept multiple scene objects");
-				}
-				else {
-					if (!tool->BindSceneObjects(objects))
-						return false;
-				}
-			}
-
-			ImGui::EndDragDropTarget();
-		}
+		//	ImGui::EndDragDropTarget();
+		//}
 
 		{
 			bool isActive = (GetTarget()) != nullptr;
 			if (IsActive(isActive))
 			{
-				if (ImGui::Button("Release"))
+				if (ImGui::Button(isActive ? "Release" : "No objects bind"))
 				{
 					tool->UnbindSceneObjects();
 				}
@@ -691,7 +696,7 @@ public:
 	// If this is null then the window probably wasn't initialized.
 	//SceneObject* target = nullptr;
 
-	PointPenEditingTool<type>* tool = nullptr;
+	PointPenEditingTool* tool = nullptr;
 
 	virtual SceneObject* GetTarget() {
 		if (tool == nullptr)
@@ -940,10 +945,10 @@ class TransformToolWindow : Window, Attributes {
 			ImGui::Checkbox("Relative", &tool->isRelativeMode);
 
 			if (tool->isRelativeMode)
-				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 0.01f);
+				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 1);
 			else {
 				auto crossPosCopy = tool->cross->GetLocalPosition();
-				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 0.01f))
+				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 1))
 					tool->transformPos += crossPosCopy - tool->cross->GetLocalPosition();
 			}
 			break;
@@ -1101,8 +1106,7 @@ class ToolWindow : Window {
 
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
-		creatingTool.scene.BindAndApply(scene);
-		creatingTool.destination.BindAndApply(scene.Get()->root);
+		creatingTool.destination.BindAndApply(Scene::root());
 		creatingTool.init = initFunc;
 	}
 
@@ -1190,13 +1194,13 @@ public:
 		if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
 			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
 		if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
-			ApplyTool<PointPenToolWindow<StereoPolyLineT>, PointPenEditingTool<StereoPolyLineT>>();
+			ApplyTool<PointPenToolWindow, PointPenEditingTool>();
 		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
 		{
 			ImGui::Separator();
-			static int v = (int)Settings::SpaceMode().Get();
+			auto v = (int)Settings::SpaceMode().Get();
 			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
 				Settings::SpaceMode() = SpaceMode::World;
 			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
@@ -1420,6 +1424,9 @@ public:
 			if (auto v = Settings::ScalingStep().Get();
 				ImGui::InputFloat(GetC("step:", &Settings::ScalingStep), &v, 0.01, 0.1))
 				Settings::ScalingStep() = v;
+			if (auto v = Settings::MouseSensivity().Get();
+				ImGui::InputFloat(GetC("step:", &Settings::MouseSensivity), &v, 0.01, 0.1))
+				Settings::MouseSensivity() = v;
 			ImGui::TreePop();
 		}
 
