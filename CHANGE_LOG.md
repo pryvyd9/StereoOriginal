@@ -28,3 +28,5 @@
 - fixed pen drawing in deleted selected object;
 - fixed tracing only tracing the original object;
 - fixed pen thinking the line continuing to be drawn in straight line when it's drawn in the opposite direction;
+- fixed cross ignoring position editing from properties window;
+- removed local properties;

@@ -316,24 +316,24 @@ public:
 
 	virtual void DesignProperties() {
 
-		if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Indent(propertyIndent);
+		//if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
+		//	ImGui::Indent(propertyIndent);
 
-			if (auto v = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&v, 1, 0, 0, "%.1f"))
-				SetLocalPosition(v);
-			if (auto v = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
-				SetLocalRotation(v);
+		//	if (auto v = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&v, 1, 0, 0, "%.1f"))
+		//		SetLocalPosition(v);
+		//	if (auto v = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
+		//		SetLocalRotation(v);
 
-			ImGui::Unindent(propertyIndent);
-			ImGui::TreePop();
-		}
+		//	ImGui::Unindent(propertyIndent);
+		//	ImGui::TreePop();
+		//}
 
-		if (ImGui::TreeNodeEx("world")) {
+		if (ImGui::TreeNodeEx("world", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
 			if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 1, 0, 0, "%.1f"))
 				SetWorldPosition(v);
-			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
+			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&v, 0.01, -1, 1, "%.3f"))
 				SetWorldRotation(v);
 
 			ImGui::Unindent(propertyIndent);

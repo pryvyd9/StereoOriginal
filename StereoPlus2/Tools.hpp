@@ -1123,16 +1123,12 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		}
 
 
-		if (Settings::SpaceMode().Get() == SpaceMode::World)
-			cross->SetWorldRotation(cross->unitQuat());
-
 		auto trimmedDeltaAngle = getTrimmedAngle(angle) * 3.1415926f * 2 / 360;
 		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
 
-		auto crossOldRotation = cross->GetLocalRotation();
-		cross->SetLocalRotation(cross->GetLocalRotation() * r);
+		if (Settings::SpaceMode().Get() == SpaceMode::World) {
+			cross->SetLocalRotation(r * cross->GetLocalRotation());
 
-		if (Settings::SpaceMode().Get() == SpaceMode::World)
 			for (auto& target : targets) {
 				target->SetWorldPosition(glm::rotate(r, target->GetWorldPosition() - center) + center);
 				for (size_t i = 0; i < target->GetVertices().size(); i++)
@@ -1140,8 +1136,12 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 				target->SetWorldRotation(r * target->GetWorldRotation());
 			}
+		}
 		else {
+			auto crossOldRotation = cross->GetLocalRotation();
+			cross->SetLocalRotation(cross->GetLocalRotation() * r);
 			auto rIsolated = cross->GetLocalRotation() * glm::inverse(crossOldRotation);
+
 			for (auto& target : targets) {
 				// Rotate relative to cross.
 				target->SetWorldPosition(glm::rotate(rIsolated, target->GetWorldPosition() - center) + center);

@@ -136,14 +136,13 @@ int main() {
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
-		if (!i->IsPressed(Key::Modifier::Alt))
+		if (!i->IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
 			return;
 
 		auto m = i->movement * Settings::TranslationStep().Get();
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			m = glm::rotate(cross.GetWorldRotation(), m);
 
-		//cross.SetLocalPosition(cross.GetLocalPosition() + i->movement * Settings::TranslationStep().Get()); 
 		cross.SetWorldPosition(cross.GetWorldPosition() + m); 
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);

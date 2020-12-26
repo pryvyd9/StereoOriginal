@@ -242,7 +242,6 @@ public:
 
 
 	void ProcessInput() {
-		movement = glm::vec3();
 		FillAxes();
 
 		continuousInputOneSecondDelay.Process(io->AnyKeyPressed);
@@ -308,8 +307,11 @@ public:
 	void BindInputToMovement() {
 		AddHandler([i = input] {
 			// Enable or disable Mouse boundless mode 
+			// and reset movement
 			bool mouseBoundlessMode = i->IsPressed(Key::Modifier::Alt) || i->IsPressed(Key::Modifier::Shift) || i->IsPressed(Key::Modifier::Control);
 			Input::SetMouseBoundlessMode(mouseBoundlessMode && Input::IsCustomRenderImageActive().Get());
+			
+			i->movement = glm::vec3();
 
 			i->movement += i->MouseAxe * Settings::MouseSensivity().Get();
 			i->movement += i->ArrowAxe;
@@ -326,7 +328,6 @@ public:
 				return;
 
 			if (isScaleUp) {
-				//float newSize = c->size *= 1 + sp;
 				float newSize = c->size += sp;
 				if (max < newSize)
 					c->size = max;
@@ -334,7 +335,6 @@ public:
 					c->size = newSize;
 			}
 			else {
-				//float newSize = c->size *= 1 - sp;
 				float newSize = c->size -= sp;
 				if (newSize < min)
 					c->size = min;
@@ -345,21 +345,10 @@ public:
 			c->ForceUpdateCache();
 			});
 	}
-	//void ChangeBuffer() {
-	//	AddHandler([i = input] {
-	//		if (i->IsPressed(Key::Modifier::Control)) {
-	//			if (i->IsDown(Key::Z))
-	//				StateBuffer::Rollback();
-	//			else if (i->IsDown(Key::Y))
-	//				StateBuffer::Repeat();
-	//		}
-	//		});
-	//}
 	bool Init() {
 		ResetFocus();
 		BindInputToMovement();
 		Cross();
-		//ChangeBuffer();
 
 		return true;
 	}
