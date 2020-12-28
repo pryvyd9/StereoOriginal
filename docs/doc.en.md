@@ -21,6 +21,13 @@ Several objects can be selected by modifying LMB with Ctrl.
 A tree of objects can be selected by modifying LMB with Shift.
 ### Properties window
 ### Settings window
+- Buffer size;
+- Language: English, Ukrainian;
+- Step: Translation, rotation, scale, mouse sensivity;
+- Color: LeftBright, RightBright, LeftDim, Right Dim;
+- Log file name;
+- PPI;
+- Scene window transparency (0.0-1.0);
 ### Scene window
 Displays current scene rendered in anaglyph mode. 
 Any action conducted on scene objects are seen in this window. 
@@ -29,6 +36,8 @@ Can be transparent.
 The transparency level is set in settings. 
 If the window is docked, the objects behind main window are seen. 
 If it's detached, only objects behind this window are seen.
+
+Image size is scaled by PPI setting. With correct PPI set the millimeter on screen should equal the millimeter in scene.
 ### File window
 ## IO
 ### Hotkeys
@@ -66,6 +75,7 @@ Pressing Esc deactivates tools.
 When no object is selected, or 1 object is selected that is not a polyline Pen enteres Object Creation mode(OCM).
 While in OCM - press Enter to create a new polyline object. New objects are created at Cross' location.
 Deselecting polyline or selecting non-polyline object will enter OCM.
+New objects are created at the same level as selected object or in Root.
 
 Polyline is drawn by moving Cross.
 
