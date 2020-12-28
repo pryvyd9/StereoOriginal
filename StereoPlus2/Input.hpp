@@ -94,14 +94,13 @@ class Input {
 		else MouseAxe = glm::vec3();
 	}
 
-
 	static bool InsertCombination(
 		CombinationNode& node,
-		const std::vector<Key::Modifier>::const_iterator& modifiersCurrent,
-		const std::vector<Key::Modifier>::const_iterator& modifiersEnd,
+		const std::vector<Key::Modifier>::const_iterator* modifiersCurrent,
+		const std::vector<Key::Modifier>::const_iterator* modifiersEnd,
 		const Key::KeyPair& endKey,
 		const std::function<void()>& callback) {
-		if (modifiersCurrent == modifiersEnd) {
+		if (modifiersCurrent == modifiersEnd || *modifiersCurrent == *modifiersEnd) {
 			if (node.callbacks.find(endKey) != node.callbacks.end())
 				return false;
 
@@ -109,19 +108,47 @@ class Input {
 			return true;
 		}
 
-		if (auto c = node.children.find(*modifiersCurrent._Ptr);
-			c != node.children.end())
-			return InsertCombination(c._Ptr->_Myval.second, modifiersCurrent + 1, modifiersEnd, endKey, callback);
+		auto modifiersNext = (*modifiersCurrent) + 1;
 
-		node.children[*modifiersCurrent._Ptr] = CombinationNode();
-		return InsertCombination(node.children[*modifiersCurrent._Ptr], modifiersCurrent + 1, modifiersEnd, endKey, callback);
+		if (auto c = node.children.find(*modifiersCurrent->_Ptr);
+			c != node.children.end())
+			return InsertCombination(c._Ptr->_Myval.second, &modifiersNext, modifiersEnd, endKey, callback);
+
+		node.children[*modifiersCurrent->_Ptr] = CombinationNode();
+		return InsertCombination(node.children[*modifiersCurrent->_Ptr], &modifiersNext, modifiersEnd, endKey, callback);
 	}
+
+
+	//static bool RemoveCombination(
+	//	CombinationNode& node,
+	//	const std::vector<Key::Modifier>::const_iterator* modifiersCurrent,
+	//	const std::vector<Key::Modifier>::const_iterator* modifiersEnd,
+	//	const Key::KeyPair& endKey,
+	//	const std::function<void()>& callback) {
+	//	if (modifiersCurrent == modifiersEnd || *modifiersCurrent == *modifiersEnd) {
+	//		if (auto i = node.callbacks.find(endKey); i != node.callbacks.end()) {
+	//			node.callbacks.erase(i);
+	//			return true;
+	//		}
+
+	//		return false;
+	//	}
+
+	//	auto modifiersNext = (*modifiersCurrent) + 1;
+
+	//	if (auto c = node.children.find(*modifiersCurrent->_Ptr);
+	//		c != node.children.end())
+	//		return RemoveCombination(c._Ptr->_Myval.second, &modifiersNext, modifiersEnd, endKey, callback);
+
+	//	node.children[*modifiersCurrent->_Ptr] = CombinationNode();
+	//	return RemoveCombination(node.children[*modifiersCurrent->_Ptr], &modifiersNext, modifiersEnd, endKey, callback);
+	//}
 
 	// Prevents combinations with letters or printable symbols
 	// being executed while the keyboard is captured by text input.
-	// Applied to Shift-modified and non-modified keys.
+	// Applied to Shift-modified and non-modified keys, Escape, Enter and other keys used while interacting with text.
 	static bool IsAcceptableCombination(const int key, const bool ignoreCapturedKeys, const int level, const Key::Modifier& modifier) {
-		if (!ignoreCapturedKeys || key < GLFW_KEY_SPACE || key > GLFW_KEY_WORLD_2 && key < GLFW_KEY_KP_0 || key > GLFW_KEY_KP_EQUAL)
+		if (!ignoreCapturedKeys || key < GLFW_KEY_SPACE || key > GLFW_KEY_NUM_LOCK && key < GLFW_KEY_KP_0 || key > GLFW_KEY_KP_EQUAL)
 			return true;
 
 		if (level == 0 || level == 1 && modifier == Key::Modifier::Shift)
@@ -185,7 +212,10 @@ public:
 		}
 	}
 
-	static bool IsDown(const Key::KeyPair& key) {
+	static bool IsDown(const Key::KeyPair& key, bool ignoreCaptured = false) {
+		if (ignoreCaptured && ImGui::GetIO().WantCaptureKeyboard && !IsAcceptableCombination(key.code, true, 0, Key::Modifier::None))
+			return false;
+
 		return key.type == Key::Type::Mouse
 			? ImGui::IsMouseClicked(key.code, false)
 			: ImGui::IsKeyPressed(key.code, false);
@@ -235,7 +265,8 @@ public:
 	}
 
 	void AddShortcut(const Key::Combination& combination, const std::function<void()>& callback) {
-		if (InsertCombination(combinations, combination.modifiers.cbegin(), combination.modifiers.cend(), combination.key, callback))
+		if (auto b = combination.modifiers.cbegin(), e = combination.modifiers.cend();
+			InsertCombination(combinations, &b, &e, combination.key, callback))
 			return;
 		Logger.Error("Shortcut is already taken.");
 	}

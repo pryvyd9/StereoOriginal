@@ -1115,12 +1115,12 @@ public:
 	ReadonlyProperty<Scene*> scene;
 
 	template<typename T>
-	using unbindSceneObjects = decltype(std::declval<T>().UnbindSceneObjects());
+	using unbindTool = decltype(std::declval<T>().UnbindTool());
 
 	template<typename T>
-	static constexpr bool hasUnbindSceneobjects = is_detected_v<unbindSceneObjects, T>;
+	static constexpr bool hasUnbindTool = is_detected_v<unbindTool, T>;
 
-	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindSceneobjects<TTool>> * = nullptr>
+	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>> * = nullptr>
 	void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
@@ -1134,10 +1134,10 @@ public:
 
 		auto deleteAllhandlerId = scene.Get()->OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
-			t->tool->UnbindSceneObjects();
+			t->tool->UnbindTool();
 		};
 		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
-			t->tool->UnbindSceneObjects();
+			t->tool->UnbindTool();
 			s.Get()->OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
 			delete t;
@@ -1416,10 +1416,10 @@ public:
 		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
 
 			if (auto v = Settings::TranslationStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::TranslationStep), &v, 0.01, 0.1))
+				ImGui::InputFloat(GetC("step:", &Settings::TranslationStep), &v, 1, 10))
 				Settings::TranslationStep() = v;
 			if (auto v = Settings::RotationStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::RotationStep), &v, 0.01, 0.1))
+				ImGui::InputFloat(GetC("step:", &Settings::RotationStep), &v, 1, 10))
 				Settings::RotationStep() = v;
 			if (auto v = Settings::ScalingStep().Get();
 				ImGui::InputFloat(GetC("step:", &Settings::ScalingStep), &v, 0.01, 0.1))

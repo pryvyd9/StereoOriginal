@@ -136,7 +136,7 @@ int main() {
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
-		if (!i->IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
+		if (!Input::IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
 			return;
 
 		auto m = i->movement * Settings::TranslationStep().Get();
@@ -146,9 +146,9 @@ int main() {
 		cross.SetWorldPosition(cross.GetWorldPosition() + m); 
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
-	gui.keyBinding.AddHandler([&cross, i = &gui.input]() {
-		if (i->IsDown(Key::N5)) {
-			if (i->IsPressed(Key::Modifier::Control)) {
+	gui.keyBinding.AddHandler([&cross]() {
+		if (Input::IsDown(Key::N5, true)) {
+			if (Input::IsPressed(Key::Modifier::Control)) {
 				glm::vec3 v(0);
 				for (auto& o : ObjectSelection::Selected())
 					v += o.Get()->GetWorldPosition();
@@ -171,8 +171,8 @@ int main() {
 	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
 	StateBuffer::RootObject().BindTwoWay(scene.root());
 	StateBuffer::Objects() = &scene.Objects().Get();
-	gui.keyBinding.AddHandler([i = &gui.input, s = &scene]{
-		if (i->IsDown(Key::Delete)) {
+	gui.keyBinding.AddHandler([s = &scene]{
+		if (Input::IsDown(Key::Delete, true)) {
 			StateBuffer::Commit();
 			s->DeleteSelected();
 			}

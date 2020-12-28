@@ -30,3 +30,7 @@
 - fixed pen thinking the line continuing to be drawn in straight line when it's drawn in the opposite direction;
 - fixed cross ignoring position editing from properties window;
 - removed local properties;
+# 0.12.1
+- fixed new object creation mode still being active when another tool is selected;
+- changed steps for step settings;
+- fixed Enter, Escape and other keys triggering combinations while in text input mode. Now - press Esc to deactivate any input widgets first and then press any combination;

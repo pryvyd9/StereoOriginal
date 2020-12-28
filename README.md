@@ -24,3 +24,4 @@ A 3d modelling and visualisation solution with stereo output (anaglyph) and mult
 
 ## Known Issues
 Combinations Shift + any Numpad key isn't working. It's a windows' "feature". https://github.com/glfw/glfw/issues/670
+Color picker is disappearing on click when appearing in certain places. Isn't reproducible when in full screen.

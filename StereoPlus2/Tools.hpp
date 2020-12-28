@@ -221,7 +221,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 			wasCommitDone = false;
 		}
 
-		if (Input::IsDown(Key::Enter) || Input::IsDown(Key::NEnter)) {
+		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 			UnbindSceneObjects();
 			TryCreateNewObject();
 			return;
@@ -272,7 +272,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 			return;
 		}
 
-		if (Input::IsDown(Key::Enter) || Input::IsDown(Key::NEnter) || createdNewObject) {
+		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 			createdNewObject = false;
@@ -322,7 +322,7 @@ class PointPenEditingTool : public EditingTool<PointPenEditingToolMode>{
 			return;
 
 		createNewObjectHandlerId = keyBinding->AddHandler([&]() {
-			if ((Input::IsDown(Key::Enter) || Input::IsDown(Key::NEnter)) && !ImGui::IsAnyItemActive()) {
+			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
 				auto cmd = new CreateCommand();
@@ -511,6 +511,12 @@ public:
 	}
 	void UnbindTool() {
 		UnbindSceneObjects();
+
+		// On unbinding objects the tool goes to 
+		// creating new object awaiting state.
+		// But if the tool is unbind then it should be cancelled.
+		if (!lockCreateNewObjectHandlerId)
+			keyBinding->RemoveHandler(createNewObjectHandlerId);
 	}
 
 	SceneObject* GetTarget() {
@@ -597,7 +603,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		if (!mesh.HasValue() || crossOldPosition == GetPos())
 			return;
 
-		if (input->IsDown(Key::Escape)) {
+		if (input->IsDown(Key::Escape, true)) {
 			UnbindSceneObjects();
 			return;
 		}
@@ -685,7 +691,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 		if (!mesh.HasValue())
 			return;
 		
-		if (input->IsDown(Key::Escape)) {
+		if (input->IsDown(Key::Escape, true)) {
 			UnbindSceneObjects();
 			return;
 		}
@@ -709,7 +715,7 @@ class ExtrusionEditingTool : public EditingTool<ExtrusionEditingToolMode>, publi
 			return;
 		}
 
-		if (input->IsDown(Key::Enter) || input->IsDown(Key::NEnter)) {
+		if (input->IsDown(Key::Enter, true) || input->IsDown(Key::NEnter, true)) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 
@@ -897,6 +903,9 @@ public:
 
 		return true;
 	}
+	void UnbindTool() {
+		UnbindSceneObjects();
+	}
 
 	SceneObject* GetTarget() {
 		return pen.HasValue()
@@ -1023,7 +1032,7 @@ class TransformTool : public EditingTool<TransformToolMode> {
 			MoveCross(relativeMovement);
 			return;
 		}
-		if (input->IsDown(Key::Escape)) {
+		if (input->IsDown(Key::Escape, true)) {
 			MoveCross(relativeMovement);
 			UnbindSceneObjects();
 			return;
@@ -1198,18 +1207,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 		cross->SetLocalPosition(cross->GetLocalPosition() + movement);
 	}
 
-
-	//bool haveSingleParent(std::list<PON>& targets) {
-	//	auto firstParent = targets.front()->GetParent();
-	//	
-	//	// First object check is redundant.
-	//	for (auto& o : targets)
-	//		if (o->GetParent() != firstParent)
-	//			return false;
-	//	
-	//	return true;
-	//}
-
 	float getTrimmedAngle(float a) {
 		int b = a;
 		return b % 360 + (a - b);
@@ -1279,7 +1276,6 @@ class TransformTool : public EditingTool<TransformToolMode> {
 
 		for (auto o : v)
 			targets.parentObjects.push_back(o);
-		//Scene::CategorizeObjects(StateBuffer::RootObject().Get().Get(), v, targets);
 
 		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
 		if (Settings::SpaceMode().Get() == SpaceMode::World)
