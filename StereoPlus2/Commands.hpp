@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GLLoader.hpp"
-#include "DomainTypes.hpp"
+#include "DomainUtils.hpp"
 #include "InfrastructureTypes.hpp"
 #include <list>
 #include <set>
@@ -9,52 +9,32 @@
 
 
 
-class ISceneHolder {
-protected:
-	Scene* scene = nullptr;
-	bool CheckScene() {
-		if (scene == nullptr) {
-			std::cout << "Scene wasn't bind" << std::endl;
-			return false;
-		}
-		return true;
-	}
-public:
-	bool BindScene(Scene* scene) {
-		this->scene = scene;
-		return true;
-	}
-};
-
-class CreateCommand : Command, public ISceneHolder {
+class CreateCommand : Command {
 protected:
 	virtual bool Execute() {
-		if (!CheckScene())
-			return false;
-
+		SceneObject* o;
 		if (destination == nullptr)
-			scene->Insert(func());
+			Scene::Insert(o = init());
 		else
-			scene->Insert(destination, func());
+			Scene::Insert(destination, o = init());
 
+		onCreated(o);
 		return true;
 	};
 public:
-	SceneObject* destination;
-	std::function<SceneObject* ()> func;
+	SceneObject* destination = nullptr;
+	std::function<SceneObject*()> init;
+	std::function<void(SceneObject*)> onCreated = [] (SceneObject*) {};
 
 	CreateCommand() {
 		isReady = true;
 	}
 };
 
-class DeleteCommand : Command, public ISceneHolder {
+class DeleteCommand : Command {
 protected:
 	virtual bool Execute() {
-		if (!CheckScene())
-			return false;
-
-		scene->Delete(source, target);
+		Scene::Delete(source, target);
 		return true;
 	};
 public:
@@ -76,6 +56,8 @@ protected:
 		items->clear();
 		caller->isCommandEmpty = true;
 
+		callback();
+
 		return res;
 	};
 public:
@@ -94,7 +76,8 @@ public:
 
 	SceneObject* target;
 	int targetPos;
-	std::set<SceneObject*>* items;
+	std::set<PON>* items;
 	InsertPosition pos;
 	IHolder* caller;
+	std::function<void()> callback = [] {};
 };

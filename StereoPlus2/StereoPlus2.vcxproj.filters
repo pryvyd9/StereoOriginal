@@ -22,6 +22,12 @@
     <Filter Include="shaders">
       <UniqueIdentifier>{89450241-0b57-4e6f-9f6f-01966387404b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="infrastructure">
+      <UniqueIdentifier>{a47825c1-6b0a-4ede-b069-de4facc0a2b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="domain">
+      <UniqueIdentifier>{5b79909c-77cb-4b5a-a754-8b58b8436a64}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -48,17 +54,20 @@
     <ClCompile Include="include\GL\gl3w.c">
       <Filter>gl3w</Filter>
     </ClCompile>
-    <ClCompile Include="Windows.hpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_stdlib.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="PositionDetection.hpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="include\imgui\imgui_tables.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_stdlib.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
     <ClCompile Include="InfrastructureTypes.hpp">
-      <Filter>Source Files</Filter>
+      <Filter>infrastructure</Filter>
+    </ClCompile>
+    <ClCompile Include="Windows.hpp">
+      <Filter>domain</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -95,41 +104,59 @@
     <ClInclude Include="GUI.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Window.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DomainTypes.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GLLoader.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="Renderer.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Commands.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="include\imgui\imgui_stdlib.h">
+      <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="Tools.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Input.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ToolPool.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="DomainUtils.hpp">
+      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="FileManager.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imgui_stdlib.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Input.hpp">
+      <Filter>infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="Json.hpp">
+      <Filter>infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="Key.hpp">
+      <Filter>infrastructure</Filter>
     </ClInclude>
     <ClInclude Include="TemplateExtensions.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>infrastructure</Filter>
     </ClInclude>
-    <ClInclude Include="ToolConfiguration.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="DomainTypes.hpp">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="Commands.hpp">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="Settings.hpp">
+      <Filter>infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="SettingsLoader.hpp">
+      <Filter>infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="ToolPool.hpp">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="Tools.hpp">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="Window.hpp">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="GLLoader.hpp">
+      <Filter>infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="Localization.hpp">
+      <Filter>infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneObject.hpp">
+      <Filter>domain</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -147,6 +174,18 @@
     </None>
     <None Include="shaders\zero.frag">
       <Filter>shaders</Filter>
+    </None>
+    <None Include="locales\en.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="locales\ua.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="settings.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="ImGuiExtensions.hpp">
+      <Filter>infrastructure</Filter>
     </None>
   </ItemGroup>
 </Project>

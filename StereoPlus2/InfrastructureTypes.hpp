@@ -7,8 +7,14 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <set>
 #include <functional>
 #include <map>
+#include <glm/vec3.hpp>
+
+#include <fstream>
+#include <filesystem>// C++17 standard header file name
+namespace fs = std::filesystem;
 
 template<typename T>
 int find(const std::vector<T>& source, const T& item) {
@@ -26,6 +32,26 @@ int find(const std::vector<T>& source, std::function<bool(const T&)> condition) 
 
 	return -1;
 }
+//template<typename T>
+//int find(std::vector<T*>& source, std::function<bool(T*)> condition) {
+//	for (size_t i = 0; i < source.size(); i++)
+//		if (condition(source[i]))
+//			return i;
+//
+//	return -1;
+//}
+template<typename T>
+int findBack(std::vector<T*>& source, std::function<bool(T*)> condition) {
+	if (source.empty())
+		return -1;
+
+	for (int i = source.size() - 1; i >= 0; i--)
+		if (condition(source[i]))
+			return i;
+
+	return -1;
+}
+
 template<typename T>
 std::vector<int> findAll(const std::vector<T>& source, std::function<bool(const T&)> condition) {
 	std::vector<int> indices;
@@ -44,7 +70,147 @@ std::vector<int> findAllBack(const std::vector<T>& source, std::function<bool(co
 
 	return indices;
 }
+template<typename T>
+bool exists(const std::set<T>& source, const T& item) {
+	return source.find(item) != source.end();
+}
+template<typename T>
+bool exists(const std::set<const T>& source, const T& item) {
+	return source.find(item) != source.end();
+}
+template<typename K, typename T>
+bool exists(const std::set<K>& source, const T& item, std::function<T(const K&)> selector) {
+	for (auto o : source)
+		if (selector(o) == item)
+			return true;
 
+	return false;
+}
+
+template<typename T>
+bool exists(const std::vector<T>& source, const T& item) {
+	return std::find(source.begin(), source.end(), item) != source.end();
+}
+template<typename T>
+bool exists(const std::list<T>& source, const T& item) {
+	return std::find(source.begin(), source.end(), item) != source.end();
+}
+template<typename K, typename V>
+bool keyExists(const std::set<K,V>& source, const K& item) {
+	return source.find(item) != source.end();
+}
+
+class Path {
+	fs::path path;
+	std::string pathBuffer;
+public:
+	const fs::path& get() const {
+		return path;
+	}
+	std::string& getBuffer() {
+		return pathBuffer;
+	}
+
+	Path() {}
+	Path(fs::path n) {
+		apply(n);
+	}
+	void apply() {
+		apply(pathBuffer);
+	}
+	void apply(fs::path n) {
+		path = fs::absolute(n);
+		pathBuffer = path.u8string();
+	}
+
+	bool isSome() {
+		return !pathBuffer.empty();
+	}
+
+	std::string join(Path path) {
+		auto last = pathBuffer[pathBuffer.size() - 1];
+
+		if (last == '/' || last == '\\')
+			return pathBuffer + path.getBuffer();
+
+		return pathBuffer + '/' + path.getBuffer();
+	}
+	fs::path joinPath(const std::string& path) {
+		auto last = pathBuffer[pathBuffer.size() - 1];
+
+		if (last == '/' || last == '\\')
+			return fs::absolute(pathBuffer + path);
+
+		return fs::absolute(pathBuffer + '/' + path);
+	}
+};
+
+class Time {
+	static const int timeLogSize = 5;
+
+	static std::chrono::steady_clock::time_point* GetBegin() {
+		static std::chrono::steady_clock::time_point instance;
+		return &instance;
+	}
+	static size_t* GetDeltaTimeMicroseconds() {
+		static size_t instance;
+		return &instance;
+	}
+
+	static std::vector<size_t>& TimeLog() {
+		static std::vector<size_t> v(timeLogSize);
+		return v;
+	}
+
+	static void UpdateTimeLog(size_t v) {
+		static int i = 0;
+		TimeLog()[i] = v;
+		i++;
+		if (i >= timeLogSize)
+			i = 0;
+	}
+public:
+	static void UpdateFrame() {
+		auto end = std::chrono::steady_clock::now();
+		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
+		*GetBegin() = end;
+
+		UpdateTimeLog(*GetDeltaTimeMicroseconds());
+	}
+	static int GetFrameRate() {
+		return round(1 / GetDeltaTime());
+	}
+	static int GetAverageFrameRate() {
+		return round(1 / GetAverageDeltaTime());
+	}
+	static float GetDeltaTime() {
+		return (float)*GetDeltaTimeMicroseconds() / 1e6;
+	}
+	static float GetAverageDeltaTime() {
+		size_t t = 0;
+		for (auto a : TimeLog())
+			t += a;
+
+		return (float)t / 1e6 / timeLogSize;
+	}
+	static size_t GetTime() {
+		return std::chrono::time_point_cast<std::chrono::milliseconds>(*GetBegin()).time_since_epoch().count();
+	}
+	static std::string GetTimeFormatted(const std::string& format = "%Y-%m-%d %H:%M:%S") {
+		std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+		std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+
+#pragma warning(push)
+#pragma warning(disable: 4996)
+		std::tm tm = *std::gmtime(&now_c);
+#pragma warning(pop)
+		
+		std::stringstream ss;
+		ss << std::put_time(&tm, format.c_str());
+		return ss.str();
+	}
+
+};
 
 class Log {
 	template<typename T>
@@ -54,9 +220,23 @@ class Log {
 	static constexpr bool isOstreamableT = is_detected_v<isOstreamable, T>;
 
 	std::string contextName = "";
+	std::string logFileName = "";
 
-	static void Line(const std::string& message) {
-		std::cout << message << std::endl;
+	static void Line(const std::string& message, const std::string& logFileName) {
+		static Path logDirectory("logs/");
+		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
+		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
+			fs::create_directory(logDirectory.get());
+
+		std::stringstream ss;
+		ss << Time::GetTimeFormatted() << message << std::endl;
+		auto log = ss.str();
+
+		std::ofstream f(logDirectory.joinPath(logFileName + startTime), std::ios_base::app);
+		f << log;
+		f.close();
+
+		AdditionalLogOutput()(log);
 	}
 	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
 	static std::string ToString(const T& message) {
@@ -64,12 +244,18 @@ class Log {
 		ss << message;
 		return ss.str();
 	}
+	static std::string ToString(const glm::vec3& message) {
+		std::ostringstream ss;
+		ss << "(" << message.x << ";" << message.y << ";" << message.z << ")";
+		return ss.str();
+	}
 
 public:
 	template<typename T>
-	static const Log For() {
+	static const Log For(std::string logFileName = LogFileName()) {
 		Log log;
 		log.contextName = typeid(T).name();
+		log.logFileName = logFileName;
 		return log;
 	}
 
@@ -88,38 +274,25 @@ public:
 
 
 	void Error(const std::string& message) const {
-		Line("[Error](" + contextName + ") " + message);
+		Line("[Error](" + contextName + ") " + message, logFileName);
 	}
 	void Warning(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message);
+		Line("[Warning](" + contextName + ") " + message, logFileName);
 	}
 	void Information(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message);
+		Line("[Information](" + contextName + ") " + message, logFileName);
+	}
+
+	static std::string& LogFileName() {
+		static std::string v = "defaultLog";
+		return v;
+	}
+	static std::function<void(const std::string&)>& AdditionalLogOutput() {
+		static std::function<void(const std::string&)> v = [](const std::string&) {};
+		return v;
 	}
 };
 
-class Time {
-	static std::chrono::steady_clock::time_point* GetBegin() {
-		static std::chrono::steady_clock::time_point instance;
-		return &instance;
-	}
-	static size_t* GetDeltaTimeMicroseconds() {
-		static size_t instance;
-		return &instance;
-	}
-public:
-	static void UpdateFrame() {
-		auto end = std::chrono::steady_clock::now();
-		*GetDeltaTimeMicroseconds() = std::chrono::duration_cast<std::chrono::microseconds>(end - *GetBegin()).count();
-		*GetBegin() = end;
-	};
-	static float GetFrameRate() {
-		return 1 / GetDeltaTime();
-	}
-	static float GetDeltaTime() {
-		return (float)*GetDeltaTimeMicroseconds() / 1e6;
-	}
-};
 
 class Command {
 	static std::list<Command*>& GetQueue() {
@@ -186,6 +359,14 @@ public:
 			handlers.erase(v);
 		};
 	}
+
+	size_t operator += (std::function<void(T...)> func) {
+		return AddHandler(func);
+	}
+	void operator -= (size_t v) {
+		RemoveHandler(v);
+	}
+
 };
 
 template<typename...T>
@@ -197,23 +378,234 @@ public:
 	}
 };
 
+
+//template<typename T>
+//class AbstractProperty {
+//protected:
+//	template<typename T>
+//	class Node {
+//		T value;
+//		Event<T> changed;
+//	public:
+//		const T& Get() const {
+//			return value;
+//		}
+//		T& Get() {
+//			return value;
+//		}
+//		void Set(const T& v) {
+//			auto& old = value;
+//			value = v;
+//			if (old != v)
+//				changed.Invoke(v);
+//		}
+//		IEvent<T>& OnChanged() const {
+//			return *(IEvent<T>*) & changed;
+//		}
+//	};
+//
+//	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
+//	T& Get() {
+//		return node->Get();
+//	}
+//	void Set(const T& v) {
+//		node->Set(v);
+//	}
+//	AbstractProperty<T>& operator=(const T& v) {
+//		Set(v);
+//		return *this;
+//	}
+//	void Bind(const AbstractProperty<T>& p) {
+//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+//	}
+//	void BindAndApply(const AbstractProperty<T>& p) {
+//		Set(p.Get());
+//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+//	}
+//	void BindTwoWay(const AbstractProperty<T>& p) {
+//		node = p.node;
+//	}
+//public:
+//	IEvent<T>& OnChanged() const {
+//		return node->OnChanged();
+//	}
+//};
+//
+//template<typename T>
+//class Property : public AbstractProperty<T> {
+//public:
+//	T& Get() const {
+//		return AbstractProperty<T>::Get();
+//	}
+//	void Set(const T& v) {
+//		AbstractProperty<T>::Set(v);
+//	}
+//	Property<T>& operator=(const T& v) {
+//		Set(v);
+//		return *this;
+//	}
+//	void Bind(const Property<T>& p) {
+//		AbstractProperty<T>::Bind(p);
+//	}
+//	void BindAndApply(const Property<T>& p) {
+//		AbstractProperty<T>::BindAndApply(p);
+//	}
+//	void BindTwoWay(const Property<T>& p) {
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//};
+////template<typename T>
+////class AbstractReadonlyProperty : public AbstractProperty<T> {
+////protected:
+////	T& Get() const {
+////		return AbstractProperty<T>::Get();
+////	}
+////	void BindAndApply(const AbstractReadonlyProperty<T>& p) {
+////		// Since it's readonly it doesn't matter if it's the same node.
+////		AbstractProperty<T>::BindTwoWay(p);
+////	}
+////	T& operator->() const {
+////		return Get();
+////	}
+////};
+//
+//template<typename T>
+//class ReadonlyProperty : public AbstractProperty<T> {
+//public:
+//	ReadonlyProperty() {}
+//	ReadonlyProperty(const T& o) {
+//		AbstractProperty<T>::Set(o);
+//	}
+//	T& Get() const {
+//		return AbstractProperty<T>::Get();
+//	}
+//	void BindAndApply(const ReadonlyProperty<T>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//	void BindAndApply(const Property<T>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T>::BindTwoWay(p);
+//	}
+//	T& operator->() const {
+//		return Get();
+//	}
+//};
+//
+//template<typename T>
+//class ReadonlyProperty<T*> : public AbstractProperty<T*> {
+//public:
+//	ReadonlyProperty() {}
+//	ReadonlyProperty(const T* o) {
+//		AbstractProperty<T*>::node->Set(*o);
+//	}
+//	T* Get() const {
+//		return AbstractProperty<T*>::node->Get();
+//		//return &AbstractProperty<T*>::Get();
+//	}
+//	void BindAndApply(const ReadonlyProperty<T*>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T*>::BindTwoWay(p);
+//	}
+//	void BindAndApply(const Property<T*>& p) {
+//		// Since it's readonly it doesn't matter if it's the same node.
+//		AbstractProperty<T*>::BindTwoWay(p);
+//	}
+//	T* operator->() const {
+//		return Get();
+//	}
+//};
+
 template<typename T>
 class Property {
-	T value;
-	Event<T> changed;
+	template<typename T>
+	class Node {
+		T value;
+		Event<T> changed;
+	public:
+		const T& Get() const {
+			return value;
+		}
+		T& Get() {
+			return value;
+		}
+		void Set(const T& v) {
+			value = v;
+				changed.Invoke(v);
+		}
+		IEvent<T>& OnChanged() const {
+			return *(IEvent<T>*) & changed;
+		}
+	};
+
+	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
 public:
+	Property() {}
+	Property(T o) {
+		Set(o);
+	}
+
 	const T& Get() const {
-		return value;
+		return node->Get();
+	}
+	T& Get() {
+		return node->Get();
 	}
 	void Set(const T& v) {
-		auto old = value;
-		value = v;
-		if (old != v)
-			changed.Invoke(v);
+		node->Set(v);
 	}
-	IEvent<T>& OnChanged() {
-		return changed;
+	IEvent<T>& OnChanged() const {
+		return node->OnChanged();
+	}
+	void Bind(const Property<T>& p) {
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+	}
+	void BindAndApply(const Property<T>& p) {
+		Set(p.Get());
+		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
+	}
+	void BindTwoWay(const Property<T>& p) {
+		node = p.node;
+	}
+
+	Property<T>& operator=(const T& v) {
+		Set(v);
+		return *this;
+	}
+	const T* operator->() const {
+		return &Get();
 	}
 };
 
+template<typename T>
+class ReadonlyProperty : Property<T> {
+public:
+	ReadonlyProperty() {}
+	ReadonlyProperty(T o) {
+		Property<T>::Set(o);
+	}
+	void BindAndApply(const Property<T>& p) {
+		Property<T>::BindAndApply(p);
+	}
+	void BindAndApply(const ReadonlyProperty<T>& p) {
+		Property<T>::BindAndApply(p);
+	}
+	void Bind(const Property<T>& p) {
+		Property<T>::Bind(p);
+	}
+	const T& Get() const {
+		return Property<T>::Get();
+	}
+	T& Get() {
+		return Property<T>::Get();
+	}
+	T operator->() const {
+		return Get();
+	}
+};
 
+#define StaticProperty(type,name) \
+static Property<type>& name() {\
+	static Property<type> v;\
+	return v;\
+}
