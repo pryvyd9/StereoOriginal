@@ -132,15 +132,22 @@ public:
 		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get())
 			UpdateOpenGLBuffer(toLeft, toRight);
 
-		glStencilMask(stencilMaskLeft);
-		glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		//glStencilMask(stencilMaskLeft);
+		//glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);
+		//glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		DrawLeft(shaderLeft);
 
-		glStencilMask(stencilMaskRight);
-		glStencilFunc(GL_ALWAYS, stencilMaskRight, stencilMaskLeft | stencilMaskRight);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		glEnable(GL_BLEND);
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
+
+		//glStencilMask(stencilMaskRight);
+		//glStencilFunc(GL_ALWAYS, stencilMaskRight, stencilMaskLeft | stencilMaskRight);
+		//glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		DrawRight(shaderRight);
+
+		glDisable(GL_BLEND);
+
 	}
 
 

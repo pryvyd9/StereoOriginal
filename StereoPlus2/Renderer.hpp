@@ -172,7 +172,7 @@ public:
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glLineWidth(LineThickness);
 
-		glEnable(GL_STENCIL_TEST);
+		//glEnable(GL_STENCIL_TEST);
 
 		// Anti aliasing
 		{
@@ -186,7 +186,7 @@ public:
 			for (auto o : scene.Objects().Get())
 				DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross().Get());
-			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
+			//DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
 			std::set<PON> objectsSorted;
@@ -204,19 +204,19 @@ public:
 
 			for (auto o : dimObjects)
 				DrawDim(scene.camera, o.Get());
-			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
+			//DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
 			for (auto o : ObjectSelection::Selected())
 				if (o.HasValue())
 					DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, scene.cross().Get());
-			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
+			//DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 
 		// Anti aliasing
 		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
 
-		glDisable(GL_STENCIL_TEST);
+		//glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
 	}
 
