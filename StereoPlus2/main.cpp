@@ -21,11 +21,11 @@ using namespace std;
 bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& positionDetector) {
 	// Modify camera posiiton when Posiiton detection is enabled.
 	if (positionDetector.isPositionProcessingWorking)
-		scene.camera->SetLocalPosition(
-			glm::vec3(
-				positionDetector.positionHorizontal / 500.0,
-				positionDetector.positionVertical / 500.0,
-				-positionDetector.distance / 50.0));
+		scene.camera->PositionModifier =
+		glm::vec3(
+			positionDetector.positionHorizontal.load(),
+			positionDetector.positionVertical.load(),
+			positionDetector.distance.load());
 
 	// Run scene drawing.
 	renderPipeline.Pipeline(scene);
@@ -75,7 +75,6 @@ int main() {
 
 	// Declare main components.
 	PositionDetector positionDetector;
-
 
 	CustomRenderWindow customRenderWindow;
 	SceneObjectPropertiesWindow cameraPropertiesWindow;

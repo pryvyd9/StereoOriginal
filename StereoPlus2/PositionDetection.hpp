@@ -39,6 +39,11 @@ class PositionDetector {
     std::thread distanceProcessThread;
 
 
+    std::list<float> faceSize;
+    std::list<glm::vec2> facePosition;
+    std::list<float> distanceToCameraBuffer;
+
+
     float avg(std::list<float> q) {
         float sum = 0;
         for (auto i : q)
@@ -65,20 +70,38 @@ class PositionDetector {
         return at(q, q.size() / 2).y;
     }
 
-    float getDistance(float orSize, float f, const std::list<float>& q) {
-        float d = orSize * f / avg(q);
 
-        return d;
+    float getPosX(float center, const std::list<glm::vec2>& q, float distance) {
+        auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+        auto angleFaceSize = (center - medX(q)) / pixelToAngle.x;
+        auto posX = distance * tan(angleFaceSize * degreeToRadian);
+        return posX;
     }
-    float getPosX(float center, const std::list<glm::vec2>& q) {
-        float d = center - medX(q);
+    float getPosY(float center, const std::list<glm::vec2>& q, float distance) {
+        auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+        auto angleFaceSize = (center - medY(q)) / pixelToAngle.x;
+        auto posX = distance * tan(angleFaceSize * degreeToRadian);
+        return posX;
+    }
 
-        return d;
-    }
     float getPosY(float center, const std::list<glm::vec2>& q) {
         float d = center - medY(q);
 
         return d;
+    }
+
+    glm::vec2 divide(const glm::vec2& v1, const glm::vec2& v2) {
+        return glm::vec2(v1.x / v2.x, v1.y / v2.y);
+    }
+    glm::vec2 multiply(const glm::vec2& v1, const glm::vec2& v2) {
+        return glm::vec2(v1.x * v2.x, v1.y * v2.y);
+    }
+
+    float getDistanceToCamera(const std::list<float>& pixelFaceSizesY) {
+        auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+        auto angleFaceSize = avg(pixelFaceSizesY) / pixelToAngle.y;
+        auto distance = faceSizeRealY / (tan(angleFaceSize / 2.f * degreeToRadian) * 2.f);
+        return distance;
     }
 
     void detectAndDisplay(Mat frame)
@@ -90,94 +113,40 @@ class PositionDetector {
         //-- Detect faces
         std::vector<Rect> faces;
         face_cascade.detectMultiScale(frame_gray, faces);
-        
-        //bool j = useOptimized();
 
         for (size_t i = 0; i < faces.size(); i++)
         {
-            //Point center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
-            //ellipse(frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4);
+            glm::vec2 center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
 
-            //std::cout << "Face: " << center.x << "," << center.y << ". ";
+            faceSize.push_back(faces[i].width);
+            facePosition.push_back(center);
 
-            Mat faceROI = frame_gray(faces[i]);
+            if (faceSize.size() > windowSize)
+                faceSize.pop_front();
+            if (facePosition.size() > windowSize)
+                facePosition.pop_front();
 
-            //-- In each face, detect eyes
-            std::vector<Rect> eyes;
-            eyes_cascade.detectMultiScale(faceROI, eyes);
+            auto distanceToCamera = getDistanceToCamera(faceSize);
+            distanceToCameraBuffer.push_back(distanceToCamera);
+            if (distanceToCameraBuffer.size() > windowSize)
+                distanceToCameraBuffer.pop_front();
+            distanceToCamera = avg(distanceToCameraBuffer);
 
-            if (eyes.size() == 1)
-            {
-                glm::vec2 eye_center(faces[i].x + eyes[0].x + eyes[0].width / 2, faces[i].y + eyes[0].y + eyes[0].height / 2);
+            auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
 
-                // if is left eye
-                if (eye_center.x < (faces[i].x + faces[i].width / 2)) {
-                    distanceLeftEye.push_back(eyes[0].width);
-                    positionLeftEye.push_back(eye_center);
+            auto facePositionMedianY = medY(facePosition);
+            auto angleFaceCenterY = (frame.size[0] / 2.f - facePositionMedianY) / pixelToAngle.y;
+            auto alpha = cameraAngle.y - angleFaceCenterY;
+            auto distanceToScreen = distanceToCamera * sin(alpha * degreeToRadian) + screenCenterToCameraDistance.z;
+            distance = distanceToScreen * 1.2;
+            auto posHorizontal = getPosX(frame.size[1] / 2.f, facePosition, distanceToCamera);
+            positionHorizontal = posHorizontal;
 
-                    if (distanceLeftEye.size() > windowSize)
-                        distanceLeftEye.pop_front();
-                    if (positionLeftEye.size() > windowSize)
-                        positionLeftEye.pop_front();
 
-                    distanceLeft = getDistance(3, 900, distanceLeftEye);
-                    distance = (distanceLeft + distanceRight) / 2;
+            auto posVerticalRelativeToCamera = distanceToCamera * cos(alpha * degreeToRadian);
+            auto posVertical = posVerticalRelativeToCamera - screenCenterToCameraDistance.y;
+            positionVertical = posVertical;
 
-                    positionLeft = getPosX(frame.size[1] / 2, positionLeftEye);
-                    positionHorizontal = (positionLeft + positionRight) / 2;
-                    heightLeft = getPosY(frame.size[0] / 2, positionLeftEye);
-                    positionVertical = (heightLeft + heightRight) / 2;
-                }
-                else
-                {
-                    distanceRightEye.push_back(eyes[0].width);
-                    positionRightEye.push_back(eye_center);
-
-                    if (distanceRightEye.size() > windowSize)
-                        distanceRightEye.pop_front();
-                    if (positionRightEye.size() > windowSize)
-                        positionRightEye.pop_front();
-
-                    distanceRight = getDistance(3, 900, distanceRightEye);
-                    distance = (distanceLeft + distanceRight) / 2;
-
-                    positionRight = getPosX(frame.size[1] / 2, positionRightEye);
-                    positionHorizontal = (positionLeft + positionRight) / 2;
-                    heightRight = getPosY(frame.size[0] / 2, positionRightEye);
-                    positionVertical = (heightLeft + heightRight) / 2;
-                }
-            }
-            else if (eyes.size() > 1)
-            {
-                glm::vec2 eye_centerLeft(faces[i].x + eyes[0].x + eyes[0].width / 2, faces[i].y + eyes[0].y + eyes[0].height / 2);
-                glm::vec2 eye_centerRight(faces[i].x + eyes[1].x + eyes[1].width / 2, faces[i].y + eyes[1].y + eyes[1].height / 2);
-
-                distanceLeftEye.push_back(eyes[0].width);
-                distanceRightEye.push_back(eyes[1].width);
-                positionLeftEye.push_back(eye_centerLeft);
-                positionRightEye.push_back(eye_centerRight);
-
-                if (distanceLeftEye.size() > windowSize)
-                    distanceLeftEye.pop_front();
-                if (distanceRightEye.size() > windowSize)
-                    distanceRightEye.pop_front();
-                if (positionLeftEye.size() > windowSize)
-                    positionLeftEye.pop_front();
-                if (positionRightEye.size() > windowSize)
-                    positionRightEye.pop_front();
-
-                distanceLeft = getDistance(3, 900, distanceLeftEye);
-                distanceRight = getDistance(3, 900, distanceRightEye);
-                distance = (distanceLeft + distanceRight) / 2;
-
-                positionLeft = getPosX(frame.size[1] / 2, positionLeftEye);
-                positionRight = getPosX(frame.size[1] / 2, positionRightEye);
-                positionHorizontal = (positionLeft + positionRight) / 2;
-
-                heightLeft = getPosY(frame.size[0] / 2, positionLeftEye);
-                heightRight = getPosY(frame.size[0] / 2, positionRightEye);
-                positionVertical = (heightLeft + heightRight) / 2;
-            }
 
         }
 
@@ -230,6 +199,22 @@ public:
 
     std::function<void()> onStartProcess = [] {};
     std::function<void()> onStopProcess = [] {};
+
+
+    const float degreeToRadian = 3.1415926f * 2 / 360;
+
+    glm::vec2 cameraResolution = glm::vec2(640, 480);
+    // Degrees
+    // These angles aren't correct. 
+    // Just found the values, that produce the best results.
+    // Need to find out the real values.
+    glm::vec2 cameraViewAngle = glm::vec2(47, 35);
+    glm::vec2 cameraAngle = glm::vec2(0, 65);
+
+    // Millimeters
+    float faceSizeRealY = 165;
+    glm::vec3 screenCenterToCameraDistance = glm::vec3(0, 170, 30);
+
 
     bool Init() {
         String face_cascade_name = samples::findFile("data/haarcascades/haarcascade_frontalface_alt.xml");
