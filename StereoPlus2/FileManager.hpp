@@ -47,9 +47,9 @@ public:
 		case Group:
 		case TraceObjectT:
 			break;
-		case StereoPolyLineT:
+		case PolyLineT:
 		{
-			auto o = (StereoPolyLine*)&so;
+			auto o = (PolyLine*)&so;
 
 			put(o->GetVertices().size());
 			for (auto p : o->GetVertices())
@@ -166,9 +166,9 @@ public:
 			readChildren(o);
 			return o;
 		}
-		case StereoPolyLineT:
+		case PolyLineT:
 		{
-			auto o = start<StereoPolyLine>();
+			auto o = start<PolyLine>();
 			read(&o->Name);
 			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
 			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
@@ -359,9 +359,9 @@ public:
 			getChildren(j, "children", o);
 			return o;
 		}
-		case StereoPolyLineT:
+		case PolyLineT:
 		{
-			auto o = start<StereoPolyLine>();
+			auto o = start<PolyLine>();
 			get(j, "name", o->Name);
 			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
 			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
@@ -457,9 +457,9 @@ public:
 		case Group:
 		case TraceObjectT:
 			break;
-		case StereoPolyLineT:
+		case PolyLineT:
 		{
-			auto o = (StereoPolyLine*)&so;
+			auto o = (PolyLine*)&so;
 			insert(jo, "vertices", o->GetVertices());
 			break;
 		}

@@ -1,5 +1,5 @@
 #pragma once
-#include "DomainTypes.hpp"
+#include "SceneObject.hpp"
 #include <stack>
 #include <algorithm>
 
@@ -263,214 +263,94 @@ public:
 	}
 };
 
-class Scene {
+class Transform {
+	static float getTrimmedAngle(float a) {
+		int b = a;
+		return b % 360 + (a - b);
+	}
+
 public:
-
-	template<InsertPosition p>
-	static bool is(InsertPosition pos) {
-		return p == pos;
-	}
-	template<InsertPosition p>
-	static bool has(InsertPosition pos) {
-		return (p & pos) != 0;
-	}
-private:
-	Event<> deleteAll;
-	Log Logger = Log::For<Scene>();
-
-	static const SceneObject* FindRoot(const SceneObject* o) {
-		auto parent = o->GetParent();
-		if (parent == nullptr)
-			return o;
-
-		return FindRoot(parent);
-	}
-	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
-		if (oldParent == nullptr) {
-			Log::For<Scene>().Error("Object doesn't have a parent");
-			return nullptr;
-		}
-
-		if (exists(*items, oldParent))
-			return FindNewParent(const_cast<SceneObject*>(oldParent->GetParent()), items);
-
-		return oldParent;
-	}
-	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
-		if (oldParent == nullptr)
-			return nullptr;
-
-		if (exists(disconnectedItemsToBeMoved, oldParent))
-			return oldParent;
-
-		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), disconnectedItemsToBeMoved);
-	}
-
-	static PON CreateRoot() {
-		auto r = new GroupObject();
-		r->Name = "Root";
-		return PON(r);
-	}
-public:
-	// Stores all objects.
-	StaticProperty(std::vector<PON>, Objects);
-	StaticProperty(PON, root);
-	StaticProperty(Cross*, cross);
-	StereoCamera* camera;
-
-	GLFWwindow* glWindow;
-
-	
-
-	IEvent<>& OnDeleteAll() {
-		return deleteAll;
-	}
-
-	Scene() {
-		root() = CreateRoot();
-	}
-	
-	static bool Insert(SceneObject* destination, SceneObject* obj) {
-		obj->SetParent(destination);
-		Objects().Get().push_back(obj);
-		return true;
-	}
-	static bool Insert(SceneObject* obj) {
-		obj->SetParent(root().Get().Get());
-		Objects().Get().push_back(obj);
-		return true;
-	}
-
-	static bool Delete(SceneObject* source, SceneObject* obj) {
-		if (!source) {
-			Log::For<Scene>().Warning("You cannot delete root object");
-			return true;
-		}
-
-		for (size_t i = 0; i < source->children.size(); i++)
-			if (source->children[i] == obj)
-				for (size_t j = 0; i < Objects()->size(); j++)
-					if (Objects().Get()[j].Get() == obj) {
-						source->children.erase(source->children.begin() + i);
-						Objects().Get().erase(Objects()->begin() + j);
-						return true;
-					}
-
-		Log::For<Scene>().Error("The object for deletion was not found");
-		return false;
-	}
-	void DeleteSelected() {
-		for (auto o : ObjectSelection::Selected()) {
-			o->Reset();
-			(new FuncCommand())->func = [this, o] {
-				Delete(const_cast<SceneObject*>(o.Get()->GetParent()), o.Get());
-			};
+	static void Scale(const glm::vec3& center, const float& oldScale, const float& scale, std::list<PON>& targets) {
+		for (auto target : targets) {
+			target->SetWorldPosition((target->GetWorldPosition() - center) / oldScale * scale + center);
+			for (size_t i = 0; i < target->GetVertices().size(); i++)
+				target->SetVertice(i, (target->GetVertices()[i] - center) / oldScale * scale + center);
 		}
 	}
-	void DeleteAll() {
-		deleteAll.Invoke();
-		cross().Get()->SetParent(nullptr);
+	static void Translate(const glm::vec3& transformVector, std::list<PON>& targets, SceneObject* cross) {
+		// Need to calculate average rotation.
+		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
+		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
+			auto r = glm::rotate(cross->GetWorldRotation(), transformVector);
 
-		Objects().Get().clear();
-		root() = CreateRoot();
-	}
-
-	struct CategorizedObjects {
-		std::list<SceneObject*> parentObjects;
-		std::set<SceneObject*> childObjects;
-		// Items that will not be modified and their new parents in case current parents are removed.
-		// Item, NewParent
-		std::list<std::pair<SceneObject*, SceneObject*>> orphanedObjects;
-	};
-	struct CategorizedPON {
-		std::list<PON> parentObjects;
-		std::set<PON> childObjects;
-		// Items that will not be modified and their new parents in case current parents are removed.
-		// Item, NewParent
-		std::list<std::pair<PON, PON>> orphanedObjects;
-	};
-
-	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedObjects& categorizedObjects) {
-		root->CallRecursive(root, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
-			if (exists(*items, o)) {
-				if (exists(categorizedObjects.childObjects, parent) || exists(categorizedObjects.parentObjects, parent))
-					categorizedObjects.childObjects.emplace(o);
-				else if (auto newParent = FindConnectedParent(parent, categorizedObjects.parentObjects))
-					categorizedObjects.orphanedObjects.push_back({ o, newParent });
-				else
-					categorizedObjects.parentObjects.push_back(o);
+			cross->SetWorldPosition(cross->GetWorldPosition() + r);
+			for (auto o : targets) {
+				o->SetWorldPosition(o->GetWorldPosition() + r);
+				for (size_t i = 0; i < o->GetVertices().size(); i++)
+					o->SetVertice(i, o->GetVertices()[i] + r);
 			}
-			else if (exists(*items, parent))
-				categorizedObjects.orphanedObjects.push_back({ o, FindNewParent(parent, items) });
+			return;
+		}
 
-			return o;
-			}));
+		cross->SetWorldPosition(cross->GetWorldPosition() + transformVector);
+		for (auto o : targets) {
+			o->SetWorldPosition(o->GetWorldPosition() + transformVector);
+			for (size_t i = 0; i < o->GetVertices().size(); i++)
+				o->SetVertice(i, o->GetVertices()[i] + transformVector);
+		}
 	}
-	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedPON& categorizedObjects) {
-		CategorizedObjects co;
-		CategorizeObjects(root, items, co);
-		for (auto o : co.parentObjects)
-			categorizedObjects.parentObjects.push_back(o);
-		for (auto o : co.childObjects)
-			categorizedObjects.childObjects.emplace(o);
-		for (auto [o,np] : co.orphanedObjects)
-			categorizedObjects.orphanedObjects.push_back({ o, np });
-	}
-	static void CategorizeObjects(SceneObject* root, std::vector<PON>& items, CategorizedPON& categorizedObjects) {
-		std::set<SceneObject*> is;
-		for (auto o : items)
-			is.emplace(o.Get());
+	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::list<PON>& targets, SceneObject* cross) {
+		auto axe = glm::vec3();
+		{
+			glm::vec3 t[2] = { glm::vec3(), glm::vec3() };
+			size_t n = 0;
+			for (size_t i = 0; i < 3; i++) {
+				assert(n < 3);
+				if (rotation[i] != 0)
+					t[n++][i] = rotation[i] > 0 ? 1 : -1;
+			}
 
-		CategorizeObjects(root, &is, categorizedObjects);
-	}
-	static void CategorizeObjects(SceneObject* root, const std::set<PON>& items, CategorizedPON& categorizedObjects) {
-		std::set<SceneObject*> is;
-		for (auto o : items)
-			is.emplace(o.Get());
+			if (n == 0)
+				return;
 
-		CategorizeObjects(root, &is, categorizedObjects);
-	}
+			axe = t[1] + t[0];
+		}
+
+		float angle = 0;
+		{
+			for (size_t i = 0; i < 3; i++)
+				angle += abs(rotation[i]);
+		}
 
 
-	// Tree structure is preserved even if there is an unselected link.
-	//-----------------------------------------------------------------
-	// * - selected
-	//
-	//   *a      b  *a
-	//    b   ->    *c
-	//   *c
-	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-		auto root = const_cast<SceneObject*>(FindRoot(destination));
+		auto trimmedDeltaAngle = getTrimmedAngle(angle) * 3.1415926f * 2 / 360;
+		auto r = glm::angleAxis(trimmedDeltaAngle, axe);
 
-		// parentObjects will be moved to destination
-		// childObjects will be ignored during move but will be moved with their parents
-		// orphanedObjects will not be moved with their parents.
-		// New parents will be assigned.
-		CategorizedObjects categorizedObjects;
+		if (Settings::SpaceMode().Get() == SpaceMode::World) {
+			cross->SetLocalRotation(r * cross->GetLocalRotation());
 
-		CategorizeObjects(root, items, categorizedObjects);
+			for (auto& target : targets) {
+				target->SetWorldPosition(glm::rotate(r, target->GetWorldPosition() - center) + center);
+				for (size_t i = 0; i < target->GetVertices().size(); i++)
+					target->SetVertice(i, glm::rotate(r, target->GetVertices()[i] - center) + center);
+				
+				target->SetWorldRotation(r * target->GetWorldRotation());
+			}
+		}
+		else {
+			auto crossOldRotation = cross->GetLocalRotation();
+			cross->SetLocalRotation(cross->GetLocalRotation() * r);
+			auto rIsolated = cross->GetLocalRotation() * glm::inverse(crossOldRotation);
 
-		if ((pos & InsertPosition::Bottom) != 0)
-			for (auto o : categorizedObjects.parentObjects)
-				o->SetParent(destination, destinationPos, pos);
-		else
-			std::for_each(categorizedObjects.parentObjects.rbegin(), categorizedObjects.parentObjects.rend(), [&] (auto o){
-				o->SetParent(destination, destinationPos, pos); });
+			for (auto& target : targets) {
+				// Rotate relative to cross.
+				target->SetWorldPosition(glm::rotate(rIsolated, target->GetWorldPosition() - center) + center);
+				for (size_t i = 0; i < target->GetVertices().size(); i++)
+					target->SetVertice(i, glm::rotate(rIsolated, target->GetVertices()[i] - center) + center);
 
-		for (auto pair : categorizedObjects.orphanedObjects)
-			pair.first->SetParent(pair.second, true);
-
-		return true;
-	}
-	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<PON>* items, InsertPosition pos) {
-		std::set<SceneObject*> nitems;
-		for (auto o : *items)
-			nitems.emplace(o.Get());
-
-		return MoveTo(destination, destinationPos, &nitems, pos);
+				target->SetLocalRotation(target->GetLocalRotation() * r);
+			}
+		}
 	}
 
-	~Scene() {
-		Objects().Get().clear();
-	}
 };

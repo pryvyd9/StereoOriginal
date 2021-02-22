@@ -601,8 +601,8 @@ public:
 	}
 };
 
-class PointPenToolWindow : Window, Attributes {
-	const Log log = Log::For<SceneObjectInspectorWindow>();
+class PenToolWindow : Window, Attributes {
+	const Log log = Log::For<PenToolWindow>();
 
 
 	std::stack<bool>& GetIsActive() {
@@ -633,7 +633,7 @@ class PointPenToolWindow : Window, Attributes {
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case StereoPolyLineT:
+		case PolyLineT:
 			return "PolyLine";
 		default:
 			return "noname";
@@ -696,7 +696,7 @@ public:
 	// If this is null then the window probably wasn't initialized.
 	//SceneObject* target = nullptr;
 
-	PointPenEditingTool* tool = nullptr;
+	PenTool* tool = nullptr;
 
 	virtual SceneObject* GetTarget() {
 		if (tool == nullptr)
@@ -748,6 +748,153 @@ public:
 	}
 };
 
+class SinePenToolWindow : Window, Attributes {
+	const Log log = Log::For<SinePenToolWindow>();
+
+
+	std::stack<bool>& GetIsActive() {
+		static std::stack<bool> val;
+		return val;
+	}
+	bool IsActive(bool isActive) {
+		GetIsActive().push(isActive);
+		if (!isActive)
+		{
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+		}
+
+		return true;
+	}
+	void PopIsActive() {
+		auto isActive = GetIsActive().top();
+		GetIsActive().pop();
+
+		if (!isActive)
+		{
+			ImGui::PopItemFlag();
+			ImGui::PopStyleVar();
+		}
+	}
+
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case SineCurveT:
+			return "PolyLine";
+		default:
+			return "noname";
+		}
+	}
+	std::string GetName(ObjectType type, SceneObject* obj) {
+		return
+			(obj) != nullptr && type == (obj)->GetType()
+			? (obj)->Name
+			: "Empty";
+	}
+
+	bool DesignInternal() {
+		//ImGui::Text(GetName(type, GetTarget()).c_str());
+		//if (ImGui::BeginDragDropTarget())
+		//{
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	std::vector<PON> objects;
+		//	if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+		//	{
+		//		if (objects.size() > 1) {
+		//			log.Warning("Drawing instrument can't accept multiple scene objects");
+		//		}
+		//		else {
+		//			if (!tool->BindSceneObjects(objects))
+		//				return false;
+		//		}
+		//	}
+
+		//	ImGui::EndDragDropTarget();
+		//}
+
+		{
+			bool isActive = (GetTarget()) != nullptr;
+			if (IsActive(isActive))
+			{
+				if (ImGui::Button(isActive ? "Release" : "No objects bind"))
+				{
+					tool->UnbindSceneObjects();
+				}
+				PopIsActive();
+			}
+		}
+
+
+		{
+			static int mode = 0;
+			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
+				tool->SetMode(PointPenEditingToolMode::Immediate);
+			if (ImGui::RadioButton("StepMode", &mode, 1))
+				tool->SetMode(PointPenEditingToolMode::Step);
+		}
+
+		return true;
+	}
+
+public:
+	// If this is null then the window probably wasn't initialized.
+	//SceneObject* target = nullptr;
+
+	SinePenTool* tool = nullptr;
+
+	virtual SceneObject* GetTarget() {
+		if (tool == nullptr)
+			return nullptr;
+
+		return tool->GetTarget();
+	}
+	virtual bool Init() {
+		if (tool == nullptr) {
+			log.Error("Tool wasn't assigned");
+			return false;
+		}
+
+		//target = tool->GetTarget();
+		Window::name = Attributes::name = "pen";
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+	virtual bool Window::Design() {
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool Attributes::Design() {
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+	virtual bool OnExit() {
+		UnbindTargets();
+		return true;
+	}
+	virtual void UnbindTargets() {
+		//target = nullptr;
+	}
+};
+
 
 template<ObjectType type>
 class ExtrusionToolWindow : Window, Attributes {
@@ -755,7 +902,7 @@ class ExtrusionToolWindow : Window, Attributes {
 	std::string GetName(ObjectType type) {
 		switch (type)
 		{
-		case StereoPolyLineT:
+		case PolyLineT:
 			return "PolyLine";
 		default:
 			return "noname";
@@ -1099,8 +1246,10 @@ public:
 class ToolWindow : Window {
 	const Log log = Log::For<ToolWindow>();
 
-	CreatingTool<StereoPolyLine> polyLineTool;
+	
+	CreatingTool<PolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
+	CreatingTool<SineCurve> sineCurveTool;
 
 
 
@@ -1144,6 +1293,7 @@ public:
 		};
 	}
 
+
 	void Unbind() {
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
@@ -1169,6 +1319,12 @@ public:
 			ss << "PolyLine" << id++;
 			o->Name = ss.str();
 		});
+		ConfigureCreationTool(sineCurveTool, [](SceneObject* o) {
+			static int id = 0;
+			std::stringstream ss;
+			ss << "SineCurve" << id++;
+			o->Name = ss.str();
+			});
 		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
 			static int id = 0;
 			std::stringstream ss;
@@ -1186,15 +1342,19 @@ public:
 
 		if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
 			polyLineTool.Create();
+		if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
+			sineCurveTool.Create();
 		if (ImGui::Button(LocaleProvider::GetC("object:group")))
 			groupObjectTool.Create();
 
 		ImGui::Separator();
 
 		if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
-			ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>();
+			ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
 		if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
-			ApplyTool<PointPenToolWindow, PointPenEditingTool>();
+			ApplyTool<PenToolWindow, PenTool>();
+		if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
+			ApplyTool<SinePenToolWindow, SinePenTool>();
 		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
 			ApplyTool<TransformToolWindow, TransformTool>();
 
