@@ -216,6 +216,12 @@ class SineCurve : public LeafObject {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
+	void updateCacheAsPolyLine() {
+		verticesCache = vertices;
+		CascadeTransform(verticesCache);
+		shouldUpdateCache = false;
+	}
+
 	glm::quat getRotation(glm::vec3 ac, glm::vec3 ab) {
 		auto zPlaneLocal = glm::cross(ac, ab);
 		zPlaneLocal = glm::normalize(zPlaneLocal);
@@ -239,9 +245,7 @@ class SineCurve : public LeafObject {
 	/// </summary>
 	void UpdateCache() {
 		if (vertices.size() < 3) {
-			verticesCache = vertices;
-			CascadeTransform(verticesCache);
-			shouldUpdateCache = false;
+			updateCacheAsPolyLine();
 			return;
 		}
 
@@ -263,6 +267,11 @@ class SineCurve : public LeafObject {
 		auto abadScalarProjection = glm::dot(ab, acUnit);
 		auto db = ab - acUnit * abadScalarProjection;
 		auto abdbScalarProjection = glm::dot(ab, glm::normalize(db));
+
+		if (isnan(abadScalarProjection) || isnan(abdbScalarProjection)) {
+			updateCacheAsPolyLine();
+			return;
+		}
 
 		auto r = getRotation(ac, ab);
 
