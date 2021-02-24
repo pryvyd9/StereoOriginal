@@ -830,10 +830,10 @@ class SinePenToolWindow : Window, Attributes {
 
 		{
 			static int mode = 0;
-			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
-				tool->SetMode(PointPenEditingToolMode::Immediate);
-			if (ImGui::RadioButton("StepMode", &mode, 1))
-				tool->SetMode(PointPenEditingToolMode::Step);
+			if (ImGui::RadioButton("Step123", &mode, 0))
+				tool->SetMode(SinePenEditingToolMode::Step123);
+			if (ImGui::RadioButton("Step132", &mode, 1))
+				tool->SetMode(SinePenEditingToolMode::Step132);
 		}
 
 		return true;

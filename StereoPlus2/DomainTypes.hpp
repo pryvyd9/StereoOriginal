@@ -222,6 +222,17 @@ class SineCurve : public LeafObject {
 		shouldUpdateCache = false;
 	}
 
+	void updateCacheAsPolyLine(int from, int to) {
+		auto size = to - from;
+		std::vector<glm::vec3> vs;
+
+		for (size_t i = 0; i < size; i++)
+			vs.push_back(vertices[i + from]);
+
+		for (auto v : vs)
+			verticesCache.push_back(v);
+	}
+
 	glm::quat getRotation(glm::vec3 ac, glm::vec3 ab) {
 		auto zPlaneLocal = glm::cross(ac, ab);
 		zPlaneLocal = glm::normalize(zPlaneLocal);
@@ -243,25 +254,39 @@ class SineCurve : public LeafObject {
 	///  / |  \
 	/// A--D---C
 	/// </summary>
-	void UpdateCache() {
-		if (vertices.size() < 3) {
-			updateCacheAsPolyLine();
-			return;
+void UpdateCache() {
+	verticesCache = std::vector<glm::vec3>();
+
+	if (!isPositionCreated) {
+		isPositionCreated = true;
+
+		// Requests a redundant cache update.
+		SetWorldPosition(vertices[0]);
+	}
+
+	if (vertices.size() < 3) {
+		updateCacheAsPolyLine(0, vertices.size());
+		CascadeTransform(verticesCache);
+
+		// Remove all cache update requests.
+		shouldUpdateCache = false;
+
+		return;
+	}
+
+	size_t i = 0;
+
+	for (; i < vertices.size(); i += 2)
+	{
+		if (i + 2 >= vertices.size())
+		{
+			updateCacheAsPolyLine(i + 1, vertices.size());
+			break;
 		}
 
-		if (vertices.size() > 3)
-			Logger.Warning("The number of key vertices in sine curve exceeded 3. The first 3 will be used.");
-
-		auto ac = vertices[1] - vertices[0];
-
-		if (!isPositionCreated) {
-			isPositionCreated = true;
-
-			// Requests a redundant cache update.
-			SetWorldPosition(vertices[0]);
-		}
-
-		auto ab = vertices[2] - vertices[0];
+		auto ac = vertices[i + 2] - vertices[i];
+		auto ab = vertices[i + 1] - vertices[i];
+		auto bc = vertices[i + 2] - vertices[i + 1];
 
 		auto acUnit = glm::normalize(ac);
 		auto abadScalarProjection = glm::dot(ab, acUnit);
@@ -269,8 +294,8 @@ class SineCurve : public LeafObject {
 		auto abdbScalarProjection = glm::dot(ab, glm::normalize(db));
 
 		if (isnan(abadScalarProjection) || isnan(abdbScalarProjection)) {
-			updateCacheAsPolyLine();
-			return;
+			updateCacheAsPolyLine(i, i + 2);
+			break;
 		}
 
 		auto r = getRotation(ac, ab);
@@ -286,7 +311,6 @@ class SineCurve : public LeafObject {
 
 		static const auto hpi = 3.1415926 / 2.;
 
-		auto bc = vertices[1] - vertices[2];
 		auto bcLength = glm::length(bc);
 
 		int abNumber = abLength / 5 + 1;
@@ -294,33 +318,33 @@ class SineCurve : public LeafObject {
 
 		std::vector<glm::vec3> points;
 
-		for (size_t i = 0; i < abNumber; i++) {
-			auto x = -hpi + hpi * i / (float)abNumber;
-			auto nx = i / (float)abNumber * adLength;
+		for (size_t j = 0; j < abNumber; j++) {
+			auto x = -hpi + hpi * j / (float)abNumber;
+			auto nx = j / (float)abNumber * adLength;
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
 		}
-		for (size_t i = 0; i <= bcNumber; i++) {
-			auto x = hpi * i / (float)bcNumber;
-			auto nx = i / (float)bcNumber * dcLength + adLength;
+		for (size_t j = 0; j <= bcNumber; j++) {
+			auto x = hpi * j / (float)bcNumber;
+			auto nx = j / (float)bcNumber * dcLength + adLength;
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
 		}
 
 		if (!sameDirection)
-			for (size_t i = 0; i < points.size(); i++)
-				points[i].y = -points[i].y;
+			for (size_t j = 0; j < points.size(); j++)
+				points[j].y = -points[j].y;
 
-		verticesCache = std::vector<glm::vec3>();
 		for (auto p : points)
-			verticesCache.push_back(glm::rotate(r, p) + vertices[0]);
-
-		CascadeTransform(verticesCache);
-
-		// Remove all cache update requests.
-		shouldUpdateCache = false;
-		return;
+			verticesCache.push_back(glm::rotate(r, p) + vertices[i]);
 	}
+
+	CascadeTransform(verticesCache);
+
+	// Remove all cache update requests.
+	shouldUpdateCache = false;
+	return;
+}
 
 public:
 

@@ -8,6 +8,11 @@ enum class PointPenEditingToolMode {
 	Step,
 };
 
+enum class SinePenEditingToolMode {
+	Step123,
+	Step132,
+};
+
 enum class ExtrusionEditingToolMode {
 	Immediate,
 	Step,

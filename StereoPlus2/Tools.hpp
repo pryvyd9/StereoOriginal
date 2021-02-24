@@ -1277,7 +1277,7 @@ public:
 };
 
 class SinePenTool : public EditingTool {
-	using Mode = PointPenEditingToolMode;
+	using Mode = SinePenEditingToolMode;
 
 	const Log Logger = Log::For<SinePenTool>();
 
@@ -1285,12 +1285,13 @@ class SinePenTool : public EditingTool {
 	size_t spaceModeChangeHandlerId;
 	size_t stateChangedHandlerId;
 	size_t anyObjectChangedHandlerId;
+	size_t modeChangedHandlerId;
 
 	// Create new object by pressing Enter.
 	size_t createNewObjectHandlerId;
 	bool lockCreateNewObjectHandlerId;
 
-	Mode mode;
+	Property<Mode> mode;
 	PON target;
 
 	SceneObject* crossOriginalParent;
@@ -1299,66 +1300,9 @@ class SinePenTool : public EditingTool {
 	bool createdAdditionalPoints;
 	bool createdNewObject;
 
-	// If the cos between vectors is less than E
-	// then we merge those vectors.
-	double E = 1e-6;
+	int currentVertice = 0;
 
-	// If distance between previous point and 
-	// cursor is less than this number 
-	// then don't create a new point.
-	double Precision = 1e-4;
-
-	void Immediate(Input* input) {
-		createdNewObject = false;
-
-		if (!input->IsContinuousInputOneSecondDelay()) {
-			isBeingModified() = false;
-			wasCommitDone = false;
-		}
-
-		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			UnbindSceneObjects();
-			TryCreateNewObject();
-			return;
-		}
-
-		auto& points = target->GetVertices();
-		auto pointsCount = points.size();
-
-		// Create 2 points to be able to measure distance between them.
-		if (pointsCount < 2) {
-			target->AddVertice(cross->GetLocalPosition());
-			return;
-		}
-
-		// If cross is located at distance less than Precision then don't create a new point
-		// but move the last one to cross position.
-		if (glm::length(cross->GetWorldPosition() - points[pointsCount - 2]) < Precision) {
-			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
-			return;
-		}
-
-		// Create the third point to be able to measure the angle between the last 3 points.
-		if (pointsCount < 3) {
-			target->AddVertice(cross->GetWorldPosition());
-			return;
-		}
-
-		// If the line goes straight then instead of adding 
-		// a new point - move the previous point to current cross position.
-		if (IsStraightLineMaintained(
-			points[pointsCount - 3],
-			points[pointsCount - 2],
-			points[pointsCount - 1],
-			cross->GetWorldPosition(),
-			E)) {
-			target->SetVertice(pointsCount - 2, cross->GetWorldPosition());
-			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
-		}
-		else
-			target->AddVertice(cross->GetWorldPosition());
-	}
-	void Step() {
+	void Step123() {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
@@ -1380,20 +1324,62 @@ class SinePenTool : public EditingTool {
 
 		target->SetVertice(target->GetVertices().size() - 1, cross->GetWorldPosition());
 	}
+	void Step132() {
+		if (!createdAdditionalPoints || target->GetVertices().empty()) {
+			// We need to select one point and create an additional point
+			// so that we can perform some optimizations.
+			if (target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
+			{
+				currentVertice = target->GetVertices().size() - 1;
+				target->AddVertice(target->GetVertices().back());
+				target->SetVertice(currentVertice, cross->GetWorldPosition());
+			}
+			else
+			{
+				currentVertice = target->GetVertices().size();
+				target->AddVertice(cross->GetWorldPosition());
+			}
+			createdAdditionalPoints = true;
+			return;
+		}
 
-	// Determines if the line will continue being straight after adding v4 to v1,v2,v3.
-	static bool IsStraightLineMaintained(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& v4, const float E) {
-		glm::vec3 r1 = v4 - v3;
-		glm::vec3 r2 = v1 - v2;
+		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
+			isBeingModified() = false;
+			wasCommitDone = false;
+			createdNewObject = false;
 
-		auto p = glm::dot(r1, r2);
-		auto l1 = glm::length(r1);
-		auto l2 = glm::length(r2);
+			if (target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
+			{
+				currentVertice = target->GetVertices().size() - 1;
+				target->AddVertice(target->GetVertices().back());
+				target->SetVertice(currentVertice, cross->GetWorldPosition());
+			}
+			else
+			{
+				currentVertice = target->GetVertices().size();
+				target->AddVertice(cross->GetWorldPosition());
+			}
 
-		auto cos = p / l1 / l2;
+			return;
+		}
 
-		// Use abs(cos) to check if the line is maintained while moving backwards.
-		return cos > 1 - E || isnan(cos);
+		if (cross->GetWorldPosition() == target->GetVertices().back())
+			return;
+
+		target->SetVertice(currentVertice, cross->GetWorldPosition());
+	}
+
+	int getCurrentVertice() {
+		if (!target.HasValue())
+			return 0;
+
+		if (target->GetVertices().size() == 0)
+			return 0;
+
+		if (mode.Get() == Mode::Step132 && target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
+			return target->GetVertices().size() - 2;
+
+		return target->GetVertices().size() - 1;
 	}
 
 	void ProcessInput(Input* input) {
@@ -1402,10 +1388,10 @@ class SinePenTool : public EditingTool {
 			return;
 		}
 
-		switch (mode)
+		switch (mode.Get())
 		{
-		case Mode::Immediate: return Immediate(input);
-		case Mode::Step: return Step();
+		case Mode::Step123: return Step123();
+		case Mode::Step132: return Step132();
 		default:
 			Logger.Warning("Not suported mode was given");
 			return;
@@ -1428,7 +1414,6 @@ class SinePenTool : public EditingTool {
 				}
 
 				cmd->init = [] {
-					//auto o = new PolyLine();
 					auto o = new SineCurve();
 					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
@@ -1475,6 +1460,7 @@ class SinePenTool : public EditingTool {
 			return TryCreateNewObject();
 
 		createdAdditionalPoints = false;
+		currentVertice = getCurrentVertice();
 
 		target = t;
 
@@ -1520,6 +1506,9 @@ class SinePenTool : public EditingTool {
 
 			StateBuffer::Commit();
 			wasCommitDone = true;
+		};
+		modeChangedHandlerId = mode.OnChanged() += [&](const Mode& v) {
+			currentVertice = getCurrentVertice();
 		};
 
 	}
@@ -1588,15 +1577,14 @@ public:
 		if (!target.HasValue())
 			return true;
 
-		if (mode == Mode::Step && createdAdditionalPoints) {
-			target->RemoveVertice();
-			createdAdditionalPoints = false;
-		}
+		target->RemoveVertice();
+		createdAdditionalPoints = false;
 
 		keyBinding->RemoveHandler(inputHandlerId);
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
+		mode.OnChanged() -= modeChangedHandlerId;
 
 		target = PON();
 
