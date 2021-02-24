@@ -1376,7 +1376,7 @@ class SinePenTool : public EditingTool {
 		if (target->GetVertices().size() == 0)
 			return 0;
 
-		if (mode.Get() == Mode::Step132 && target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
+		if (mode.Get() == Mode::Step132 && target->GetVertices().size() % 2 != 0)
 			return target->GetVertices().size() - 2;
 
 		return target->GetVertices().size() - 1;
