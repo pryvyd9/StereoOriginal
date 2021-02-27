@@ -40,3 +40,4 @@
 - introduced unique naming;
 - fixed sine curve disappearing when rotation is nan;
 - when switching between SinePen Step123 and Step132 the cross will move to the existant relevant point (optional);
+- fixed delete all (Close) command leaving selected objects alive and rendered;

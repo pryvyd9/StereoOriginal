@@ -8,6 +8,56 @@ enum SelectPosition {
 	Rest = 0x10,
 };
 
+class ObjectSelection {
+public:
+	using Selection = std::set<PON>;
+private:
+	static Selection& selected() {
+		static Selection v;
+		return v;
+	}
+	static Event<const Selection&>& onChanged() {
+		static Event<const Selection&> v;
+		return v;
+	}
+public:
+	static IEvent<const Selection&>& OnChanged() {
+		return onChanged();
+	}
+
+	static const Selection& Selected() {
+		return selected();
+	}
+	static const Selection** SelectedP() {
+		static const Selection* v = &selected();
+		return &v;
+	}
+
+	static void Set(SceneObject* o) {
+		selected().clear();
+		selected().emplace(o);
+		onChanged().Invoke(selected());
+	}
+	static void Set(const std::vector<SceneObject*>& os) {
+		selected().clear();
+		for (auto o : os)
+			selected().emplace(o);
+		onChanged().Invoke(selected());
+	}
+	static void Add(SceneObject* o) {
+		selected().emplace(o);
+		onChanged().Invoke(selected());
+	}
+	static void RemoveAll() {
+		selected().clear();
+		onChanged().Invoke(selected());
+	}
+	static void Remove(SceneObject* o) {
+		selected().erase(o);
+		onChanged().Invoke(selected());
+	}
+};
+
 class StateBuffer {
 public:
 	// Buffer requires 1 additional state for saving current state.
@@ -21,6 +71,8 @@ private:
 
 		// Objects in their original order
 		std::vector<std::pair<SceneObject*, PON>> objects;
+
+		std::vector<SceneObject*> selection;
 
 		SceneObject* rootCopy;
 	};
@@ -57,6 +109,9 @@ private:
 			current->objects.push_back({ o.Get(), o });
 			current->copies[o.Get()] = o->Clone();
 		}
+
+		for (auto& o : ObjectSelection::Selected())
+			current->selection.push_back(o.Get());
 	}
 
 	// Erase saved copies.
@@ -101,6 +156,12 @@ private:
 			b.Set(newCopies[a]);
 			objects.push_back(b);
 		}
+
+		std::vector<SceneObject*> newSelection;
+		for (auto o : saved.selection)
+			newSelection.push_back(newCopies[o]);
+
+		ObjectSelection::Set(newSelection);
 
 		auto newRoot = saved.rootCopy->Clone();
 
@@ -183,49 +244,6 @@ public:
 	}
 };
 
-class ObjectSelection {
-public:
-	using Selection = std::set<PON>;
-private:
-	static Selection& selected() {
-		static Selection v;
-		return v;
-	}
-	static Event<const Selection&>& onChanged() {
-		static Event<const Selection&> v;
-		return v;
-	}
-public:
-	static IEvent<const Selection&>& OnChanged() {
-		return onChanged();
-	}
-
-	static const Selection& Selected() {
-		return selected();
-	}
-	static const Selection** SelectedP() {
-		static const Selection* v = &selected();
-		return &v;
-	}
-
-	static void Set(SceneObject* o) {
-		selected().clear();
-		selected().emplace(o);
-		onChanged().Invoke(selected());
-	}
-	static void Add(SceneObject* o) {
-		selected().emplace(o);
-		onChanged().Invoke(selected());
-	}
-	static void RemoveAll() {
-		selected().clear();
-		onChanged().Invoke(selected());
-	}
-	static void Remove(SceneObject* o) {
-		selected().erase(o);
-		onChanged().Invoke(selected());
-	}
-};
 
 
 class DragDropBuffer {

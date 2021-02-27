@@ -161,7 +161,6 @@ int main() {
 	});
 
 
-
 	ToolPool::Cross() = &cross;
 	ToolPool::Scene() = &scene;
 	ToolPool::KeyBinding() = &gui.keyBinding;
@@ -182,6 +181,10 @@ int main() {
 
 	if (!LocaleProvider::Init())
 		return false;
+
+	scene.OnDeleteAll() += [] {
+		ObjectSelection::RemoveAll();
+	};
 
 	// Position detector doesn't initialize itself
 	// so we need to help it.
