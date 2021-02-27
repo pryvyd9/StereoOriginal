@@ -85,5 +85,14 @@ Pressing Enter will unbind current polyline and enter OCM.
 #### Step mode
 SM requires pressing Enter to fix the point and create a new one.
 
+### SinePen
+Operates the same as Pen SM.
+ShouldMoveCrossOnSinePenModeChange option determines if the cross' position will be set to the relevant vertice on mode change.
+
+#### Step123
+Second point is (0,1) for cosine.
+#### Step132
+Tried point is (0,1) for cosine.
+
 ### Transformation
 ### Extrusion

@@ -67,6 +67,8 @@ public:
 
 	StaticProperty(float, CustomRenderWindowAlpha)
 
+	StaticProperty(bool, ShouldMoveCrossOnSinePenModeChange)
+
 
 	static const std::string& Name(void* reference) {
 		static std::map<void*, const std::string> v = {
@@ -89,6 +91,8 @@ public:
 			{&DimmedColorLeft,"dimmedColorLeft"},
 			{&DimmedColorRight,"dimmedColorRight"},
 			{&CustomRenderWindowAlpha,"customRenderWindowAlpha"},
+
+			{&ShouldMoveCrossOnSinePenModeChange,"shouldMoveCrossOnSinePenModeChange"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())

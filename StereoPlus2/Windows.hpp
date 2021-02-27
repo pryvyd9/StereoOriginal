@@ -836,6 +836,12 @@ class SinePenToolWindow : Window, Attributes {
 				tool->SetMode(SinePenEditingToolMode::Step132);
 		}
 
+		ImGui::Separator();
+
+		if (auto v = Settings::ShouldMoveCrossOnSinePenModeChange().Get();
+			ImGui::Checkbox("shouldMoveCrossOnSinePenModeChange", &v))
+			Settings::ShouldMoveCrossOnSinePenModeChange() = v;
+
 		return true;
 	}
 

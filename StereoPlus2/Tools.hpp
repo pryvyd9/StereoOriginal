@@ -1329,17 +1329,7 @@ class SinePenTool : public EditingTool {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			if (target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
-			{
-				currentVertice = target->GetVertices().size() - 1;
-				target->AddVertice(target->GetVertices().back());
-				target->SetVertice(currentVertice, cross->GetWorldPosition());
-			}
-			else
-			{
-				currentVertice = target->GetVertices().size();
-				target->AddVertice(cross->GetWorldPosition());
-			}
+			createVertice132();
 			createdAdditionalPoints = true;
 			return;
 		}
@@ -1349,17 +1339,7 @@ class SinePenTool : public EditingTool {
 			wasCommitDone = false;
 			createdNewObject = false;
 
-			if (target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
-			{
-				currentVertice = target->GetVertices().size() - 1;
-				target->AddVertice(target->GetVertices().back());
-				target->SetVertice(currentVertice, cross->GetWorldPosition());
-			}
-			else
-			{
-				currentVertice = target->GetVertices().size();
-				target->AddVertice(cross->GetWorldPosition());
-			}
+			createVertice132();
 
 			return;
 		}
@@ -1368,6 +1348,20 @@ class SinePenTool : public EditingTool {
 			return;
 
 		target->SetVertice(currentVertice, cross->GetWorldPosition());
+	}
+
+	void createVertice132() {
+		if (target->GetVertices().size() > 1 && target->GetVertices().size() % 2 == 0)
+		{
+			currentVertice = target->GetVertices().size() - 1;
+			target->AddVertice(target->GetVertices().back());
+			target->SetVertice(currentVertice, cross->GetWorldPosition());
+		}
+		else
+		{
+			currentVertice = target->GetVertices().size();
+			target->AddVertice(cross->GetWorldPosition());
+		}
 	}
 
 	int getCurrentVertice() {
@@ -1381,6 +1375,10 @@ class SinePenTool : public EditingTool {
 			return target->GetVertices().size() - 2;
 
 		return target->GetVertices().size() - 1;
+	}
+
+	void moveCrossToVertice(int i) {
+		cross->SetWorldPosition(target->GetVertices()[i]);
 	}
 
 	void ProcessInput(Input* input) {
@@ -1418,7 +1416,7 @@ class SinePenTool : public EditingTool {
 					auto o = new SineCurve();
 					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
-					Scene::AssignUniqueName(o, "SineLine");
+					Scene::AssignUniqueName(o, "SineCurve");
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
@@ -1511,13 +1509,14 @@ class SinePenTool : public EditingTool {
 		};
 		modeChangedHandlerId = mode.OnChanged() += [&](const Mode& v) {
 			currentVertice = getCurrentVertice();
+			if (Settings::ShouldMoveCrossOnSinePenModeChange().Get())
+				moveCrossToVertice(currentVertice);
 		};
 
 	}
 
 public:
 	ReadonlyProperty<Cross*> cross;
-
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (target.HasValue() && !UnbindSceneObjects())

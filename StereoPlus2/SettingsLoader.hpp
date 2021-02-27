@@ -153,6 +153,8 @@ public:
 		Load(&Settings::DimmedColorLeft);
 		Load(&Settings::DimmedColorRight);
 		Load(&Settings::CustomRenderWindowAlpha);
+
+		Load(&Settings::ShouldMoveCrossOnSinePenModeChange);
 	}
 	static void Save() {
 		Js::Object json;
@@ -173,6 +175,8 @@ public:
 		Insert(json, &Settings::DimmedColorLeft);
 		Insert(json, &Settings::DimmedColorRight);
 		Insert(json, &Settings::CustomRenderWindowAlpha);
+
+		Insert(json, &Settings::ShouldMoveCrossOnSinePenModeChange);
 
 		Json::Write("settings.json", &json);
 	}
