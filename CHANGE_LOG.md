@@ -34,3 +34,8 @@
 - fixed new object creation mode still being active when another tool is selected;
 - changed steps for step settings;
 - fixed Enter, Escape and other keys triggering combinations while in text input mode. Now - press Esc to deactivate any input widgets first and then press any combination;
+# 0.13
+- added sine curve drawing;
+# 0.13.1
+- introduced unique naming;
+- fixed sine curve disappearing when rotation is nan;

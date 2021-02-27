@@ -303,6 +303,11 @@ void UpdateCache() {
 		}
 
 		auto r = getRotation(ac, ab);
+		
+		if (isnan(r.x) || isnan(r.y) || isnan(r.z) || isnan(r.w)) {
+			updateCacheAsPolyLine(i, i + 2);
+			break;
+		}
 
 		auto rotatedY = glm::rotate(r, glm::vec3(0, 1, 0));
 		auto sameDirection = glm::dot(glm::normalize(db), rotatedY) > 0;
