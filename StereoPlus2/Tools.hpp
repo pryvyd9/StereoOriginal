@@ -341,6 +341,7 @@ class PenTool : public EditingTool {
 					auto o = new PolyLine();
 					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
+					Scene::AssignUniqueName(o, "PolyLine");
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
@@ -1417,6 +1418,7 @@ class SinePenTool : public EditingTool {
 					auto o = new SineCurve();
 					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
+					Scene::AssignUniqueName(o, "SineLine");
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {

@@ -7,6 +7,7 @@
 #include "ImGuiExtensions.hpp"
 #include "DomainUtils.hpp"
 #include <glm/gtx/vector_angle.hpp>
+#include <regex>
 
 class GroupObject : public SceneObject {
 public:
@@ -255,6 +256,9 @@ class SineCurve : public LeafObject {
 	/// A--D---C
 	/// </summary>
 void UpdateCache() {
+	if (vertices.size() == 0)
+		return;
+
 	verticesCache = std::vector<glm::vec3>();
 
 	if (!isPositionCreated) {
@@ -1199,6 +1203,39 @@ public:
 
 		return MoveTo(destination, destinationPos, &nitems, pos);
 	}
+
+	static int GetNextDuplicateIndex(const std::string& originalName) {
+		std::string regex;
+		{
+			std::stringstream ss;
+			ss << originalName << " " << "(\\d+)";
+			regex = ss.str();
+		}
+		auto r = std::regex(regex);
+
+		int max = 0;
+		for (auto& o : Objects().Get()) {
+			std::smatch m;
+			if (!std::regex_search(o->Name, m, r))
+				continue;
+
+			std::stringstream ss;
+			ss << m[1];
+			int current;
+			ss >> current;
+			if (current > max)
+				max = current;
+		}
+
+		return max + 1;
+	}
+
+	static void AssignUniqueName(SceneObject* o, const std::string& originalName) {
+		std::stringstream ss;
+		ss << originalName << " " << GetNextDuplicateIndex(originalName);
+		o->Name = ss.str();
+	}
+
 
 	~Scene() {
 		Objects().Get().clear();

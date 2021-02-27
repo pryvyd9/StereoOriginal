@@ -1314,22 +1314,13 @@ public:
 		}
 
 		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "PolyLine" << id++;
-			o->Name = ss.str();
+			Scene::AssignUniqueName(o, "PolyLine");
 		});
 		ConfigureCreationTool(sineCurveTool, [](SceneObject* o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "SineCurve" << id++;
-			o->Name = ss.str();
+			Scene::AssignUniqueName(o, "SineCurve");
 			});
 		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
-			static int id = 0;
-			std::stringstream ss;
-			ss << "Group" << id++;
-			o->Name = ss.str();
+			Scene::AssignUniqueName(o, "Group");
 		});
 
 		Window::name = "toolWindow";
