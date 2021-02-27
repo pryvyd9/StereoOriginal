@@ -5,7 +5,8 @@
 #include <set>
 #include <array>
 #include "ImGuiExtensions.hpp"
-#include "SceneObject.hpp"
+#include "DomainUtils.hpp"
+#include <glm/gtx/vector_angle.hpp>
 
 class GroupObject : public SceneObject {
 public:
@@ -36,7 +37,7 @@ public:
 
 };
 
-class StereoPolyLine : public LeafObject {
+class PolyLine : public LeafObject {
 	std::vector<glm::vec3> vertices;
 
 	std::vector<glm::vec3> verticesCache;
@@ -71,13 +72,13 @@ class StereoPolyLine : public LeafObject {
 
 public:
 
-	StereoPolyLine() {}
-	StereoPolyLine(const StereoPolyLine* copy) : LeafObject(copy){
+	PolyLine() {}
+	PolyLine(const PolyLine* copy) : LeafObject(copy){
 		vertices = copy->vertices;
 	}
 
 	virtual ObjectType GetType() const override {
-		return StereoPolyLineT;
+		return PolyLineT;
 	}
 	virtual const std::vector<glm::vec3>& GetVertices() const override {
 		return vertices;
@@ -177,9 +178,286 @@ public:
 	}
 
 	SceneObject* Clone() const override {
-		return new StereoPolyLine(this);
+		return new PolyLine(this);
 	}
-	StereoPolyLine& operator=(const StereoPolyLine& o) {
+	PolyLine& operator=(const PolyLine& o) {
+		vertices = o.vertices;
+		LeafObject::operator=(o);
+		return *this;
+	}
+};
+
+class SineCurve : public LeafObject {
+	const Log Logger = Log::For<SineCurve>();
+
+	std::vector<glm::vec3> vertices;
+	bool isPositionCreated = false;
+
+	std::vector<glm::vec3> verticesCache;
+
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) override {
+		UpdateCache();
+
+		leftBuffer = std::vector<glm::vec3>(verticesCache.size());
+		rightBuffer = std::vector<glm::vec3>(verticesCache.size());
+		for (size_t i = 0; i < verticesCache.size(); i++) {
+			leftBuffer[i] = toLeft(verticesCache[i]);
+			rightBuffer[i] = toRight(verticesCache[i]);
+		}
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	void updateCacheAsPolyLine() {
+		verticesCache = vertices;
+		CascadeTransform(verticesCache);
+		shouldUpdateCache = false;
+	}
+
+	void updateCacheAsPolyLine(int from, int to) {
+		auto size = to - from;
+		std::vector<glm::vec3> vs;
+
+		for (size_t i = 0; i < size; i++)
+			vs.push_back(vertices[i + from]);
+
+		for (auto v : vs)
+			verticesCache.push_back(v);
+	}
+
+	glm::quat getRotation(glm::vec3 ac, glm::vec3 ab) {
+		auto zPlaneLocal = glm::cross(ac, ab);
+		zPlaneLocal = glm::normalize(zPlaneLocal);
+
+		auto zPlaneGlobal = glm::vec3(0, 0, 1);
+
+		auto r1 = glm::rotation(zPlaneGlobal, zPlaneLocal);
+
+		auto acRotatedBack = glm::rotate(glm::inverse(r1), ac);
+		acRotatedBack = glm::normalize(acRotatedBack);
+
+		auto r2 = glm::rotation(glm::vec3(1, 0, 0), acRotatedBack);
+		auto r = r1 * r2;
+		return r;
+	}
+
+	/// <summary>
+	///    B
+	///  / |  \
+	/// A--D---C
+	/// </summary>
+void UpdateCache() {
+	verticesCache = std::vector<glm::vec3>();
+
+	if (!isPositionCreated) {
+		isPositionCreated = true;
+
+		// Requests a redundant cache update.
+		SetWorldPosition(vertices[0]);
+	}
+
+	if (vertices.size() < 3) {
+		updateCacheAsPolyLine(0, vertices.size());
+		CascadeTransform(verticesCache);
+
+		// Remove all cache update requests.
+		shouldUpdateCache = false;
+
+		return;
+	}
+
+	size_t i = 0;
+
+	for (; i < vertices.size(); i += 2)
+	{
+		if (i + 2 >= vertices.size())
+		{
+			updateCacheAsPolyLine(i + 1, vertices.size());
+			break;
+		}
+
+		auto ac = vertices[i + 2] - vertices[i];
+		auto ab = vertices[i + 1] - vertices[i];
+		auto bc = vertices[i + 2] - vertices[i + 1];
+
+		auto acUnit = glm::normalize(ac);
+		auto abadScalarProjection = glm::dot(ab, acUnit);
+		auto db = ab - acUnit * abadScalarProjection;
+		auto abdbScalarProjection = glm::dot(ab, glm::normalize(db));
+
+		if (isnan(abadScalarProjection) || isnan(abdbScalarProjection)) {
+			updateCacheAsPolyLine(i, i + 2);
+			break;
+		}
+
+		auto r = getRotation(ac, ab);
+
+		auto rotatedY = glm::rotate(r, glm::vec3(0, 1, 0));
+		auto sameDirection = glm::dot(glm::normalize(db), rotatedY) > 0;
+
+		auto acLength = glm::length(ac);
+		auto abLength = glm::length(ab);
+		auto bdLength = abdbScalarProjection;
+		auto adLength = abadScalarProjection;
+		auto dcLength = acLength - adLength;
+
+		static const auto hpi = 3.1415926 / 2.;
+
+		auto bcLength = glm::length(bc);
+
+		int abNumber = abLength / 5 + 1;
+		int bcNumber = bcLength / 5 + 1;
+
+		std::vector<glm::vec3> points;
+
+		for (size_t j = 0; j < abNumber; j++) {
+			auto x = -hpi + hpi * j / (float)abNumber;
+			auto nx = j / (float)abNumber * adLength;
+			auto ny = cos(x) * bdLength;
+			points.push_back(glm::vec3(nx, ny, 0));
+		}
+		for (size_t j = 0; j <= bcNumber; j++) {
+			auto x = hpi * j / (float)bcNumber;
+			auto nx = j / (float)bcNumber * dcLength + adLength;
+			auto ny = cos(x) * bdLength;
+			points.push_back(glm::vec3(nx, ny, 0));
+		}
+
+		if (!sameDirection)
+			for (size_t j = 0; j < points.size(); j++)
+				points[j].y = -points[j].y;
+
+		for (auto p : points)
+			verticesCache.push_back(glm::rotate(r, p) + vertices[i]);
+	}
+
+	CascadeTransform(verticesCache);
+
+	// Remove all cache update requests.
+	shouldUpdateCache = false;
+	return;
+}
+
+public:
+
+	SineCurve() {
+	}
+	SineCurve(const SineCurve* copy) : LeafObject(copy) {
+		vertices = copy->vertices;
+	}
+
+	virtual ObjectType GetType() const override {
+		return SineCurveT;
+	}
+	virtual const std::vector<glm::vec3>& GetVertices() const override {
+		return vertices;
+	}
+
+	virtual void AddVertice(const glm::vec3& v) override {
+		HandleBeforeUpdate();
+		vertices.push_back(v);
+		shouldUpdateCache = true;
+	}
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
+		for (auto v : vs)
+			AddVertice(v);
+	}
+	virtual void SetVertice(size_t index, const glm::vec3& v) override {
+		HandleBeforeUpdate();
+		vertices[index] = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVerticeX(size_t index, const float& v) override {
+		HandleBeforeUpdate();
+		vertices[index].x = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVerticeY(size_t index, const float& v) override {
+		HandleBeforeUpdate();
+		vertices[index].y = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVerticeZ(size_t index, const float& v) override {
+		HandleBeforeUpdate();
+		vertices[index].z = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) override {
+		HandleBeforeUpdate();
+		vertices.clear();
+		for (auto v : vs)
+			AddVertice(v);
+		shouldUpdateCache = true;
+	}
+
+	virtual void RemoveVertice() override {
+		HandleBeforeUpdate();
+		if (vertices.size() > 0)
+			vertices.pop_back();
+		shouldUpdateCache = true;
+	}
+
+	virtual void DesignProperties() override {
+		if (ImGui::TreeNodeEx("polyline", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+
+			std::stringstream ss;
+			ss << (vertices.size() > 0 ? vertices.size() - 1 : 0);
+
+			ImGui::LabelText("line count", ss.str().c_str());
+
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
+		SceneObject::DesignProperties();
+	}
+
+	virtual void Reset() override {
+		vertices.clear();
+		SceneObject::Reset();
+	}
+
+	virtual void DrawLeft(GLuint shader) override {
+		if (verticesCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
+	}
+	virtual void DrawRight(GLuint shader) override {
+		if (verticesCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
+	}
+
+	SceneObject* Clone() const override {
+		return new SineCurve(this);
+	}
+	SineCurve& operator=(const SineCurve& o) {
 		vertices = o.vertices;
 		LeafObject::operator=(o);
 		return *this;
@@ -529,7 +807,7 @@ public:
 	}
 };
 
-class StereoCamera : public LeafObject
+class Camera : public LeafObject
 {
 	// View coordinates
 	float eyeToCenterDistance;
@@ -635,7 +913,7 @@ public:
 	Property<glm::vec3> PositionModifier = glm::vec3(0, 50, 600);
 	
 
-	StereoCamera() {
+	Camera() {
 		Name = "camera";
 		EyeToCenterDistance.OnChanged() += [&](const float& v) {
 			eyeToCenterDistance = ConvertMillimetersToViewCoordinates(v, ViewSize->x); };
@@ -715,110 +993,214 @@ public:
 	
 };
 
-// Persistent object node
-class PON {
-	struct Node {
-		SceneObject* object = nullptr;
-		int referenceCount = 0;
-	};
-	Node* node = nullptr;
-	static std::map<SceneObject*, Node*>& existingNodes() {
-		static std::map<SceneObject*, Node*> v;
-		return v;
+class Scene {
+public:
+
+	template<InsertPosition p>
+	static bool is(InsertPosition pos) {
+		return p == pos;
 	}
-	constexpr void Init(const PON& o) {
-		node = o.node;
-		if (node)
-			node->referenceCount++;
+	template<InsertPosition p>
+	static bool has(InsertPosition pos) {
+		return (p & pos) != 0;
+	}
+private:
+	Event<> deleteAll;
+	Log Logger = Log::For<Scene>();
+
+	static const SceneObject* FindRoot(const SceneObject* o) {
+		auto parent = o->GetParent();
+		if (parent == nullptr)
+			return o;
+
+		return FindRoot(parent);
+	}
+	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
+		if (oldParent == nullptr) {
+			Log::For<Scene>().Error("Object doesn't have a parent");
+			return nullptr;
+		}
+
+		if (exists(*items, oldParent))
+			return FindNewParent(const_cast<SceneObject*>(oldParent->GetParent()), items);
+
+		return oldParent;
+	}
+	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
+		if (oldParent == nullptr)
+			return nullptr;
+
+		if (exists(disconnectedItemsToBeMoved, oldParent))
+			return oldParent;
+
+		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), disconnectedItemsToBeMoved);
+	}
+
+	static PON CreateRoot() {
+		auto r = new GroupObject();
+		r->Name = "Root";
+		return PON(r);
 	}
 public:
-	PON() {
-		node = nullptr;
+	// Stores all objects.
+	StaticProperty(std::vector<PON>, Objects);
+	StaticProperty(PON, root);
+	StaticProperty(Cross*, cross);
+	Camera* camera;
+
+	GLFWwindow* glWindow;
+
+
+
+	IEvent<>& OnDeleteAll() {
+		return deleteAll;
 	}
-	PON(const PON& o) {
-		Init(o);
+
+	Scene() {
+		root() = CreateRoot();
 	}
-	PON(SceneObject* o) {
-		if (auto n = existingNodes().find(o);
-			n != existingNodes().end()) {
-			node = n->second;
+
+	static bool Insert(SceneObject* destination, SceneObject* obj) {
+		obj->SetParent(destination);
+		Objects().Get().push_back(obj);
+		return true;
+	}
+	static bool Insert(SceneObject* obj) {
+		obj->SetParent(root().Get().Get());
+		Objects().Get().push_back(obj);
+		return true;
+	}
+
+	static bool Delete(SceneObject* source, SceneObject* obj) {
+		if (!source) {
+			Log::For<Scene>().Warning("You cannot delete root object");
+			return true;
 		}
-		else {
-			node = new Node();
-			existingNodes()[o] = node;
-			Set(o);
+
+		for (size_t i = 0; i < source->children.size(); i++)
+			if (source->children[i] == obj)
+				for (size_t j = 0; i < Objects()->size(); j++)
+					if (Objects().Get()[j].Get() == obj) {
+						source->children.erase(source->children.begin() + i);
+						Objects().Get().erase(Objects()->begin() + j);
+						return true;
+					}
+
+		Log::For<Scene>().Error("The object for deletion was not found");
+		return false;
+	}
+	void DeleteSelected() {
+		for (auto o : ObjectSelection::Selected()) {
+			o->Reset();
+			(new FuncCommand())->func = [this, o] {
+				Delete(const_cast<SceneObject*>(o.Get()->GetParent()), o.Get());
+			};
 		}
-
-		node->referenceCount++;
 	}
-	~PON() {
-		if (!node)
-			return;
+	void DeleteAll() {
+		deleteAll.Invoke();
+		cross().Get()->SetParent(nullptr);
 
-		node->referenceCount--;
-		if (node->referenceCount > 0)
-			return;
-
-		existingNodes().erase(node->object);
-		Delete();
-		delete node;
+		Objects().Get().clear();
+		root() = CreateRoot();
 	}
 
-	bool HasValue() const {
-		return node && node->object;
-	}
-
-	SceneObject* Get() const {
-		if (!node)
-			throw new std::exception("PON doesn't have value");
-
-		return node->object;
-	}
-	void Set(SceneObject* o) {
-		if (node) {
-			if (node->object)
-				existingNodes().erase(node->object);
-			Delete();
-		}
-		else
-			node = new Node();
-
-		node->object = o;
-		existingNodes()[o] = node;
-	}
-	void Delete() {
-		if (!node->object)
-			return;
-
-		delete node->object;
-		node->object = nullptr;
-	}
-
-	SceneObject* operator->() {
-		return Get();
-	}
-	const SceneObject* operator->() const {
-		return Get();
-	}
-
-
-	constexpr PON& operator=(const PON& o) {
-		Init(o);
-		return *this;
-	}
-	constexpr bool operator<(const PON& o) const {
-		return node < o.node;
-	}
-	constexpr bool operator!=(const PON& o) const {
-		return node != o.node;
-	}
-	constexpr bool operator==(const PON& o) const {
-		return node == o.node;
-	}
-
-	struct less {
-		bool operator()(const PON& o1, const PON& o2) {
-			return o1 < o2;
-		}
+	struct CategorizedObjects {
+		std::list<SceneObject*> parentObjects;
+		std::set<SceneObject*> childObjects;
+		// Items that will not be modified and their new parents in case current parents are removed.
+		// Item, NewParent
+		std::list<std::pair<SceneObject*, SceneObject*>> orphanedObjects;
 	};
+	struct CategorizedPON {
+		std::list<PON> parentObjects;
+		std::set<PON> childObjects;
+		// Items that will not be modified and their new parents in case current parents are removed.
+		// Item, NewParent
+		std::list<std::pair<PON, PON>> orphanedObjects;
+	};
+
+	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedObjects& categorizedObjects) {
+		root->CallRecursive(root, std::function<SceneObject* (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
+			if (exists(*items, o)) {
+				if (exists(categorizedObjects.childObjects, parent) || exists(categorizedObjects.parentObjects, parent))
+					categorizedObjects.childObjects.emplace(o);
+				else if (auto newParent = FindConnectedParent(parent, categorizedObjects.parentObjects))
+					categorizedObjects.orphanedObjects.push_back({ o, newParent });
+				else
+					categorizedObjects.parentObjects.push_back(o);
+			}
+			else if (exists(*items, parent))
+				categorizedObjects.orphanedObjects.push_back({ o, FindNewParent(parent, items) });
+
+			return o;
+			}));
+	}
+	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedPON& categorizedObjects) {
+		CategorizedObjects co;
+		CategorizeObjects(root, items, co);
+		for (auto o : co.parentObjects)
+			categorizedObjects.parentObjects.push_back(o);
+		for (auto o : co.childObjects)
+			categorizedObjects.childObjects.emplace(o);
+		for (auto [o, np] : co.orphanedObjects)
+			categorizedObjects.orphanedObjects.push_back({ o, np });
+	}
+	static void CategorizeObjects(SceneObject* root, std::vector<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
+	static void CategorizeObjects(SceneObject* root, const std::set<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
+
+
+	// Tree structure is preserved even if there is an unselected link.
+	//-----------------------------------------------------------------
+	// * - selected
+	//
+	//   *a      b  *a
+	//    b   ->    *c
+	//   *c
+	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
+		auto root = const_cast<SceneObject*>(FindRoot(destination));
+
+		// parentObjects will be moved to destination
+		// childObjects will be ignored during move but will be moved with their parents
+		// orphanedObjects will not be moved with their parents.
+		// New parents will be assigned.
+		CategorizedObjects categorizedObjects;
+
+		CategorizeObjects(root, items, categorizedObjects);
+
+		if ((pos & InsertPosition::Bottom) != 0)
+			for (auto o : categorizedObjects.parentObjects)
+				o->SetParent(destination, destinationPos, pos);
+		else
+			std::for_each(categorizedObjects.parentObjects.rbegin(), categorizedObjects.parentObjects.rend(), [&](auto o) {
+			o->SetParent(destination, destinationPos, pos); });
+
+		for (auto pair : categorizedObjects.orphanedObjects)
+			pair.first->SetParent(pair.second, true);
+
+		return true;
+	}
+	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<PON>* items, InsertPosition pos) {
+		std::set<SceneObject*> nitems;
+		for (auto o : *items)
+			nitems.emplace(o.Get());
+
+		return MoveTo(destination, destinationPos, &nitems, pos);
+	}
+
+	~Scene() {
+		Objects().Get().clear();
+	}
 };

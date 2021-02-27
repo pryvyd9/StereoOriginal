@@ -48,9 +48,9 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 	kb.input->AddShortcut(Key::Combination(Key::T),
 		[&] { tw.ApplyTool<TransformToolWindow, TransformTool>(); });
 	kb.input->AddShortcut(Key::Combination(Key::P),
-		[&] { tw.ApplyTool<PointPenToolWindow, PointPenEditingTool>(); });
+		[&] { tw.ApplyTool<PenToolWindow, PenTool>(); });
 	kb.input->AddShortcut(Key::Combination(Key::E),
-		[&] { tw.ApplyTool<ExtrusionToolWindow<StereoPolyLineT>, ExtrusionEditingTool<StereoPolyLineT>>(); });
+		[&] { tw.ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>(); });
 
 	// Render
 	kb.input->AddShortcut(Key::Combination(Key::F5),
@@ -72,6 +72,7 @@ int main() {
 
 	//LogWindow logWindow;
 	//Log::AdditionalLogOutput() = [&](const std::string& v) { logWindow.Logs += v; };
+	Log::Sink() = Log::ConsoleSink;
 
 	// Declare main components.
 	PositionDetector positionDetector;
@@ -93,7 +94,7 @@ int main() {
 		return false;
 
 	Scene scene;
-	StereoCamera camera;
+	Camera camera;
 	Cross cross;
 
 	// Initialize main components.

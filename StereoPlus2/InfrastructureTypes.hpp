@@ -213,31 +213,24 @@ public:
 };
 
 class Log {
+public:
+	struct Context {
+		std::string contextName = "";
+		std::string logFileName = "";
+		std::string message = "";
+		std::string level = "";
+	};
+private:
 	template<typename T>
 	using isOstreamable = decltype(std::declval<std::ostringstream>() << std::declval<T>());
 
 	template<typename T>
 	static constexpr bool isOstreamableT = is_detected_v<isOstreamable, T>;
 
-	std::string contextName = "";
-	std::string logFileName = "";
 
-	static void Line(const std::string& message, const std::string& logFileName) {
-		static Path logDirectory("logs/");
-		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
-		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
-			fs::create_directory(logDirectory.get());
-
-		std::stringstream ss;
-		ss << Time::GetTimeFormatted() << message << std::endl;
-		auto log = ss.str();
-
-		std::ofstream f(logDirectory.joinPath(logFileName + startTime), std::ios_base::app);
-		f << log;
-		f.close();
-
-		AdditionalLogOutput()(log);
-	}
+	Context context;
+	std::function<void(const Context&)> sink = Sink();
+	
 	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
 	static std::string ToString(const T& message) {
 		std::ostringstream ss;
@@ -252,10 +245,11 @@ class Log {
 
 public:
 	template<typename T>
-	static const Log For(std::string logFileName = LogFileName()) {
+	static const Log For(std::string logFileName = LogFileName(), std::function<void(const Context&)> sink = Sink()) {
 		Log log;
-		log.contextName = typeid(T).name();
-		log.logFileName = logFileName;
+		log.context.contextName = typeid(T).name();
+		log.context.logFileName = logFileName;
+		log.sink = sink;
 		return log;
 	}
 
@@ -274,22 +268,49 @@ public:
 
 
 	void Error(const std::string& message) const {
-		Line("[Error](" + contextName + ") " + message, logFileName);
+		Context c = context;
+		c.level = "Error";
+		c.message = message;
+		sink(c);
 	}
 	void Warning(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message, logFileName);
+		Context c = context;
+		c.level = "Warning";
+		c.message = message;
+		sink(c);
 	}
 	void Information(const std::string& message) const {
-		Line("[Information](" + contextName + ") " + message, logFileName);
+		Context c = context;
+		c.level = "Information";
+		c.message = message;
+		sink(c);
 	}
 
 	static std::string& LogFileName() {
 		static std::string v = "defaultLog";
 		return v;
 	}
-	static std::function<void(const std::string&)>& AdditionalLogOutput() {
-		static std::function<void(const std::string&)> v = [](const std::string&) {};
+	static std::function<void(const Context&)>& Sink() {
+		static std::function<void(const Context&)> v = [](const Context&) {};
 		return v;
+	}
+
+	static void FileSink(const Context& v) {
+		static Path logDirectory("logs/");
+		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
+		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
+			fs::create_directory(logDirectory.get());
+
+		std::stringstream ss;
+		ss << Time::GetTimeFormatted() << "[" << v.level << "]" << "(" << v.contextName << ")" << v.message << std::endl;
+		auto log = ss.str();
+
+		std::ofstream f(logDirectory.joinPath(v.logFileName + startTime), std::ios_base::app);
+		f << log;
+		f.close();
+	}
+	static void ConsoleSink(const Context& v) {
+		std::cout << "[" << v.level << "]" << "(" << v.contextName << ")" << v.message << std::endl;
 	}
 };
 

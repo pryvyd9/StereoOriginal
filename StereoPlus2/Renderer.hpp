@@ -122,7 +122,7 @@ class Renderer {
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
 
-	void DrawBright(StereoCamera* camera, SceneObject* o) {
+	void DrawBright(Camera* camera, SceneObject* o) {
 		UpdateShaderColor(Settings::ColorLeft().Get(), Settings::ColorRight().Get());
 		o->Draw(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
@@ -132,7 +132,7 @@ class Renderer {
 			stencilBufferMaskBright1,
 			stencilBufferMaskBright2);
 	}
-	void DrawDim(StereoCamera* camera, SceneObject* o) {
+	void DrawDim(Camera* camera, SceneObject* o) {
 		UpdateShaderColor(Settings::DimmedColorLeft().Get(), Settings::DimmedColorRight().Get());
 		o->Draw(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
