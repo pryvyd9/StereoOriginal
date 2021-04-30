@@ -1,4 +1,4 @@
-# StereoOriginal documentation
+# StereoOriginal User documentation
 ## GUI
 GUI is designed using ImGui library https://github.com/ocornut/imgui.
 ### Tool window
