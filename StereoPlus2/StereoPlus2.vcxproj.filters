@@ -28,6 +28,9 @@
     <Filter Include="domain">
       <UniqueIdentifier>{5b79909c-77cb-4b5a-a754-8b58b8436a64}</UniqueIdentifier>
     </Filter>
+    <Filter Include="domain\Windows">
+      <UniqueIdentifier>{14f289d5-74dc-4e8b-8c39-8231ac9e3ba3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -157,6 +160,9 @@
     </ClInclude>
     <ClInclude Include="SceneObject.hpp">
       <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneObjectInspectorWindow.hpp">
+      <Filter>domain\Windows</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

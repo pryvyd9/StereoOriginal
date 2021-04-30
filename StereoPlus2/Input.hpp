@@ -271,6 +271,28 @@ public:
 		Logger.Error("Shortcut is already taken.");
 	}
 
+	size_t AddHandler(std::function<void()> func) {
+		// 0 means it isn't assigned.
+		static size_t id = 1;
+
+		(new FuncCommand())->func = [id = id, func = func, this] {
+			handlers[id] = func;
+		};
+
+		return id++;
+	}
+	size_t AddHandler(std::function<void(Input*)> func) {
+		return AddHandler([this, func] { func(this); });
+	}
+
+	void RemoveHandler(size_t& id) {
+		auto cmd = new FuncCommand();
+		cmd->func = [id, this] {
+			handlers.erase(id);
+		};
+		id = 0;
+	}
+
 
 	void ProcessInput() {
 		FillAxes();
@@ -309,24 +331,13 @@ public:
 
 
 	size_t AddHandler(std::function<void()> func) {
-		// 0 means it isn't assigned.
-		static size_t id = 1;
-
-		(new FuncCommand())->func = [id = id, input = input, func = func] {
-			input->handlers[id] = func;
-		};
-
-		return id++;
+		return input->AddHandler(func);
 	}
 	size_t AddHandler(std::function<void(Input*)> func) {
-		return AddHandler([i = input, func] { func(i); });
+		return input->AddHandler(func);
 	}
 	void RemoveHandler(size_t& id) {
-		auto cmd = new FuncCommand();
-		cmd->func = [id, input = input] {
-			input->handlers.erase(id);
-		};
-		id = 0;
+		input->RemoveHandler(id);
 	}
 
 	void ResetFocus() {
