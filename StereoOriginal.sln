@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{3D992B4F-348E-4D36-8A7A-CABDEF7A7F88}"
 	ProjectSection(SolutionItems) = preProject
+		docs\dev.doc.en.md = docs\dev.doc.en.md
 		docs\doc.en.md = docs\doc.en.md
 		docs\flower.png = docs\flower.png
 		docs\mainWindow.PNG = docs\mainWindow.PNG
