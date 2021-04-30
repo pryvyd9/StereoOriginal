@@ -68,3 +68,5 @@ Properties can be bind one/two way to syncronize values.
 Binding two way makes 2 properties reference single node holding value.
 Has readonly implementation and static property macros.
 
+## Build
+Included GLFW and OpenCV dlls only include x64 versions so to build x86 it is required to download and link x86 versions of their dlls.
