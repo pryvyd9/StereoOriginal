@@ -95,4 +95,8 @@ Second point is (0,1) for cosine.
 Tried point is (0,1) for cosine.
 
 ### Transformation
+
+When multiple objects are selected cross' rotation is equal to the first object in selection and position is equal to mean position of all selected objects. 
+See TransformTool::OnSelectionChanged for more details.
+
 ### Extrusion
