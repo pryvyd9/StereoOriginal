@@ -217,8 +217,8 @@ public:
 
 
     bool Init() {
-        String face_cascade_name = samples::findFile("data/haarcascades/haarcascade_frontalface_alt.xml");
-        String eyes_cascade_name = samples::findFile("data/haarcascades/haarcascade_eye_tree_eyeglasses.xml");
+        String face_cascade_name = samples::findFile("haarcascades/haarcascade_frontalface_alt.xml");
+        String eyes_cascade_name = samples::findFile("haarcascades/haarcascade_eye_tree_eyeglasses.xml");
 
         //-- 1. Load the cascades
         if (!face_cascade.load(face_cascade_name))
