@@ -1,4 +1,21 @@
-# StereoOriginal Developer documentation
+# StereoOriginal Developer documentation]
+## Build
+The only architecture included is x64.
+It's because included GLFW and OpenCV dlls are only x64 versions so to build x86 it is required to download and link x86 versions of their dlls.
+
+Majority of the files in the project are .hpp. 
+It's done to ease referencing files and fight compiler bugs of not being able to detect windows platform for x64.
+To reproduce it - change ClInclude to ClCompile for Key.hpp.
+It doesn't happen for all files but somehow making files compilable doesn't make then compile on build.
+
+This means that when a change is performed in hpp files (basically any change), you need to Rebuild All the solution to apply the changes.
+
+### Building profiles
+- Debug. Builds debug symbols, executable and ilk files;
+- Release. Same as debug + uses Maximum speed optimization and copies (CopyIfNewer) all necessary files for running the app from the folder.
+- Publish. Cleans output folder before build. Builds executable and copies all necessary files for running the app from the folder.
+Uses Maximum speed optimization.
+
 ## Evolution
 ### Architecture
 The initial idea of architecture was DDD + functional approach.
@@ -44,7 +61,7 @@ All scene objects are created and deleted via commands to prevent following afte
 
 Commands implement simple asyncrony mechanism.
 
-## Infrastructure
+## Module desctiption
 Path is for better C++17 file managing API.
 Transforms strings to paths back and forth and merges them.
 
@@ -68,5 +85,14 @@ Properties can be bind one/two way to syncronize values.
 Binding two way makes 2 properties reference single node holding value.
 Has readonly implementation and static property macros.
 
-## Build
-Included GLFW and OpenCV dlls only include x64 versions so to build x86 it is required to download and link x86 versions of their dlls.
+Input is for Keyboard + Mouse input.
+Implements key combination shortcuts.
+Uses ImGui key repetition. Both repetitive and constant flow IsPressed are implemented.
+Implements Continuous input which returns true while any key is pressed.
+Implements Continuous1SecondDelay input which returns true while any key is pressed or no key pressed but the last key was pressed withing 1 second.
+Implements OnFrame handlers that are executed each frame.
+
+FileManager is for storing/reading settings, project files etc. in binary and json text modes.
+Implements custom Json serialization/deserialization in Json.hpp.
+
+Settings presents global state and defines global settings and flags that can be changed in runtime and their change triggers coordinate space mode, language, transformation steps etc.
