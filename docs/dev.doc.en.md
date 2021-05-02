@@ -1,4 +1,4 @@
-# StereoOriginal Developer documentation]
+# StereoOriginal Developer documentation
 ## Build
 The only architecture included is x64.
 It's because included GLFW and OpenCV dlls are only x64 versions so to build x86 it is required to download and link x86 versions of their dlls.

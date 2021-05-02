@@ -156,26 +156,29 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\shaders\Left.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="data\shaders\Right.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="data\shaders\WhiteSquare.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="data\shaders\zero.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="data\locales\en.json">
+    <None Include="locales\en.json">
       <Filter>resource files</Filter>
     </None>
-    <None Include="data\settings.json">
+    <None Include="settings.json">
       <Filter>resource files</Filter>
     </None>
-    <None Include="data\locales\ua.json">
+    <None Include="locales\ua.json">
       <Filter>resource files</Filter>
+    </None>
+    <None Include="shaders\.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\Left.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\Right.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\WhiteSquare.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\zero.frag">
+      <Filter>shaders</Filter>
     </None>
   </ItemGroup>
 </Project>

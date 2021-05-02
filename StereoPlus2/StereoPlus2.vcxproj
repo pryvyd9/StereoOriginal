@@ -241,13 +241,14 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\locales\en.json" />
-    <None Include="data\locales\ua.json" />
-    <None Include="data\settings.json" />
-    <None Include="data\shaders\Left.frag" />
-    <None Include="data\shaders\Right.frag" />
-    <None Include="data\shaders\WhiteSquare.frag" />
-    <None Include="data\shaders\zero.frag" />
+    <None Include="locales\en.json" />
+    <None Include="locales\ua.json" />
+    <None Include="settings.json" />
+    <None Include="shaders\Left.frag" />
+    <None Include="shaders\Right.frag" />
+    <None Include="shaders\WhiteSquare.frag" />
+    <None Include="shaders\zero.frag" />
+    <None Include="shaders\.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
