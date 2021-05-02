@@ -50,7 +50,25 @@ All the dependencies are provided in the repository except OpenGL.
 
 (1) modified to allow for better transparency handling.
 
-## Command
+## Module desctiption
+### Path
+Path is for better C++17 file managing API.
+Transforms strings to paths back and forth and merges them.
+
+### Time
+Time is for frameDeltaTime and framerate measuring.
+Also gets current time and formatts time for log output.
+
+### Log
+Log is for wrinting messages to console window.
+Can be extended with additional sinks to write to file or other places.
+Formats and joins basic types and glm::vec3.
+
+### Command
+Command is .NET Task alternative.
+Can be fired but cannot be awaited.
+Has many derived classes best suited for different tasks.
+
 An enclosed system create and scheduled on instantiating and executed at the end of frame.
 Memory is released after command execution.
 
@@ -61,30 +79,18 @@ All scene objects are created and deleted via commands to prevent following afte
 
 Commands implement simple asyncrony mechanism.
 
-## Module desctiption
-Path is for better C++17 file managing API.
-Transforms strings to paths back and forth and merges them.
-
-Time is for frameDeltaTime and framerate measuring.
-Also gets current time and formatts time for log output.
-
-Log is for wrinting messages to console window.
-Can be extended with additional sinks to write to file or other places.
-Formats and joins basic types and glm::vec3.
-
-Command is .NET Task alternative.
-Can be fired but cannot be awaited.
-Has many derived classes best suited for different tasks.
-
+### Event
 Event is an attempt to .NET event system.
 Event must be stored as private field and exposed as IEvent via additional get method.
 Handlers are appended and removed via methods or overloaded operators.
 
+### Property
 Property contains value and implements OnChanged event.
 Properties can be bind one/two way to syncronize values.
 Binding two way makes 2 properties reference single node holding value.
 Has readonly implementation and static property macros.
 
+### Input
 Input is for Keyboard + Mouse input.
 Implements key combination shortcuts.
 Uses ImGui key repetition. Both repetitive and constant flow IsPressed are implemented.
@@ -92,7 +98,15 @@ Implements Continuous input which returns true while any key is pressed.
 Implements Continuous1SecondDelay input which returns true while any key is pressed or no key pressed but the last key was pressed withing 1 second.
 Implements OnFrame handlers that are executed each frame.
 
+### FileManager
 FileManager is for storing/reading settings, project files etc. in binary and json text modes.
 Implements custom Json serialization/deserialization in Json.hpp.
 
+### Settings
 Settings presents global state and defines global settings and flags that can be changed in runtime and their change triggers coordinate space mode, language, transformation steps etc.
+
+### TemplateExtensions
+An experimental module that was intended to used to merge a lot of repetitive code but the idea was scraped due to poor IDE support not being able to analyse what is going on in these templates and therefore reducing readability greatly.
+
+### Localization
+Provides relevant localization as quickly as possible.
