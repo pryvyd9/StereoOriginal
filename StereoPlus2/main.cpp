@@ -101,7 +101,7 @@ int main() {
 	toolWindow.attributesWindow = &attributesWindow;
 	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject.BindAndApply(scene.root());
+	inspectorWindow.rootObject <<= scene.root();
 	inspectorWindow.input = &gui.input;
 
 	cameraPropertiesWindow.Object = &camera;
@@ -109,7 +109,7 @@ int main() {
 
 	scene.camera = &camera;
 	scene.glWindow = renderPipeline.glWindow;
-	scene.camera->ViewSize.BindAndApply(customRenderWindow.RenderSize);
+	scene.camera->ViewSize <<= customRenderWindow.RenderSize;
 	scene.cross() = &cross;
 
 	gui.windows = {
@@ -135,7 +135,7 @@ int main() {
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
+	cross.keyboardBindingHandler = [&cross, i = &gui.input]() {
 		if (!Input::IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
 			return;
 
@@ -143,7 +143,7 @@ int main() {
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			m = glm::rotate(cross.GetWorldRotation(), m);
 
-		cross.SetWorldPosition(cross.GetWorldPosition() + m); 
+		cross.SetWorldPosition(cross.GetWorldPosition() + m);
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross]() {
@@ -167,8 +167,8 @@ int main() {
 	if (!ToolPool::Init())
 		return false;
 
-	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
-	StateBuffer::RootObject().BindTwoWay(scene.root());
+	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
+	StateBuffer::RootObject() <<= scene.root();
 	StateBuffer::Objects() = &scene.Objects().Get();
 	gui.keyBinding.AddHandler([s = &scene]{
 		if (Input::IsDown(Key::Delete, true)) {

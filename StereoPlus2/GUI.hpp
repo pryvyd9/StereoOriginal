@@ -60,11 +60,11 @@ class GUI {
 
 			if (auto h = Settings::ShouldDetectPosition().Get(); 
 				ImGui::MenuItem(LocaleProvider::GetC("usePositionDetection"), nullptr, &h))
-				Settings::ShouldDetectPosition().Set(h);
+				Settings::ShouldDetectPosition() = h;
 			ImGui::MenuItem(LocaleProvider::GetC("showFPS"), nullptr, &shouldShowFPS);
 
 			if (ImGui::MenuItem(LocaleProvider::GetC("settings"), nullptr, false))
-				settingsWindow->IsOpen.Set(true);
+				settingsWindow->IsOpen = true;
 
 			if (ImGui::MenuItem(LocaleProvider::GetC("exit"), nullptr, false))
 				shouldClose = true;

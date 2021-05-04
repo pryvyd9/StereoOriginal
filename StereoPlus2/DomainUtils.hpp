@@ -175,7 +175,7 @@ private:
 			return o;
 			}));
 
-		RootObject().Set(newRoot);
+		RootObject() = newRoot;
 	}
 	static void ApplyPast(std::vector<PON>& objects) {
 		position()--;
@@ -193,7 +193,7 @@ public:
 
 	static bool Init() {
 		if (!RootObject().Get().Get() ||
-			!Objects().Get()) {
+			!Objects().IsAssigned()) {
 			Log::For<StateBuffer>().Error("Initialization failed.");
 			return false;
 		}
@@ -208,15 +208,15 @@ public:
 
 		if (position() == states().size() - 1) {
 			ClearFuture();
-			PushPast(*Objects().Get());
+			PushPast(Objects().Get());
 			position()--;
 		}
 		else if (position() == states().size()) {
-			PushPast(*Objects().Get());
+			PushPast(Objects().Get());
 			position()--;
 		}
 
-		ApplyPast(*Objects().Get());
+		ApplyPast(Objects().Get());
 
 		onStateChange().Invoke();
 	}
@@ -226,7 +226,7 @@ public:
 		if (position() < states().size())
 			ClearFuture();
 
-		PushPast(*Objects().Get());
+		PushPast(Objects().Get());
 	}
 
 	// Repeat, Redo, Apply next state
@@ -234,7 +234,7 @@ public:
 		if (states().empty() || position() >= states().size() - 1)
 			return;
 
-		ApplyFuture(*Objects().Get());
+		ApplyFuture(Objects().Get());
 
 		onStateChange().Invoke();
 	}

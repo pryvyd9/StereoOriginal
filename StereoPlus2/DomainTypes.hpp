@@ -931,8 +931,8 @@ public:
 
 		ViewSize.OnChanged() += [&](const glm::vec2 v) {
 			// Trigger conversion.
-			EyeToCenterDistance.Set(EyeToCenterDistance.Get());
-			PositionModifier.Set(PositionModifier.Get());
+			EyeToCenterDistance = EyeToCenterDistance.Get();
+			PositionModifier = PositionModifier.Get();
 		};
 	}
 
@@ -1108,7 +1108,7 @@ public:
 	}
 	void DeleteAll() {
 		deleteAll.Invoke();
-		cross().Get()->SetParent(nullptr);
+		cross()->SetParent(nullptr);
 
 		Objects().Get().clear();
 		root() = CreateRoot();

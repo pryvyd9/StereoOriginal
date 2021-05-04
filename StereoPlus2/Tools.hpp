@@ -41,7 +41,7 @@ public:
 	std::function<void(T*)> init;
 	std::function<void(SceneObject*)> onCreated = [](SceneObject*) {};
 
-	ReadonlyProperty<PON> destination;
+	Property<PON> destination;
 
 	T* Create() {
 		StateBuffer::Commit();
@@ -123,7 +123,7 @@ public:
 		Transform,
 	};
 
-	ReadonlyProperty<KeyBinding*> keyBinding;
+	NonAssignProperty<KeyBinding*> keyBinding;
 
 	EditingTool() {
 		if (isBeingModifiedHandler() != 0)
@@ -260,7 +260,7 @@ class PenTool : public EditingTool {
 			points[pointsCount - 3], 
 			points[pointsCount - 2], 
 			points[pointsCount - 1], 
-			cross->GetWorldPosition(), 
+			cross->GetWorldPosition(),
 			E)) {
 			target->SetVertice(pointsCount - 2, cross->GetWorldPosition());
 			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
@@ -339,8 +339,8 @@ class PenTool : public EditingTool {
 
 				cmd->init = [] {
 					auto o = new PolyLine();
-					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
-					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
+					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
+					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
 					Scene::AssignUniqueName(o, "PolyLine");
 					return o;
 				};
@@ -401,7 +401,7 @@ class PenTool : public EditingTool {
 			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+				cross->SetWorldRotation(target->GetWorldRotation());
 			else
 				cross->SetWorldRotation(glm::quat());
 		};
@@ -435,8 +435,7 @@ class PenTool : public EditingTool {
 	}
 
 public:
-	ReadonlyProperty<Cross*> cross;
-
+	NonAssignProperty<Cross*> cross;
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (target.HasValue() && !UnbindSceneObjects())
@@ -823,7 +822,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 
 
 public:
-	ReadonlyProperty<Cross*> cross;
+	NonAssignProperty<Cross*> cross;
 
 	ExtrusionEditingTool() {
 		init = [&, mesh = &mesh](Mesh* o) {
@@ -848,7 +847,7 @@ public:
 		if (pen.HasValue() && !UnbindSceneObjects())
 			return false;
 
-		if (!keyBinding.Get()) {
+		if (!keyBinding.IsAssigned()) {
 			Logger.Error("KeyBinding wasn't assigned");
 			return false;
 		}
@@ -1089,13 +1088,13 @@ class TransformTool : public EditingTool {
 		if (shouldTrace)
 			Trace(targets);
 
-		Transform::Translate(transformVector, targets, cross.Get());
+		Transform::Translate(transformVector, targets, &cross.Get());
 	}
 	void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::list<PON>& targets) {
 		if (shouldTrace)
 			Trace(targets);
 
-		Transform::Rotate(center, rotation, targets, cross.Get());
+		Transform::Rotate(center, rotation, targets, &cross.Get());
 	}
 
 	void Trace(std::list<PON>& targets) {
@@ -1190,7 +1189,7 @@ class TransformTool : public EditingTool {
 
 		for (auto o : v)
 			targets.parentObjects.push_back(o);
-
+		
 		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
 		if (Settings::SpaceMode().Get() == SpaceMode::World)
 			cross->SetWorldRotation(cross->unitQuat());
@@ -1226,7 +1225,7 @@ class TransformTool : public EditingTool {
 	}
 
 public:
-	ReadonlyProperty<Cross*> cross;
+	NonAssignProperty<Cross*> cross;
 
 	float scale = 1;
 	glm::vec3 angle;
@@ -1414,8 +1413,8 @@ class SinePenTool : public EditingTool {
 
 				cmd->init = [] {
 					auto o = new SineCurve();
-					o->SetWorldPosition(Scene::cross().Get()->GetWorldPosition());
-					o->SetWorldRotation(Scene::cross().Get()->GetWorldRotation());
+					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
+					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
 					Scene::AssignUniqueName(o, "SineCurve");
 					return o;
 				};
@@ -1516,7 +1515,7 @@ class SinePenTool : public EditingTool {
 	}
 
 public:
-	ReadonlyProperty<Cross*> cross;
+	NonAssignProperty<Cross*> cross;
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
 		if (target.HasValue() && !UnbindSceneObjects())

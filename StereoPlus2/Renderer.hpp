@@ -185,7 +185,7 @@ public:
 		if (ObjectSelection::Selected().empty()) {
 			for (auto o : scene.Objects().Get())
 				DrawBright(scene.camera, o.Get());
-			DrawBright(scene.camera, scene.cross().Get());
+			DrawBright(scene.camera, &scene.cross().Get());
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
@@ -209,7 +209,7 @@ public:
 			for (auto o : ObjectSelection::Selected())
 				if (o.HasValue())
 					DrawBright(scene.camera, o.Get());
-			DrawBright(scene.camera, scene.cross().Get());
+			DrawBright(scene.camera, &scene.cross().Get());
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 

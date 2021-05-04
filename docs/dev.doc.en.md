@@ -110,3 +110,9 @@ An experimental module that was intended to used to merge a lot of repetitive co
 
 ### Localization
 Provides relevant localization as quickly as possible.
+
+### Render
+Receives a collestion of scene objects and draw them either dim or bright depending on their selections status.
+
+### Windows
+Middlemen between GUI and tools/objects

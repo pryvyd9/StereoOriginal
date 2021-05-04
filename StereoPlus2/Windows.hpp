@@ -1261,13 +1261,13 @@ class ToolWindow : Window {
 
 	template<typename T>
 	void ConfigureCreationTool(CreatingTool<T>& creatingTool, std::function<void(SceneObject*)> initFunc) {
-		creatingTool.destination.BindAndApply(Scene::root());
+		creatingTool.destination <<= Scene::root();
 		creatingTool.init = initFunc;
 	}
 
 public:
 	AttributesWindow* attributesWindow;
-	ReadonlyProperty<Scene*> scene;
+	NonAssignProperty<Scene*> scene;
 
 	template<typename T>
 	using unbindTool = decltype(std::declval<T>().UnbindTool());
@@ -1287,13 +1287,13 @@ public:
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene.Get()->OnDeleteAll() += [t = tool] {
+		auto deleteAllhandlerId = scene->OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindTool();
 		};
-		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = scene] {
+		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = &scene.Get()] {
 			t->tool->UnbindTool();
-			s.Get()->OnDeleteAll().RemoveHandler(d);
+			s->OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
 			delete t;
 		};
@@ -1313,7 +1313,7 @@ public:
 			return false;
 		}
 
-		if (scene.Get() == nullptr)
+		if (!scene.IsAssigned())
 		{
 			log.Error("Scene wasn't assigned");
 			return false;
