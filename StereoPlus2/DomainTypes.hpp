@@ -915,7 +915,7 @@ class Camera : public LeafObject
 
 public:
 	// Pixels
-	Property<glm::vec2> ViewSize;
+	ReadonlyProperty<glm::vec2> ViewSize;
 	// Millimeters
 	float viewSizeZ = 100;
 	Property<float> EyeToCenterDistance = 34;

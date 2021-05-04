@@ -47,3 +47,5 @@
 - configured project files for easier build and publishing. 
 Now Release copies (CopyIfNewer) necessary files to output so the folder can be easily run from output or transferred to another pc and run there. 
 Added Publish configuration that cleans output before build and copies only necessary files without any debug symbols;
+# 0.13.3
+- property/event overhaul;
