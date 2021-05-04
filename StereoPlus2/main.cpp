@@ -65,7 +65,6 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 }
 
-
 int main() {
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
@@ -99,9 +98,8 @@ int main() {
 
 	// Initialize main components.
 	toolWindow.attributesWindow = &attributesWindow;
-	toolWindow.scene = &scene;
 
-	inspectorWindow.rootObject.BindAndApply(scene.root());
+	inspectorWindow.rootObject <<= scene.root();
 	inspectorWindow.input = &gui.input;
 
 	cameraPropertiesWindow.Object = &camera;
@@ -109,7 +107,7 @@ int main() {
 
 	scene.camera = &camera;
 	scene.glWindow = renderPipeline.glWindow;
-	scene.camera->ViewSize.BindAndApply(customRenderWindow.RenderSize);
+	scene.camera->ViewSize <<= customRenderWindow.RenderSize;
 	scene.cross() = &cross;
 
 	gui.windows = {
@@ -135,7 +133,7 @@ int main() {
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingHandler = [&cross, i = &gui.input]() { 
+	cross.keyboardBindingHandler = [&cross, i = &gui.input]() {
 		if (!Input::IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
 			return;
 
@@ -143,7 +141,7 @@ int main() {
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			m = glm::rotate(cross.GetWorldRotation(), m);
 
-		cross.SetWorldPosition(cross.GetWorldPosition() + m); 
+		cross.SetWorldPosition(cross.GetWorldPosition() + m);
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross]() {
@@ -161,15 +159,13 @@ int main() {
 	});
 
 
-	ToolPool::Cross() = &cross;
-	ToolPool::Scene() = &scene;
 	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 
-	StateBuffer::BufferSize().BindAndApply(Settings::StateBufferLength());
-	StateBuffer::RootObject().BindTwoWay(scene.root());
-	StateBuffer::Objects() = &scene.Objects().Get();
+	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
+	StateBuffer::RootObject() <<= scene.root();
+	StateBuffer::Objects() <<= scene.Objects();
 	gui.keyBinding.AddHandler([s = &scene]{
 		if (Input::IsDown(Key::Delete, true)) {
 			StateBuffer::Commit();

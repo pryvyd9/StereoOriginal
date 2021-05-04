@@ -38,7 +38,7 @@ It also proved not being very effective so transformation procedures were rework
 The cascade transformation system still exists as it has legacy dependencies and thanks to lack of capacity to actually remodel it and retest the whole system again.
 
 ## Dependencies
-- OpenGL 4.2+
+- OpenGL 4.1+
 - OpenCV
 - ImGui 1.80 docking branch (1)
 - GLM
@@ -110,3 +110,9 @@ An experimental module that was intended to used to merge a lot of repetitive co
 
 ### Localization
 Provides relevant localization as quickly as possible.
+
+### Render
+Receives a collestion of scene objects and draw them either dim or bright depending on their selections status.
+
+### Windows
+Middlemen between GUI and tools/objects

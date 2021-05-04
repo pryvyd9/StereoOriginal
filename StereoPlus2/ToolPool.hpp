@@ -6,39 +6,29 @@
 
 class ToolPool {
 	static void Init(PenTool* tool) {
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+		tool->cross <<= Scene::cross();
+		tool->keyBinding <<= KeyBinding();
 	}
 
 	static void Init(SinePenTool* tool) {
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+		tool->cross <<= Scene::cross();
+		tool->keyBinding <<= KeyBinding();
 	}
 
 	static void Init(ExtrusionEditingTool<PolyLineT>* tool) {
-		tool->destination.BindAndApply(Scene()->root());
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+		tool->destination <<= Scene::root();
+		tool->cross <<= Scene::cross();
+		tool->keyBinding <<= KeyBinding();
 	}
 
 	static void Init(TransformTool* tool) {
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+		//tool->cross <<= Cross();
+		tool->cross <<= Scene::cross();
+		tool->keyBinding <<= KeyBinding();
 	}
 
 public:
-	static ReadonlyProperty<::Scene*>& Scene() {
-		static ReadonlyProperty<::Scene*> v;
-		return v;
-	}
-	static ReadonlyProperty<::Cross*>& Cross() {
-		static ReadonlyProperty<::Cross*> v;
-		return v;
-	}
-	static ReadonlyProperty<::KeyBinding*>& KeyBinding() {
-		static ReadonlyProperty<::KeyBinding*> v;
-		return v;
-	}
+	StaticProperty(::KeyBinding*, KeyBinding);
 
 	template<typename T>
 	static T* GetTool() {
@@ -54,7 +44,7 @@ public:
 	}
 
 	static bool Init() {
-		if (KeyBinding().Get() && Scene().Get() && Cross().Get())
+		if (KeyBinding().IsAssigned() && Scene::root().IsAssigned() && Scene::cross().IsAssigned())
 			return true;
 
 		std::cout << "ToolPool could not be initialized because some fields were null" << std::endl;

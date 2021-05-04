@@ -931,8 +931,8 @@ public:
 
 		ViewSize.OnChanged() += [&](const glm::vec2 v) {
 			// Trigger conversion.
-			EyeToCenterDistance.Set(EyeToCenterDistance.Get());
-			PositionModifier.Set(PositionModifier.Get());
+			EyeToCenterDistance = EyeToCenterDistance.Get();
+			PositionModifier = PositionModifier.Get();
 		};
 	}
 
@@ -1003,19 +1003,12 @@ public:
 };
 
 class Scene {
-public:
-
-	template<InsertPosition p>
-	static bool is(InsertPosition pos) {
-		return p == pos;
-	}
-	template<InsertPosition p>
-	static bool has(InsertPosition pos) {
-		return (p & pos) != 0;
-	}
-private:
-	Event<> deleteAll;
 	Log Logger = Log::For<Scene>();
+
+	static Event<>& deleteAll() {
+		static Event<> v;
+		return v;
+	}
 
 	static const SceneObject* FindRoot(const SceneObject* o) {
 		auto parent = o->GetParent();
@@ -1061,8 +1054,8 @@ public:
 
 
 
-	IEvent<>& OnDeleteAll() {
-		return deleteAll;
+	static IEvent<>& OnDeleteAll() {
+		return deleteAll();
 	}
 
 	Scene() {
@@ -1107,8 +1100,8 @@ public:
 		}
 	}
 	void DeleteAll() {
-		deleteAll.Invoke();
-		cross().Get()->SetParent(nullptr);
+		deleteAll().Invoke();
+		cross()->SetParent(nullptr);
 
 		Objects().Get().clear();
 		root() = CreateRoot();

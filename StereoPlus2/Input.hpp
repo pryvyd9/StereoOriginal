@@ -251,16 +251,16 @@ public:
 	static void SetMouseBoundlessMode(bool enable) {
 		if (enable) {
 			if (glfwRawMouseMotionSupported())
-				glfwSetInputMode(GLFWindow().Get(), GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+				glfwSetInputMode(&GLFWindow().Get(), GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-			glfwSetInputMode(GLFWindow().Get(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			glfwSetInputMode(&GLFWindow().Get(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		}
 		else {
 			// We can disable raw mouse motion mode even if it's not supported
 			// so we don't bother with checking it.
-			glfwSetInputMode(GLFWindow().Get(), GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+			glfwSetInputMode(&GLFWindow().Get(), GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
 
-			glfwSetInputMode(GLFWindow().Get(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			glfwSetInputMode(&GLFWindow().Get(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		}
 	}
 
