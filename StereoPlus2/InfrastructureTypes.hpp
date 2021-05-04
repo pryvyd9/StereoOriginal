@@ -372,6 +372,9 @@ class IEvent {
 	FuncCommand* addHandlersCommand = nullptr;
 	std::map<size_t, std::function<void(const T&...)>> handlersToBeAdded;
 
+	FuncCommand* removeHandlersCommand = nullptr;
+	std::vector<size_t> handlersToBeRemoved;
+
 	void EnsureAddHandlersCommand() {
 		if (!addHandlersCommand) {
 			addHandlersCommand = new FuncCommand();
@@ -382,6 +385,18 @@ class IEvent {
 			};
 		}
 	}
+	void EnsureRemoveHandlersCommand() {
+		if (!removeHandlersCommand) {
+			removeHandlersCommand = new FuncCommand();
+			removeHandlersCommand->func = [&] {
+				for (auto h : handlersToBeRemoved)
+					handlers.erase(h);
+				removeHandlersCommand = nullptr;
+				handlersToBeRemoved.clear();
+			};
+		}
+	}
+
 protected:
 	std::map<size_t, std::function<void(const T&...)>> handlers;
 public:
@@ -395,9 +410,8 @@ public:
 	}
 
 	void RemoveHandler(size_t v) {
-		(new FuncCommand())->func = [&, v = v] {
-			handlers.erase(v);
-		};
+		handlersToBeRemoved.push_back(v);
+		EnsureRemoveHandlersCommand();
 	}
 
 	size_t operator += (std::function<void(const T&...)> func) {
@@ -408,13 +422,21 @@ public:
 	}
 
 	~IEvent() {
+		// Commands will be executed with skipping the assigned func 
+		// and then will be deleted so we only need to abort them.
 		if (addHandlersCommand)
 			addHandlersCommand->Abort();
+		if (removeHandlersCommand)
+			removeHandlersCommand->Abort();
 	}
 
 	void AddHandlersFrom(const IEvent<T...>& o) {
+		handlersToBeAdded.insert(o.handlers.begin(), o.handlers.end());
 		handlersToBeAdded.insert(o.handlersToBeAdded.begin(), o.handlersToBeAdded.end());
+		handlersToBeRemoved.insert(handlersToBeRemoved.end(), o.handlersToBeRemoved.begin(), o.handlersToBeRemoved.end());
+
 		EnsureAddHandlersCommand();
+		EnsureRemoveHandlersCommand();
 	}
 };
 
