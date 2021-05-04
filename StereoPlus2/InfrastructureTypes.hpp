@@ -314,7 +314,6 @@ public:
 	}
 };
 
-
 class Command {
 	static std::list<Command*>& GetQueue() {
 		static auto queue = std::list<Command*>();
@@ -439,7 +438,6 @@ public:
 		EnsureRemoveHandlersCommand();
 	}
 };
-
 template<typename...T>
 class Event : public IEvent<T...> {
 public:
@@ -481,7 +479,7 @@ class PropertyNode<T*> {
 	Event<T> changed;
 public:
 	const T& Get() const {
-		return value;
+		return *value;
 	}
 	T& Get() {
 		return *value;
@@ -514,22 +512,26 @@ public:
 	ReadonlyProperty(const T& o) {
 		node->Set(o);
 	}
-	//ReadonlyProperty<T>& operator=(const ReadonlyProperty<T>&) = delete;
+
+	bool IsAssigned() {
+		return node->IsAssigned();
+	}
 
 	const T& Get() const {
 		return node->Get();
 	}
-	IEvent<T>& OnChanged() {
-		return node->OnChanged();
-	}
+
 	ReadonlyProperty<T> CloneReadonly() {
 		return new ReadonlyProperty(node);
 	}
+
+	IEvent<T>& OnChanged() {
+		return node->OnChanged();
+	}
+
+	ReadonlyProperty<T>& operator=(const ReadonlyProperty<T>&) = delete;
 	const T* operator->() const {
 		return &Get();
-	}
-	bool IsAssigned() {
-		return node->IsAssigned();
 	}
 	void operator<<=(const ReadonlyProperty<T>& v) {
 		ReplaceNode(v.node);
@@ -551,22 +553,26 @@ public:
 	ReadonlyProperty(T* o) {
 		node->Set(o);
 	}
-	//ReadonlyProperty<T*>& operator=(const ReadonlyProperty<T*>&) = delete;
+
+	bool IsAssigned() {
+		return node->IsAssigned();
+	}
 
 	const T& Get() const {
 		return node->Get();
 	}
-	IEvent<T>& OnChanged() {
-		return node->OnChanged();
-	}
+
 	ReadonlyProperty<T*> CloneReadonly() {
 		return new ReadonlyProperty(node);
 	}
+	
+	IEvent<T>& OnChanged() {
+		return node->OnChanged();
+	}
+
+	ReadonlyProperty<T*>& operator=(const ReadonlyProperty<T*>&) = delete;
 	const T* operator->() const {
 		return &Get();
-	}
-	bool IsAssigned() {
-		return node->IsAssigned();
 	}
 	void operator<<=(const ReadonlyProperty<T*>& v) {
 		ReplaceNode(v.node);
@@ -582,16 +588,18 @@ protected:
 public:
 	NonAssignProperty() {}
 	NonAssignProperty(const T& o) : ReadonlyProperty<T>(o) {}
-	//NonAssignProperty<T>& operator=(const NonAssignProperty<T>&) = delete;
 
 	T& Get() {
 		return ReadonlyProperty<T>::node->Get();
 	}
-	T* operator->() {
-		return &Get();
-	}
+
 	NonAssignProperty<T> CloneNonAssign() {
 		return new NonAssignProperty(ReadonlyProperty<T>::node);
+	}
+
+	NonAssignProperty<T>& operator=(const NonAssignProperty<T>&) = delete;
+	T* operator->() {
+		return &Get();
 	}
 	void operator<<=(const NonAssignProperty<T>& v) {
 		ReadonlyProperty<T>::ReplaceNode(v.node);
@@ -606,16 +614,18 @@ protected:
 public:
 	NonAssignProperty() {}
 	NonAssignProperty(T* o) : ReadonlyProperty<T*>(o) {}
-	//NonAssignProperty<T*>& operator=(const NonAssignProperty<T*>&) = delete;
 
 	T& Get() {
 		return ReadonlyProperty<T*>::node->Get();
 	}
-	T* operator->() {
-		return &Get();
-	}
+	
 	NonAssignProperty<T*> CloneNonAssign() {
 		return new NonAssignProperty(ReadonlyProperty<T*>::node);
+	}
+
+	NonAssignProperty<T*>& operator=(const NonAssignProperty<T*>&) = delete;
+	T* operator->() {
+		return &Get();
 	}
 	void operator<<=(const NonAssignProperty<T*>& v) {
 		ReadonlyProperty<T*>::ReplaceNode(v.node);
@@ -625,12 +635,12 @@ public:
 template<typename T>
 class Property : public NonAssignProperty<T> {
 public:
-	Property() {
-	}
+	Property() {}
 	Property(const T& o) : NonAssignProperty<T>(o) {}
 	Property(const Property<T>&) = delete;
-	Property<T>& operator=(const Property<T>&) = delete;
+
 	
+	Property<T>& operator=(const Property<T>&) = delete;
 	Property<T>& operator=(const T& v) {
 		ReadonlyProperty<T>::node->Set(v);
 		return *this;
@@ -645,16 +655,17 @@ public:
 	Property() {}
 	Property(T* o) : NonAssignProperty<T*>(o) {}
 
-	//Property<T*>& operator=(T* v) {
-	//	ReadonlyProperty<T*>::node->Set(v);
-	//	return *this;
-	//}
+	Property<T*>& operator=(const Property<T*>&) = delete;
+	Property<T*>& operator=(T* v) {
+		ReadonlyProperty<T*>::node->Set(v);
+		return *this;
+	}
 	void operator<<=(const Property<T*>& v) {
 		ReadonlyProperty<T*>::ReplaceNode(v.node);
 	}
 };
 
-#define StaticProperty(type,name) \
+#define StaticProperty(type,name)\
 static Property<type>& name() {\
 	static Property<type> v;\
 	return v;\

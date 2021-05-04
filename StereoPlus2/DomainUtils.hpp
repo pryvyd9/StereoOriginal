@@ -63,7 +63,7 @@ public:
 	// Buffer requires 1 additional state for saving current state.
 	StaticProperty(int, BufferSize)
 	StaticProperty(PON, RootObject)
-	StaticProperty(std::vector<PON>*, Objects)
+	StaticProperty(std::vector<PON>, Objects)
 private:
 	struct State {
 		// Reference, Shallow copy

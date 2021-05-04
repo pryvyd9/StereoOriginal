@@ -6,29 +6,28 @@
 
 class ToolPool {
 	static void Init(PenTool* tool) {
-		tool->cross <<= Cross();
+		tool->cross <<= Scene::cross();
 		tool->keyBinding <<= KeyBinding();
 	}
 
 	static void Init(SinePenTool* tool) {
-		tool->cross <<= Cross();
+		tool->cross <<= Scene::cross();
 		tool->keyBinding <<= KeyBinding();
 	}
 
 	static void Init(ExtrusionEditingTool<PolyLineT>* tool) {
-		tool->destination <<= Scene()->root();
-		tool->cross <<= Cross();
+		tool->destination <<= Scene::root();
+		tool->cross <<= Scene::cross();
 		tool->keyBinding <<= KeyBinding();
 	}
 
 	static void Init(TransformTool* tool) {
-		tool->cross <<= Cross();
+		//tool->cross <<= Cross();
+		tool->cross <<= Scene::cross();
 		tool->keyBinding <<= KeyBinding();
 	}
 
 public:
-	StaticProperty(::Scene*, Scene);
-	StaticProperty(::Cross*, Cross);
 	StaticProperty(::KeyBinding*, KeyBinding);
 
 	template<typename T>
@@ -45,7 +44,7 @@ public:
 	}
 
 	static bool Init() {
-		if (KeyBinding().IsAssigned() && Scene().IsAssigned() && Cross().IsAssigned())
+		if (KeyBinding().IsAssigned() && Scene::root().IsAssigned() && Scene::cross().IsAssigned())
 			return true;
 
 		std::cout << "ToolPool could not be initialized because some fields were null" << std::endl;

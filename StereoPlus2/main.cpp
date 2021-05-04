@@ -65,7 +65,6 @@ void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw)
 		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 }
 
-
 int main() {
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
@@ -99,7 +98,6 @@ int main() {
 
 	// Initialize main components.
 	toolWindow.attributesWindow = &attributesWindow;
-	toolWindow.scene = &scene;
 
 	inspectorWindow.rootObject <<= scene.root();
 	inspectorWindow.input = &gui.input;
@@ -161,15 +159,13 @@ int main() {
 	});
 
 
-	ToolPool::Cross() = &cross;
-	ToolPool::Scene() = &scene;
 	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 
 	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
 	StateBuffer::RootObject() <<= scene.root();
-	StateBuffer::Objects() = &scene.Objects().Get();
+	StateBuffer::Objects() <<= scene.Objects();
 	gui.keyBinding.AddHandler([s = &scene]{
 		if (Input::IsDown(Key::Delete, true)) {
 			StateBuffer::Commit();

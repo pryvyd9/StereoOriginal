@@ -38,7 +38,7 @@ It also proved not being very effective so transformation procedures were rework
 The cascade transformation system still exists as it has legacy dependencies and thanks to lack of capacity to actually remodel it and retest the whole system again.
 
 ## Dependencies
-- OpenGL 4.2+
+- OpenGL 4.1+
 - OpenCV
 - ImGui 1.80 docking branch (1)
 - GLM

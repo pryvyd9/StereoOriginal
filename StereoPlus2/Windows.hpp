@@ -1267,7 +1267,6 @@ class ToolWindow : Window {
 
 public:
 	AttributesWindow* attributesWindow;
-	NonAssignProperty<Scene*> scene;
 
 	template<typename T>
 	using unbindTool = decltype(std::declval<T>().UnbindTool());
@@ -1287,13 +1286,13 @@ public:
 		attributesWindow->BindTool((Attributes*)tool);
 		attributesWindow->BindTarget((Attributes*)targetWindow);
 
-		auto deleteAllhandlerId = scene->OnDeleteAll() += [t = tool] {
+		auto deleteAllhandlerId = Scene::OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindTool();
 		};
-		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId, s = &scene.Get()] {
+		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId] {
 			t->tool->UnbindTool();
-			s->OnDeleteAll().RemoveHandler(d);
+			Scene::OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
 			delete t;
 		};
@@ -1310,12 +1309,6 @@ public:
 		if (attributesWindow == nullptr)
 		{
 			log.Error("AttributesWindow was null");
-			return false;
-		}
-
-		if (!scene.IsAssigned())
-		{
-			log.Error("Scene wasn't assigned");
 			return false;
 		}
 
