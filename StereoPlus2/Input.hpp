@@ -66,7 +66,10 @@ class Input {
 	ContinuousInput continuousInputOneSecondDelay = ContinuousInput(1);
 	ContinuousInput continuousInputNoDelay = ContinuousInput(0);
 
-	CombinationNode combinations;
+	static CombinationNode& combinationTree() {
+		static CombinationNode v;
+		return v;
+	}
 
 	void FillAxes() {
 		mouseOldPos = mouseNewPos;
@@ -264,11 +267,11 @@ public:
 		}
 	}
 
-	void AddShortcut(const Key::Combination& combination, const std::function<void()>& callback) {
+	static void AddShortcut(const Key::Combination& combination, const std::function<void()>& callback) {
 		if (auto b = combination.modifiers.cbegin(), e = combination.modifiers.cend();
-			InsertCombination(combinations, &b, &e, combination.key, callback))
+			InsertCombination(combinationTree(), &b, &e, combination.key, callback))
 			return;
-		Logger.Error("Shortcut is already taken.");
+		Log::For<Input>().Error("Shortcut is already taken.");
 	}
 
 
@@ -281,7 +284,7 @@ public:
 		// Make sure printable characters don't trigger combinations
 		// while keyboard is captured by text input
 		if (io->AnyKeyPressed)
-			ExecuteFirstMatchingCombination(combinations, io->WantCaptureKeyboard);
+			ExecuteFirstMatchingCombination(combinationTree(), io->WantCaptureKeyboard);
 
 		// Handle OnInput actions
 		for (auto [id,handler] : handlers)

@@ -154,6 +154,9 @@
     <ClInclude Include="GLLoader.hpp">
       <Filter>infrastructure</Filter>
     </ClInclude>
+    <ClInclude Include="Math.hpp">
+      <Filter>source files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="locales\en.json">

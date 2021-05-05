@@ -33,35 +33,35 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
-void ConfigureShortcuts(ToolWindow& tw, KeyBinding& kb, CustomRenderWindow& crw) {
+void ConfigureShortcuts(ToolWindow& tw, CustomRenderWindow& crw) {
 	// Internal shortcuts.
-	kb.input->AddShortcut(Key::Combination(Key::Escape),
+	Input::AddShortcut(Key::Combination(Key::Escape),
 		[&] { tw.Unbind(); });
-	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
 		[&] { StateBuffer::Rollback(); });
-	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
 		[&] { StateBuffer::Repeat(); });
-	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
 		[&] { ObjectSelection::RemoveAll(); });
 
 	// Tools
-	kb.input->AddShortcut(Key::Combination(Key::T),
+	Input::AddShortcut(Key::Combination(Key::T),
 		[&] { tw.ApplyTool<TransformToolWindow, TransformTool>(); });
-	kb.input->AddShortcut(Key::Combination(Key::P),
+	Input::AddShortcut(Key::Combination(Key::P),
 		[&] { tw.ApplyTool<PenToolWindow, PenTool>(); });
-	kb.input->AddShortcut(Key::Combination(Key::E),
+	Input::AddShortcut(Key::Combination(Key::E),
 		[&] { tw.ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>(); });
 
 	// Render
-	kb.input->AddShortcut(Key::Combination(Key::F5),
+	Input::AddShortcut(Key::Combination(Key::F5),
 		[&] { crw.shouldSaveViewportImage = true; });
-	kb.input->AddShortcut(Key::Combination(Key::F6),
+	Input::AddShortcut(Key::Combination(Key::F6),
 		[&] { crw.shouldSaveAdvancedImage = true; });
 	
 	// State
-	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Q),
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Q),
 		[&] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
-	kb.input->AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
 		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 }
 
@@ -207,7 +207,7 @@ int main() {
 	customRenderWindow.OnResize() += updateCacheForAllObjects;
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 
-	ConfigureShortcuts(toolWindow, gui.keyBinding, customRenderWindow);
+	ConfigureShortcuts(toolWindow, customRenderWindow);
 
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |

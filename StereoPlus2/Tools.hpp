@@ -10,6 +10,7 @@
 #include <queue>
 #include "TemplateExtensions.hpp"
 #include "Settings.hpp"
+#include "Math.hpp"
 
 class Tool {
 protected:
