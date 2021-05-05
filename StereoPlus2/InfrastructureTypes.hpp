@@ -368,34 +368,24 @@ public:
 
 template<typename...T>
 class IEvent {
-	FuncCommand* addHandlersCommand = nullptr;
+	FuncCommand* modifyHandlersCommand = nullptr;
 	std::map<size_t, std::function<void(const T&...)>> handlersToBeAdded;
-
-	FuncCommand* removeHandlersCommand = nullptr;
 	std::vector<size_t> handlersToBeRemoved;
 
-	void EnsureAddHandlersCommand() {
-		if (!addHandlersCommand) {
-			addHandlersCommand = new FuncCommand();
-			addHandlersCommand->func = [&] {
+	void EnsureModifyHandlersCommand() {
+		if (!modifyHandlersCommand) {
+			modifyHandlersCommand = new FuncCommand();
+			modifyHandlersCommand->func = [&] {
 				handlers.insert(handlersToBeAdded.begin(), handlersToBeAdded.end());
-				addHandlersCommand = nullptr;
-				handlersToBeAdded.clear();
-			};
-		}
-	}
-	void EnsureRemoveHandlersCommand() {
-		if (!removeHandlersCommand) {
-			removeHandlersCommand = new FuncCommand();
-			removeHandlersCommand->func = [&] {
 				for (auto h : handlersToBeRemoved)
 					handlers.erase(h);
-				removeHandlersCommand = nullptr;
+
+				modifyHandlersCommand = nullptr;
+				handlersToBeAdded.clear();
 				handlersToBeRemoved.clear();
 			};
 		}
 	}
-
 protected:
 	std::map<size_t, std::function<void(const T&...)>> handlers;
 public:
@@ -403,14 +393,14 @@ public:
 		static size_t id = 0;
 
 		handlersToBeAdded[id] = func;
-		EnsureAddHandlersCommand();
+		EnsureModifyHandlersCommand();
 
 		return id++;
 	}
 
 	void RemoveHandler(size_t v) {
 		handlersToBeRemoved.push_back(v);
-		EnsureRemoveHandlersCommand();
+		EnsureModifyHandlersCommand();
 	}
 
 	size_t operator += (std::function<void(const T&...)> func) {
@@ -423,10 +413,8 @@ public:
 	~IEvent() {
 		// Commands will be executed with skipping the assigned func 
 		// and then will be deleted so we only need to abort them.
-		if (addHandlersCommand)
-			addHandlersCommand->Abort();
-		if (removeHandlersCommand)
-			removeHandlersCommand->Abort();
+		if (modifyHandlersCommand)
+			modifyHandlersCommand->Abort();
 	}
 
 	void AddHandlersFrom(const IEvent<T...>& o) {
@@ -434,8 +422,7 @@ public:
 		handlersToBeAdded.insert(o.handlersToBeAdded.begin(), o.handlersToBeAdded.end());
 		handlersToBeRemoved.insert(handlersToBeRemoved.end(), o.handlersToBeRemoved.begin(), o.handlersToBeRemoved.end());
 
-		EnsureAddHandlersCommand();
-		EnsureRemoveHandlersCommand();
+		EnsureModifyHandlersCommand();
 	}
 };
 template<typename...T>
