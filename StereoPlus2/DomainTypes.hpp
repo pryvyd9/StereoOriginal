@@ -763,9 +763,9 @@ public:
 	Camera() {
 		Name = "camera";
 		EyeToCenterDistance.OnChanged() += [&](const float& v) {
-			eyeToCenterDistance = Convert::Unit::MillimetersToViewCoordinates(v, ViewSize->x); };
+			eyeToCenterDistance = Convert::MillimetersToViewCoordinates(v, ViewSize->x); };
 		PositionModifier.OnChanged() += [&](const glm::vec3& v) {
-			positionModifier = Convert::Unit::MillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
+			positionModifier = Convert::MillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
 
 		ViewSize.OnChanged() += [&](const glm::vec2 v) {
 			// Trigger conversion.
@@ -779,10 +779,10 @@ public:
 	}
 
 	glm::vec3 GetLeft(const glm::vec3& v) {
-		return Convert::Stereo::GetLeft(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
+		return Stereo::GetLeft(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
 	}
 	glm::vec3 GetRight(const glm::vec3& v) {
-		return Convert::Stereo::GetRight(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
+		return Stereo::GetRight(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
 	}
 
 
@@ -795,7 +795,7 @@ public:
 
 			ImGui::Extensions::PushActive(false);
 			ImGui::DragFloat2("view size", (float*)&ViewSize.Get());
-			auto viewSizeMillimeters = Convert::Unit::PixelsToMillimeters(ViewSize.Get());
+			auto viewSizeMillimeters = Convert::PixelsToMillimeters(ViewSize.Get());
 			ImGui::DragFloat2("view size millimeters", (float*)(&viewSizeMillimeters), 1, 0, 0, "%.1f");
 			ImGui::Extensions::PopActive();
 

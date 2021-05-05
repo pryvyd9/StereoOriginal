@@ -138,111 +138,106 @@ public:
 };
 
 struct Convert {
-	struct Unit {
-		// Millimeters to pixels
-		static glm::vec3 MillimetersToPixels(const glm::vec3& vMillimeters) {
-			static float inchToMillimeter = 0.0393701;
-			// vMillimiters[millimiter]
-			// inchToMillemeter[inch/millimeter]
-			// PPI[pixel/inch]
-			// vMillimiters*PPI*inchToMillemeter[millimeter*(pixel/inch)*(inch/millimeter) = millimeter*(pixel/millimeter) = pixel]
-			auto vPixels = Settings::PPI().Get() * inchToMillimeter * vMillimeters;
-			return vPixels;
-		}
+	// Millimeters to pixels
+	static glm::vec3 MillimetersToPixels(const glm::vec3& vMillimeters) {
+		static float inchToMillimeter = 0.0393701;
+		// vMillimiters[millimiter]
+		// inchToMillemeter[inch/millimeter]
+		// PPI[pixel/inch]
+		// vMillimiters*PPI*inchToMillemeter[millimeter*(pixel/inch)*(inch/millimeter) = millimeter*(pixel/millimeter) = pixel]
+		auto vPixels = Settings::PPI().Get() * inchToMillimeter * vMillimeters;
+		return vPixels;
+	}
 
-		// Millimeters to [-1;1]
-		// World center-centered
-		// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
-		static glm::vec3 MillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels, const float& viewSizeZMillimeters) {
-			static float inchToMillimeter = 0.0393701;
-			auto vsph = viewSizePixels / 2.f;
-			auto vszmh = viewSizeZMillimeters / 2.f;
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static glm::vec3 MillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels, const float& viewSizeZMillimeters) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
+		auto vszmh = viewSizeZMillimeters / 2.f;
 
-			auto vView = glm::vec3(
-				vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
-				vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
-				vMillimeters.z / vszmh
-			);
-			return vView;
-		}
+		auto vView = glm::vec3(
+			vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
+			vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
+			vMillimeters.z / vszmh
+		);
+		return vView;
+	}
 
-		// Millimeters to [-1;1]
-		// World center-centered
-		// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
-		static float MillimetersToViewCoordinates(const float& vMillimeters, const float& viewSizePixels) {
-			static float inchToMillimeter = 0.0393701;
-			auto vsph = viewSizePixels / 2.f;
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static float MillimetersToViewCoordinates(const float& vMillimeters, const float& viewSizePixels) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
 
-			auto vView = vMillimeters * Settings::PPI().Get() * inchToMillimeter / vsph;
-			return vView;
-		}
+		auto vView = vMillimeters * Settings::PPI().Get() * inchToMillimeter / vsph;
+		return vView;
+	}
 
-		// Pixels to Millimeters
-		static glm::vec3 PixelsToMillimeters(const glm::vec3& vPixels) {
-			static float inchToMillimeter = 0.0393701;
-			// vPixels[pixel]
-			// inchToMillimeter[inch/millimeter]
-			// PPI[pixel/inch]
-			// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
-			auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
-			return vMillimiters;
-		}
-		static glm::vec2 PixelsToMillimeters(const glm::vec2& vPixels) {
-			static float inchToMillimeter = 0.0393701;
-			// vPixels[pixel]
-			// inchToMillimeter[inch/millimeter]
-			// PPI[pixel/inch]
-			// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
-			auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
-			return vMillimiters;
-		}
+	// Pixels to Millimeters
+	static glm::vec3 PixelsToMillimeters(const glm::vec3& vPixels) {
+		static float inchToMillimeter = 0.0393701;
+		// vPixels[pixel]
+		// inchToMillimeter[inch/millimeter]
+		// PPI[pixel/inch]
+		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
+		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
+		return vMillimiters;
+	}
+	static glm::vec2 PixelsToMillimeters(const glm::vec2& vPixels) {
+		static float inchToMillimeter = 0.0393701;
+		// vPixels[pixel]
+		// inchToMillimeter[inch/millimeter]
+		// PPI[pixel/inch]
+		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
+		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
+		return vMillimiters;
+	}
+};
 
-	};
-	class Stereo {
-		static glm::vec3 getLeft(const glm::vec3& posMillimeters, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
-			auto pos = Convert::Unit::MillimetersToViewCoordinates(posMillimeters, viewSize, viewSizeZ);
-			float denominator = cameraPos.z - pos.z;
-			return glm::vec3(
-				(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
-				(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-				0
-			);
-		}
-		static glm::vec3 getRight(const glm::vec3& posMillimeters, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
-			auto pos = Convert::Unit::MillimetersToViewCoordinates(posMillimeters, viewSize, viewSizeZ);
-			float denominator = cameraPos.z - pos.z;
-			return glm::vec3(
-				(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
-				(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-				0
-			);
-		}
-	public:
-		static glm::vec3 GetLeft(const glm::vec3& v, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
-			return getLeft(v, cameraPos, eyeToCenterDistance, viewSize, viewSizeZ);
-		}
-		static glm::vec3 GetRight(const glm::vec3& v, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
-			return getRight(v, cameraPos, eyeToCenterDistance, viewSize, viewSizeZ);
-		}
+class Stereo {
+	static glm::vec3 getLeft(const glm::vec3& posMillimeters, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
+		auto pos = Convert::MillimetersToViewCoordinates(posMillimeters, viewSize, viewSizeZ);
+		float denominator = cameraPos.z - pos.z;
+		return glm::vec3(
+			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
+			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
+			0
+		);
+	}
+	static glm::vec3 getRight(const glm::vec3& posMillimeters, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
+		auto pos = Convert::MillimetersToViewCoordinates(posMillimeters, viewSize, viewSizeZ);
+		float denominator = cameraPos.z - pos.z;
+		return glm::vec3(
+			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
+			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
+			0
+		);
+	}
+public:
+	static glm::vec3 GetLeft(const glm::vec3& v, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
+		return getLeft(v, cameraPos, eyeToCenterDistance, viewSize, viewSizeZ);
+	}
+	static glm::vec3 GetRight(const glm::vec3& v, const glm::vec3& cameraPos, float eyeToCenterDistance, const glm::vec2& viewSize, float viewSizeZ) {
+		return getRight(v, cameraPos, eyeToCenterDistance, viewSize, viewSizeZ);
+	}
 
-	};
 };
 
 class Build {
 	static glm::quat getRotation(glm::vec3 ac, glm::vec3 ab) {
-		auto zPlaneLocal = glm::cross(ac, ab);
-		zPlaneLocal = glm::normalize(zPlaneLocal);
+		auto zPlaneLocal = glm::normalize(glm::cross(ac, ab));
 
 		auto zPlaneGlobal = glm::vec3(0, 0, 1);
 
 		auto r1 = glm::rotation(zPlaneGlobal, zPlaneLocal);
 
-		auto acRotatedBack = glm::rotate(glm::inverse(r1), ac);
-		acRotatedBack = glm::normalize(acRotatedBack);
+		auto acRotatedBack = glm::normalize(glm::rotate(glm::inverse(r1), ac));
 
 		auto r2 = glm::rotation(glm::vec3(1, 0, 0), acRotatedBack);
-		auto r = r1 * r2;
-		return r;
+		return r1 * r2;
 	}
 
 public:
@@ -256,7 +251,7 @@ public:
 		auto ac = vertices[2] - vertices[0];
 		auto ab = vertices[1] - vertices[0];
 		auto bc = vertices[2] - vertices[1];
-
+		
 		auto acUnit = glm::normalize(ac);
 		auto abadScalarProjection = glm::dot(ab, acUnit);
 		auto db = ab - acUnit * abadScalarProjection;
