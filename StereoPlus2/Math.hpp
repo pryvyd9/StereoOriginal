@@ -85,6 +85,15 @@ public:
 				target->SetVertice(i, (target->GetVertices()[i] - center) / oldScale * scale + center);
 		}
 	}
+	static void Translate(const glm::vec3& transformVector, SceneObject* cross) {
+		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
+			auto r = glm::rotate(cross->GetWorldRotation(), transformVector);
+			cross->SetWorldPosition(cross->GetWorldPosition() + r);
+			return;
+		}
+
+		cross->SetWorldPosition(cross->GetWorldPosition() + transformVector);
+	}
 	static void Translate(const glm::vec3& transformVector, std::list<PON>& targets, SceneObject* cross) {
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
@@ -106,6 +115,26 @@ public:
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
 				o->SetVertice(i, o->GetVertices()[i] + transformVector);
 		}
+	}
+	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, SceneObject* cross) {
+		glm::vec3 axe;
+		float angle;
+
+		if (!tryGetLocalRotation(rotation, axe, angle))
+			return;
+
+		auto r = glm::normalize(glm::angleAxis(angle, axe));
+
+		// Convert local rotation to global rotation.
+		// It is required to rotate all vertices since they don't store their own rotation
+		// meaning that their rotation = (0;0;0;1).
+		//
+		// When multiple objects are selected cross' rotation is equal to the first 
+		// object in selection. See TransformTool::OnSelectionChanged
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			r = getIsolatedRotation(r, cross->GetWorldRotation());
+
+		cross->SetLocalRotation(r * cross->GetLocalRotation());
 	}
 	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::list<PON>& targets, SceneObject* cross) {
 		glm::vec3 axe;
@@ -227,19 +256,40 @@ public:
 };
 
 class Build {
-	static glm::quat getRotation(glm::vec3 ac, glm::vec3 ab) {
-		auto zPlaneLocal = glm::normalize(glm::cross(ac, ab));
+	// Rotation on angle between orig and dest from the view point of observer.
+	static glm::quat rotation(const glm::vec3& orig, const glm::vec3& dest, const glm::vec3& observer)
+	{
+		auto cosTheta = dot(orig, dest);
 
-		auto zPlaneGlobal = glm::vec3(0, 0, 1);
+		if (cosTheta >= 1.f - glm::epsilon<float>())
+			// orig and dest point in the same direction
+			return glm::quat(1,0,0,0);
 
-		auto r1 = glm::rotation(zPlaneGlobal, zPlaneLocal);
+		if (cosTheta < -1.f + glm::epsilon<float>())
+			// orig and dest point in the opposite directions
+			// so the rotation axis is observer.
+			return glm::angleAxis(glm::pi<float>(), observer);
 
-		auto acRotatedBack = glm::normalize(glm::rotate(glm::inverse(r1), ac));
+		// Implementation from Stan Melax's Game Programming Gems 1 article
+		auto rotationAxis = cross(orig, dest);
 
-		auto r2 = glm::rotation(glm::vec3(1, 0, 0), acRotatedBack);
-		return r1 * r2;
+		auto sinTheta = sqrt((1.f + cosTheta) * 2.f);
+
+		return glm::quat(sinTheta / 2, rotationAxis / sinTheta);
 	}
 
+	static glm::quat getSpaceOrientation(const glm::vec3& xLocal, const glm::vec3& yLocal) {
+		auto yGlobal = glm::vec3(0, 1, 0);// Y global
+		auto xGlobal = glm::vec3(1, 0, 0);// X global
+
+		auto rY = rotation(yGlobal, yLocal, xGlobal);// rotation of Y axis
+		
+		auto xLocalRotatedBack = glm::normalize(glm::rotate(glm::inverse(rY), xLocal));
+
+		auto rX = rotation(xGlobal, xLocalRotatedBack, yGlobal);// rotation of X axis
+
+		return rY * rX;
+	}
 public:
 	
 	/// <summary>
@@ -254,19 +304,16 @@ public:
 		
 		auto acUnit = glm::normalize(ac);
 		auto abadScalarProjection = glm::dot(ab, acUnit);
-		auto db = ab - acUnit * abadScalarProjection;
-		auto abdbScalarProjection = glm::dot(ab, glm::normalize(db));
+		auto dbUnit = glm::normalize(ab - acUnit * abadScalarProjection);
+		auto abdbScalarProjection = glm::dot(ab, dbUnit);
 
 		if (isnan(abadScalarProjection) || isnan(abdbScalarProjection))
-			return { vertices[1], vertices[2] };
+			return { vertices[0], vertices[1], vertices[2] };
 
-		auto r = getRotation(ac, ab);
+		auto r = getSpaceOrientation(acUnit, dbUnit);
 
 		if (isnan(r.x) || isnan(r.y) || isnan(r.z) || isnan(r.w))
-			return { vertices[1], vertices[2] };
-
-		auto rotatedY = glm::rotate(r, glm::vec3(0, 1, 0));
-		auto sameDirection = glm::dot(glm::normalize(db), rotatedY) > 0;
+			return { vertices[0], vertices[1], vertices[2] };
 
 		auto acLength = glm::length(ac);
 		auto abLength = glm::length(ab);
@@ -274,7 +321,7 @@ public:
 		auto adLength = abadScalarProjection;
 		auto dcLength = acLength - adLength;
 
-		static const auto hpi = 3.1415926 / 2.;
+		static const auto hpi = glm::half_pi<float>();
 
 		auto bcLength = glm::length(bc);
 
@@ -295,10 +342,6 @@ public:
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
 		}
-
-		if (!sameDirection)
-			for (size_t j = 0; j < points.size(); j++)
-				points[j].y = -points[j].y;
 
 		for (size_t j = 0; j < points.size(); j++)
 			points[j] = glm::rotate(r, points[j]) + vertices[0];

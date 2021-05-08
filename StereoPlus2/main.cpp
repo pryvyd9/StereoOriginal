@@ -63,6 +63,8 @@ void ConfigureShortcuts(ToolWindow& tw, CustomRenderWindow& crw) {
 		[&] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
 		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
+	Input::AddShortcut(Key::Combination(Key::C),
+		[&] { Settings::TargetMode() = Settings::TargetMode().Get() == TargetMode::Object ? TargetMode::Pivot : TargetMode::Object; });
 }
 
 int main() {

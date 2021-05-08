@@ -1038,46 +1038,50 @@ class TransformTool : public EditingTool {
 
 		// Check if we need to process tool.
 		if (targets.parentObjects.empty() || !targets.parentObjects.front().HasValue()) {
-			MoveCross(relativeMovement);
+			TransformCross(relativeMovement, relativeScale, relativeRotation);
+			//TranslateCross(relativeMovement);
 			return;
 		}
 		if (input->IsDown(Key::Escape, true)) {
-			MoveCross(relativeMovement);
+			TransformCross(relativeMovement, relativeScale, relativeRotation);
+			//TranslateCross(relativeMovement);
 			UnbindSceneObjects();
 			return;
 		}
 
-		switch (mode) {
-		case Mode::Translate:
-			if (relativeMovement == zero)
-				return;
+		if (Settings::TargetMode().Get() == TargetMode::Pivot)
+			TransformCross(relativeMovement, relativeScale, relativeRotation);
+		else
+			switch (mode) {
+			case Mode::Translate:
+				if (relativeMovement == zero)
+					return;
 			
-			Translate(relativeMovement, targets.parentObjects);
-			break;
-		case Mode::Scale:
-			MoveCross(relativeMovement);
-			if (relativeScale == oldScale)
-				return;
+				Translate(relativeMovement, targets.parentObjects);
+				break;
+			case Mode::Scale:
+				TransformCross(relativeMovement, relativeScale, relativeRotation);
+				if (relativeScale == oldScale)
+					return;
 
-			Scale(cross->GetWorldPosition(), oldScale, relativeScale, targets.parentObjects);
-			oldScale = scale = relativeScale;
-			break;
-		case Mode::Rotate:
-			MoveCross(relativeMovement);
-			if (relativeRotation == zero)
-				return;
+				Scale(cross->GetWorldPosition(), oldScale, relativeScale, targets.parentObjects);
+				oldScale = scale = relativeScale;
+				break;
+			case Mode::Rotate:
+				TranslateCross(relativeMovement);
+				if (relativeRotation == zero)
+					return;
 
-			Rotate(cross->GetWorldPosition(), relativeRotation, targets.parentObjects);
-			nullifyUntouchedAngles();
-			oldAngle = angle;
-			break;
-		default:
-			Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
-			break;
-		}
+				Rotate(cross->GetWorldPosition(), relativeRotation, targets.parentObjects);
+				nullifyUntouchedAngles();
+				oldAngle = angle;
+				break;
+			default:
+				Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
+				break;
+			}
 
 		transformOldPos = transformPos;
-		cross->ForceUpdateCache();
 	}
 	void Scale(const glm::vec3& center, const float& oldScale, const float& scale, std::list<PON>& targets) {
 		if (shouldTrace)
@@ -1138,9 +1142,19 @@ class TransformTool : public EditingTool {
 		}
 	}
 
-
-	void MoveCross(const glm::vec3& movement) {
-		cross->SetLocalPosition(cross->GetLocalPosition() + movement);
+	void TransformCross(const glm::vec3& relativeMovement, const float relativeScale, const glm::vec3& relativeRotation) {
+		if (relativeMovement != glm::vec3())
+			Transform::Translate(relativeMovement, &cross.Get());
+		if (relativeRotation != glm::vec3()) {
+			Transform::Rotate(cross->GetWorldPosition(), relativeRotation, &cross.Get());
+			nullifyUntouchedAngles();
+			oldAngle = angle;
+		}
+		if (relativeScale != oldScale)
+			oldScale = scale = relativeScale;
+	}
+	void TranslateCross(const glm::vec3& transformVector) {
+		Transform::Translate(transformVector, &cross.Get());
 	}
 
 	void nullifyUntouchedAngles() {
@@ -1188,7 +1202,7 @@ class TransformTool : public EditingTool {
 		targets.orphanedObjects.clear();
 		targets.parentObjects.clear();
 
-		for (auto o : v)
+		for (auto& o : v)
 			targets.parentObjects.push_back(o);
 		
 		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
@@ -1344,7 +1358,7 @@ class SinePenTool : public EditingTool {
 			return;
 		}
 
-		if (cross->GetWorldPosition() == target->GetVertices().back())
+		if (cross->GetWorldPosition() == target->GetVertices()[currentVertice])
 			return;
 
 		target->SetVertice(currentVertice, cross->GetWorldPosition());

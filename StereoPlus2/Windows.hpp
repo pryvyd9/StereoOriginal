@@ -1329,25 +1329,25 @@ public:
 	virtual bool Design() {
 		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
 		ImGui::Begin(windowName.c_str());
-
-		if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
-			polyLineTool.Create();
-		if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
-			sineCurveTool.Create();
-		if (ImGui::Button(LocaleProvider::GetC("object:group")))
-			groupObjectTool.Create();
-
-		ImGui::Separator();
-
-		if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
-			ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
-		if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
-			ApplyTool<PenToolWindow, PenTool>();
-		if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
-			ApplyTool<SinePenToolWindow, SinePenTool>();
-		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
-			ApplyTool<TransformToolWindow, TransformTool>();
-
+		{
+			if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
+				polyLineTool.Create();
+			if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
+				sineCurveTool.Create();
+			if (ImGui::Button(LocaleProvider::GetC("object:group")))
+				groupObjectTool.Create();
+		}
+		{
+			ImGui::Separator();
+			if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
+				ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
+				ApplyTool<PenToolWindow, PenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
+				ApplyTool<SinePenToolWindow, SinePenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
+				ApplyTool<TransformToolWindow, TransformTool>();
+		}
 		{
 			ImGui::Separator();
 			auto v = (int)Settings::SpaceMode().Get();
@@ -1356,15 +1356,14 @@ public:
 			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
 				Settings::SpaceMode() = SpaceMode::Local;
 		}
-		//{
-		//	ImGui::Separator();
-		//	ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
-		//	static int v = (int)Settings::MoveCoordinateAction().Get();
-		//	if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
-		//		Settings::MoveCoordinateAction() = MoveCoordinateAction::Adapt;
-		//	if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
-		//		Settings::MoveCoordinateAction() = MoveCoordinateAction::None;
-		//}
+		{
+			ImGui::Separator();
+			auto v = (int)Settings::TargetMode().Get();
+			if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+				Settings::TargetMode() = TargetMode::Object;
+			if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+				Settings::TargetMode() = TargetMode::Pivot;
+		}
 
 		ImGui::Separator();
 		if (bool v = Settings::UseDiscreteMovement().Get();
