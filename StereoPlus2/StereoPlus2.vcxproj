@@ -242,6 +242,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
     <None Include="settings.json" />

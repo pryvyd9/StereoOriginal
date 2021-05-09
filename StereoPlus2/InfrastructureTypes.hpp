@@ -754,8 +754,23 @@ public:
 	}
 };
 
+
+
+
 #define StaticProperty(type,name)\
 static Property<type>& name() {\
-	static Property<type> v;\
+	static Property<type> v = Property<type>();\
+	return v;\
+}
+
+#define StaticField(type,name)\
+static type& name() {\
+	static type v = type();\
+	return v;\
+}
+
+#define StaticFieldDefault(type,name,defaultValue)\
+static type& name() {\
+	static type v = defaultValue;\
 	return v;\
 }

@@ -219,10 +219,10 @@ class PenTool : public EditingTool {
 	// then don't create a new point.
 	double Precision = 1e-4;
 
-	void Immediate(Input* input) {
+	void Immediate() {
 		createdNewObject = false;
 
-		if (!input->IsContinuousInputOneSecondDelay()) {
+		if (!Input::IsContinuousInputOneSecondDelay()) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 		}
@@ -307,7 +307,7 @@ class PenTool : public EditingTool {
 		return cos > 1 - E || isnan(cos);
 	}
 
-	void ProcessInput(Input* input) {
+	void ProcessInput() {
 		if (!target.HasValue()) {
 			UnbindSceneObjects();
 			return;
@@ -315,7 +315,7 @@ class PenTool : public EditingTool {
 			
 		switch (mode)
 		{
-		case Mode::Immediate: return Immediate(input);
+		case Mode::Immediate: return Immediate();
 		case Mode::Step: return Step();
 		default:
 			Logger.Warning("Not suported mode was given");
@@ -327,7 +327,7 @@ class PenTool : public EditingTool {
 		if (createNewObjectHandlerId)
 			return;
 
-		createNewObjectHandlerId = keyBinding->AddHandler([&]() {
+		createNewObjectHandlerId = Input::AddHandler([&] {
 			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
@@ -348,7 +348,7 @@ class PenTool : public EditingTool {
 				cmd->onCreated = [&](SceneObject* o) {
 					createdNewObject = true;
 					ObjectSelection::Set(o);
-					keyBinding->RemoveHandler(createNewObjectHandlerId);
+					Input::RemoveHandler(createNewObjectHandlerId);
 					lockCreateNewObjectHandlerId = false;
 				};
 			}
@@ -395,10 +395,10 @@ class PenTool : public EditingTool {
 		if (!target->GetVertices().empty())
 			cross->SetWorldPosition(target->GetVertices().back());
 
-		inputHandlerId = keyBinding->AddHandler([&](Input* input) { 
+		inputHandlerId = Input::AddHandler([&] {
 			// If handler was removed via shortcuts then don't execute it.
 			if (inputHandlerId)
-				ProcessInput(input);
+				ProcessInput();
 			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local)
@@ -456,10 +456,10 @@ public:
 		if (!target->GetVertices().empty())
 			cross->SetWorldPosition(target->GetVertices().back());
 
-		inputHandlerId = keyBinding->AddHandler([&](Input* input) {
+		inputHandlerId = Input::AddHandler([&] {
 			// If handler was removed via shortcuts then don't execute it.
 			if (inputHandlerId)
-				ProcessInput(input);
+				ProcessInput();
 			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local)
@@ -493,7 +493,7 @@ public:
 	}
 	virtual bool UnbindSceneObjects() {
 		if (!lockCreateNewObjectHandlerId)
-			keyBinding->RemoveHandler(createNewObjectHandlerId);
+			Input::RemoveHandler(createNewObjectHandlerId);
 
 		if (!target.HasValue())
 			return true;
@@ -503,7 +503,7 @@ public:
 			createdAdditionalPoints = false;
 		}
 	
-		keyBinding->RemoveHandler(inputHandlerId);
+		Input::RemoveHandler(inputHandlerId);
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
@@ -522,7 +522,7 @@ public:
 		// creating new object awaiting state.
 		// But if the tool is unbind then it should be cancelled.
 		if (!lockCreateNewObjectHandlerId)
-			keyBinding->RemoveHandler(createNewObjectHandlerId);
+			Input::RemoveHandler(createNewObjectHandlerId);
 	}
 
 	SceneObject* GetTarget() {
@@ -597,12 +597,12 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 
 #pragma region ProcessInput
 	template<ObjectType type, Mode mode>
-	void ProcessInput(Input* input) {
+	void ProcessInput() {
 		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
 	}
 	template<>
-	void ProcessInput<PolyLineT, Mode::Immediate>(Input* input) {
-		if (!input->IsContinuousInputOneSecondDelay()) {
+	void ProcessInput<PolyLineT, Mode::Immediate>() {
+		if (!Input::IsContinuousInputOneSecondDelay()) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 		}
@@ -610,7 +610,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		if (!mesh.HasValue() || crossOldPosition == GetPos())
 			return;
 
-		if (input->IsDown(Key::Escape, true)) {
+		if (Input::IsDown(Key::Escape, true)) {
 			UnbindSceneObjects();
 			return;
 		}
@@ -694,11 +694,11 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	}
 
 	template<>
-	void ProcessInput<PolyLineT, Mode::Step>(Input* input) {
+	void ProcessInput<PolyLineT, Mode::Step>() {
 		if (!mesh.HasValue())
 			return;
 		
-		if (input->IsDown(Key::Escape, true)) {
+		if (Input::IsDown(Key::Escape, true)) {
 			UnbindSceneObjects();
 			return;
 		}
@@ -722,7 +722,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 			return;
 		}
 
-		if (input->IsDown(Key::Enter, true) || input->IsDown(Key::NEnter, true)) {
+		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 
@@ -743,13 +743,13 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 			mesh->SetVertice(meshPoints.size() - penPoints.size() + i, penPoints[i] + transformVector);
 	}
 
-	void ProcessInput(Input* input) {
+	void ProcessInput() {
 		switch (mode)
 		{
 		case Mode::Immediate:
-			return ProcessInput<type, Mode::Immediate>(input);
+			return ProcessInput<type, Mode::Immediate>();
 		case Mode::Step:
-			return ProcessInput<type, Mode::Step>(input);
+			return ProcessInput<type, Mode::Step>();
 		default:
 			std::cout << "Not suported mode was given" << std::endl;
 			return;
@@ -808,7 +808,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		cross->SetLocalPosition(crossOriginalPosition);
 
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
-		keyBinding->RemoveHandler(inputHandlerId);
+		Input::RemoveHandler(inputHandlerId);
 		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
 		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 
@@ -876,7 +876,7 @@ public:
 
 		
 
-		inputHandlerId = keyBinding->AddHandler([&](Input * input) { ProcessInput(input); });
+		inputHandlerId = Input::AddHandler([&] { ProcessInput(); });
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (!mesh.HasValue())
 				return;
@@ -960,28 +960,28 @@ class TransformTool : public EditingTool {
 	bool wasCommitDone = false;
 	
 
-	const glm::vec3 GetRelativeMovement(Input* input) {
+	const glm::vec3 GetRelativeMovement() {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::Modifier::Alt) || input->movement == zero)
+		if (!Input::IsPressed(Key::Modifier::Alt) || Input::movement() == zero)
 			return transformPos - transformOldPos;
 
-		return input->movement * Settings::TranslationStep().Get();
+		return Input::movement() * Settings::TranslationStep().Get();
 	}
-	const glm::vec3 GetRelativeRotation(Input* input) {
+	const glm::vec3 GetRelativeRotation() {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::Modifier::Control) || input->movement == zero)
+		if (!Input::IsPressed(Key::Modifier::Control) || Input::movement() == zero)
 			return angle - oldAngle;
 
 		// If all 3 axes are modified then don't apply such rotation.
 		// Quaternion can't rotate around 3 axes.
-		if (input->movement.x && input->movement.y && input->movement.z)
+		if (Input::movement().x && Input::movement().y && Input::movement().z)
 			return angle - oldAngle;
 
 		auto mouseThresholdMin = 0.8;
 		auto mouseThresholdMax = 1.25;
-		auto mouseAxe = input->MouseAxe;
+		auto mouseAxe = Input::MouseAxe();
 		auto maxAxe = 0;
 
 		// Find non-zero axes
@@ -1002,39 +1002,39 @@ class TransformTool : public EditingTool {
 		else
 			mouseAxe = zero;
 
-		mouseAxe *= Settings::MouseSensivity().Get() * input->MouseSpeed();
+		mouseAxe *= Settings::MouseSensivity().Get() * Input::MouseSpeed();
 
-		auto na = (input->ArrowAxe + input->NumpadAxe + mouseAxe) * Settings::RotationStep().Get();
+		auto na = (Input::ArrowAxe() + Input::NumpadAxe() + mouseAxe) * Settings::RotationStep().Get();
 		angle += na;
 		return na;
 	}
-	const float GetRelativeScale(Input* input) {
+	const float GetRelativeScale() {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsPressed(Key::Modifier::Shift) || input->movement == zero)
+		if (!Input::IsPressed(Key::Modifier::Shift) || Input::movement() == zero)
 			return scale;
 
-		return scale + input->movement.x * Settings::ScalingStep().Get();
+		return scale + Input::movement().x * Settings::ScalingStep().Get();
 	}
 
-	void ProcessInput(const ObjectType& type, const Mode& mode, Input* input) {
+	void ProcessInput(const ObjectType& type, const Mode& mode) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!input->IsContinuousInputNoDelay()) {
+		if (!Input::IsContinuousInputNoDelay()) {
 			isBeingModified() = false;
 			wasCommitDone = false;
 		}
 
 		// We can move cross without having any objects bind.
-		if (!input->IsContinuousInputNoDelay()) {
+		if (!Input::IsContinuousInputNoDelay()) {
 			transformPos = transformOldPos = zero;
 			angle = oldAngle = zero;
 			scale = oldScale = 1;
 		}
 
-		const auto relativeScale = GetRelativeScale(input);
-		const auto relativeMovement = GetRelativeMovement(input);
-		const auto relativeRotation = GetRelativeRotation(input);
+		const auto relativeScale = GetRelativeScale();
+		const auto relativeMovement = GetRelativeMovement();
+		const auto relativeRotation = GetRelativeRotation();
 
 		// Check if we need to process tool.
 		if (targets.parentObjects.empty() || !targets.parentObjects.front().HasValue()) {
@@ -1042,7 +1042,7 @@ class TransformTool : public EditingTool {
 			//TranslateCross(relativeMovement);
 			return;
 		}
-		if (input->IsDown(Key::Escape, true)) {
+		if (Input::IsDown(Key::Escape, true)) {
 			TransformCross(relativeMovement, relativeScale, relativeRotation);
 			//TranslateCross(relativeMovement);
 			UnbindSceneObjects();
@@ -1199,8 +1199,8 @@ class TransformTool : public EditingTool {
 				cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
 		}
 
-		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
-		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
+		Input::RemoveHandler(cross->keyboardBindingHandlerId);
+		inputHandlerId = Input::AddHandler([this]{ ProcessInput(type, mode); });
 		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
 			if (Settings::TargetMode().Get() == TargetMode::Pivot)
 				return;
@@ -1248,10 +1248,10 @@ public:
 		oldAngle = glm::vec3();
 		transformPos = glm::vec3();
 
-		keyBinding->RemoveHandler(inputHandlerId);
+		Input::RemoveHandler(inputHandlerId);
 		// Remove if exists and add a new one.
-		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
-		cross->keyboardBindingHandlerId = keyBinding->AddHandler(cross->keyboardBindingHandler);
+		Input::RemoveHandler(cross->keyboardBindingHandlerId);
+		cross->keyboardBindingHandlerId = Input::AddHandler(cross->keyboardBindingHandler);
 
 		Settings::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
@@ -1376,7 +1376,7 @@ class SinePenTool : public EditingTool {
 		cross->SetWorldPosition(target->GetVertices()[i]);
 	}
 
-	void ProcessInput(Input* input) {
+	void ProcessInput() {
 		if (!target.HasValue()) {
 			UnbindSceneObjects();
 			return;
@@ -1396,7 +1396,7 @@ class SinePenTool : public EditingTool {
 		if (createNewObjectHandlerId)
 			return;
 
-		createNewObjectHandlerId = keyBinding->AddHandler([&]() {
+		createNewObjectHandlerId = Input::AddHandler([&] {
 			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
@@ -1417,7 +1417,7 @@ class SinePenTool : public EditingTool {
 				cmd->onCreated = [&](SceneObject* o) {
 					createdNewObject = true;
 					ObjectSelection::Set(o);
-					keyBinding->RemoveHandler(createNewObjectHandlerId);
+					Input::RemoveHandler(createNewObjectHandlerId);
 					lockCreateNewObjectHandlerId = false;
 				};
 			}
@@ -1465,10 +1465,10 @@ class SinePenTool : public EditingTool {
 		if (!target->GetVertices().empty())
 			cross->SetWorldPosition(target->GetVertices().back());
 
-		inputHandlerId = keyBinding->AddHandler([&](Input* input) {
+		inputHandlerId = Input::AddHandler([&]{
 			// If handler was removed via shortcuts then don't execute it.
 			if (inputHandlerId)
-				ProcessInput(input);
+				ProcessInput();
 			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local)
@@ -1531,10 +1531,10 @@ public:
 		if (!target->GetVertices().empty())
 			cross->SetWorldPosition(target->GetVertices().back());
 
-		inputHandlerId = keyBinding->AddHandler([&](Input* input) {
+		inputHandlerId = Input::AddHandler([&] {
 			// If handler was removed via shortcuts then don't execute it.
 			if (inputHandlerId)
-				ProcessInput(input);
+				ProcessInput();
 			});
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (v == SpaceMode::Local)
@@ -1568,7 +1568,7 @@ public:
 	}
 	virtual bool UnbindSceneObjects() {
 		if (!lockCreateNewObjectHandlerId)
-			keyBinding->RemoveHandler(createNewObjectHandlerId);
+			Input::RemoveHandler(createNewObjectHandlerId);
 
 		if (!target.HasValue())
 			return true;
@@ -1576,7 +1576,7 @@ public:
 		target->RemoveVertice();
 		createdAdditionalPoints = false;
 
-		keyBinding->RemoveHandler(inputHandlerId);
+		Input::RemoveHandler(inputHandlerId);
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
@@ -1596,7 +1596,7 @@ public:
 		// creating new object awaiting state.
 		// But if the tool is unbind then it should be cancelled.
 		if (!lockCreateNewObjectHandlerId)
-			keyBinding->RemoveHandler(createNewObjectHandlerId);
+			Input::RemoveHandler(createNewObjectHandlerId);
 	}
 
 	SceneObject* GetTarget() {

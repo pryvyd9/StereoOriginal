@@ -129,7 +129,6 @@ int main() {
 	gui.glWindow = renderPipeline.glWindow;
 	gui.glsl_version = renderPipeline.glsl_version;
 	gui.scene = &scene;
-	gui.keyBinding.cross = &cross;
 	gui.settingsWindow = &settingsWindow;
 	gui.renderViewport = [&customRenderWindow] { customRenderWindow.shouldSaveViewportImage = true; };
 	gui.renderAdvanced = [&customRenderWindow] { customRenderWindow.shouldSaveAdvancedImage = true; };
@@ -137,39 +136,19 @@ int main() {
 		return false;
 
 	cross.Name = "Cross";
-	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement += cross.GUIPositionEditDifference; };
-	cross.GUIPositionEditHandlerId = gui.keyBinding.AddHandler(cross.GUIPositionEditHandler);
+	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement() += cross.GUIPositionEditDifference; };
+	cross.GUIPositionEditHandlerId = Input::AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingHandler = [&cross, i = &gui.input]() {
 		if (!Input::IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
 			return;
 
-		auto m = i->movement * Settings::TranslationStep().Get();
+		auto m = i->movement() * Settings::TranslationStep().Get();
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			m = glm::rotate(cross.GetWorldRotation(), m);
 
 		cross.SetWorldPosition(cross.GetWorldPosition() + m);
 	};
-	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
-	gui.keyBinding.AddHandler([&cross]() {
-		if (Input::IsPressed(Key::Modifier::Alt)) {
-			if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty()) {
-				glm::vec3 v(0);
-				for (auto& o : ObjectSelection::Selected())
-					v += o.Get()->GetWorldPosition();
-				v /= ObjectSelection::Selected().size();
-				cross.SetWorldPosition(v);
-			}
-			else if (Input::IsDown(Key::N0, true))
-				cross.SetWorldPosition(glm::vec3());
-		}
-		else if (Input::IsPressed(Key::Modifier::Control)) {
-			if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty())
-				cross.SetWorldRotation(ObjectSelection::Selected().begin()._Ptr->_Myval->GetWorldRotation());
-			else if (Input::IsDown(Key::N0, true))
-				cross.SetWorldRotation(glm::quat(1,0,0,0));
-		}
-	});
-
+	cross.keyboardBindingHandlerId = Input::AddHandler(cross.keyboardBindingHandler);
 
 	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
@@ -179,7 +158,7 @@ int main() {
 	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
 	StateBuffer::RootObject() <<= scene.root();
 	StateBuffer::Objects() <<= scene.Objects();
-	gui.keyBinding.AddHandler([s = &scene]{
+	Input::AddHandler([s = &scene]{
 		if (Input::IsDown(Key::Delete, true)) {
 			StateBuffer::Commit();
 			s->DeleteSelected();

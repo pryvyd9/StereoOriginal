@@ -183,5 +183,6 @@
     <None Include="shaders\zero.frag">
       <Filter>shaders</Filter>
     </None>
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

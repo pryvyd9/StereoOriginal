@@ -52,35 +52,38 @@ class Input {
 		}
 	};
 
-	const Log Logger = Log::For<Input>();
+	StaticField(glm::vec2, mouseOldPos)
+	StaticField(glm::vec2, mouseNewPos)
 
-	glm::vec2 mouseOldPos;
-	glm::vec2 mouseNewPos;
+	//StaticField(bool, isMouseBoundlessMode)
+	StaticField(bool, isRawMouseMotionSupported)
 
-	bool isMouseBoundlessMode = false;
-	bool isRawMouseMotionSupported = false;
+	StaticFieldDefault(float, mouseSensivity, 1e-2)
+	StaticFieldDefault(float, mouseMaxMagnitude, 1e4)
 
-	float mouseSensivity = 1e-2;
-	float mouseMaxMagnitude = 1e4;
+	StaticFieldDefault(ContinuousInput, continuousInputOneSecondDelay, ContinuousInput(1))
+	StaticFieldDefault(ContinuousInput, continuousInputNoDelay, ContinuousInput(0))
 
-	ContinuousInput continuousInputOneSecondDelay = ContinuousInput(1);
-	ContinuousInput continuousInputNoDelay = ContinuousInput(0);
+	static std::map<size_t, std::function<void()>>& handlers() {
+		static std::map<size_t, std::function<void()>> v;
+		return v;
+	}
 
 	static CombinationNode& combinationTree() {
 		static CombinationNode v;
 		return v;
 	}
 
-	void FillAxes() {
-		mouseOldPos = mouseNewPos;
-		mouseNewPos = ImGui::GetMousePos();
+	static void FillAxes() {
+		mouseOldPos() = mouseNewPos();
+		mouseNewPos() = ImGui::GetMousePos();
 		
 		auto useDiscreteMovement = Settings::UseDiscreteMovement().Get();
-		ArrowAxe = glm::vec3(
+		ArrowAxe() = glm::vec3(
 			-IsPressed(Key::Left, useDiscreteMovement) + IsPressed(Key::Right, useDiscreteMovement),
 			IsPressed(Key::Up, useDiscreteMovement) + -IsPressed(Key::Down, useDiscreteMovement),
 			0);
-		NumpadAxe = IsPressed(Key::Modifier::Shift)
+		NumpadAxe() = IsPressed(Key::Modifier::Shift)
 			? glm::vec3()
 			: glm::vec3(
 				-IsPressed(Key::N4, useDiscreteMovement) + IsPressed(Key::N6, useDiscreteMovement),
@@ -89,12 +92,12 @@ class Input {
 
 		if (IsCustomRenderImageActive().Get()) {
 			auto mouseMoveDirection = MouseMoveDirection();
-			MouseAxe = IsPressed(Key::MouseRight)
+			MouseAxe() = IsPressed(Key::MouseRight)
 				? glm::vec3(0, 0, -mouseMoveDirection.y)
 				: glm::vec3(mouseMoveDirection.x, -mouseMoveDirection.y, 0);
 
 		}
-		else MouseAxe = glm::vec3();
+		else MouseAxe() = glm::vec3();
 	}
 
 	static bool InsertCombination(
@@ -177,19 +180,18 @@ class Input {
 
 public:
 	StaticProperty(GLFWwindow*, GLFWindow);
-	ImGuiIO* io;
+	StaticProperty(ImGuiIO*, io)
 
-	glm::vec3 ArrowAxe;
-	glm::vec3 NumpadAxe;
-	glm::vec3 MouseAxe;
+	StaticField(glm::vec3, ArrowAxe)
+	StaticField(glm::vec3, NumpadAxe)
+	StaticField(glm::vec3, MouseAxe)
 
-	glm::vec3 movement;
-	std::map<size_t, std::function<void()>> handlers;
+	StaticField(glm::vec3, movement)
 
 	StaticProperty(bool, IsCustomRenderImageActive)
 
-	bool IsMoved() {
-		return movement != glm::vec3();
+	static bool IsMoved() {
+		return movement() != glm::vec3();
 	}
 
 	static bool IsPressed(Key::KeyPair key, bool discreteInput = false) {
@@ -226,32 +228,32 @@ public:
 			: ImGui::IsKeyPressed(key.code, false);
 	}
 
-	bool IsUp(Key::KeyPair key) {
+	static bool IsUp(Key::KeyPair key) {
 		return key.type == Key::Type::Mouse
 			? ImGui::IsMouseReleased(key.code)
 			: ImGui::IsKeyReleased(key.code);
 	}
 
-	glm::vec2 MousePosition() {
-		return mouseNewPos;
+	static glm::vec2 MousePosition() {
+		return mouseNewPos();
 	}
-	glm::vec2 MouseMoveDirection() {
-		return glm::length(mouseNewPos - mouseOldPos) == 0 ? glm::vec2(0) : mouseNewPos - mouseOldPos;
+	static glm::vec2 MouseMoveDirection() {
+		return glm::length(mouseNewPos() - mouseOldPos()) == 0 ? glm::vec2(0) : mouseNewPos() - mouseOldPos();
 	}
 
 	// Does not include mouse movement nor scrolling.
-	bool IsContinuousInputOneSecondDelay() {
-		return continuousInputOneSecondDelay.isContinuousInput;
+	static bool IsContinuousInputOneSecondDelay() {
+		return continuousInputOneSecondDelay().isContinuousInput;
 	}
-	bool IsContinuousInputNoDelay() {
-		return continuousInputNoDelay.isContinuousInput;
+	static bool IsContinuousInputNoDelay() {
+		return continuousInputNoDelay().isContinuousInput;
 	}
 
-	bool MouseMoved() {
-		return MouseSpeed() > mouseSensivity && MouseSpeed() < mouseMaxMagnitude;
+	static bool MouseMoved() {
+		return MouseSpeed() > mouseSensivity() && MouseSpeed() < mouseMaxMagnitude();
 	}
-	float MouseSpeed() {
-		return glm::length(mouseNewPos - mouseOldPos);
+	static float MouseSpeed() {
+		return glm::length(mouseNewPos() - mouseOldPos());
 	}
 	static void SetMouseBoundlessMode(bool enable) {
 		if (enable) {
@@ -269,6 +271,24 @@ public:
 		}
 	}
 
+	static size_t AddHandler(std::function<void()> func) {
+		// 0 means it isn't assigned.
+		static size_t id = 1;
+
+		(new FuncCommand())->func = [id = id, func = func] {
+			handlers()[id] = func;
+		};
+
+		return id++;
+	}
+	static void RemoveHandler(size_t& id) {
+		auto cmd = new FuncCommand();
+		cmd->func = [id] {
+			handlers().erase(id);
+		};
+		id = 0;
+	}
+
 	static void AddShortcut(const Key::Combination& combination, const std::function<void()>& callback) {
 		if (auto b = combination.modifiers.cbegin(), e = combination.modifiers.cend();
 			InsertCombination(combinationTree(), &b, &e, combination.key, callback))
@@ -277,111 +297,106 @@ public:
 	}
 
 
-	void ProcessInput() {
+	static void ProcessInput() {
 		FillAxes();
 
-		continuousInputOneSecondDelay.Process(io->AnyKeyPressed);
-		continuousInputNoDelay.Process(io->AnyKeyPressed);
+		continuousInputOneSecondDelay().Process(io()->AnyKeyPressed);
+		continuousInputNoDelay().Process(io()->AnyKeyPressed);
 
 		// Make sure printable characters don't trigger combinations
 		// while keyboard is captured by text input
-		if (io->AnyKeyPressed)
-			ExecuteFirstMatchingCombination(combinationTree(), io->WantCaptureKeyboard);
+		if (io()->AnyKeyPressed)
+			ExecuteFirstMatchingCombination(combinationTree(), io()->WantCaptureKeyboard);
 
 		// Handle OnInput actions
-		for (auto [id,handler] : handlers)
+		for (auto [id,handler] : handlers())
 			handler();
 
-		continuousInputOneSecondDelay.UpdateOld(io->AnyKeyPressed);
-		continuousInputNoDelay.UpdateOld(io->AnyKeyPressed);
+		continuousInputOneSecondDelay().UpdateOld(io()->AnyKeyPressed);
+		continuousInputNoDelay().UpdateOld(io()->AnyKeyPressed);
 	}
 
-	bool Init() {
-		isRawMouseMotionSupported = glfwRawMouseMotionSupported();
+	static bool Init() {
+		isRawMouseMotionSupported() = glfwRawMouseMotionSupported();
 
 		return true;
 	}
 };
 
 class KeyBinding {
-public:
-	Input* input;
-	Cross* cross;
-
-	float crossScaleSpeed = 1;
-	float crossMinSize = 0.1;
-	float crossMaxSize = 100;
-
-
-	size_t AddHandler(std::function<void()> func) {
-		// 0 means it isn't assigned.
-		static size_t id = 1;
-
-		(new FuncCommand())->func = [id = id, input = input, func = func] {
-			input->handlers[id] = func;
-		};
-
-		return id++;
-	}
-	size_t AddHandler(std::function<void(Input*)> func) {
-		return AddHandler([i = input, func] { func(i); });
-	}
-	void RemoveHandler(size_t& id) {
-		auto cmd = new FuncCommand();
-		cmd->func = [id, input = input] {
-			input->handlers.erase(id);
-		};
-		id = 0;
-	}
-
-	void ResetFocus() {
-		AddHandler([i = input] {
-			if (i->IsDown(Key::Escape))
+	static void ResetFocus() {
+		Input::AddHandler([] {
+			if (Input::IsDown(Key::Escape))
 				ImGui::FocusWindow(NULL);
 			});
 	}
-	void BindInputToMovement() {
-		AddHandler([i = input] {
+	static void BindInputToMovement() {
+		Input::AddHandler([] {
 			// Enable or disable Mouse boundless mode 
 			// and reset movement
-			bool mouseBoundlessMode = i->IsPressed(Key::Modifier::Alt) || i->IsPressed(Key::Modifier::Shift) || i->IsPressed(Key::Modifier::Control);
+			bool mouseBoundlessMode = Input::IsPressed(Key::Modifier::Alt) || Input::IsPressed(Key::Modifier::Shift) || Input::IsPressed(Key::Modifier::Control);
 			Input::SetMouseBoundlessMode(mouseBoundlessMode && Input::IsCustomRenderImageActive().Get());
-			
-			i->movement = glm::vec3();
 
-			i->movement += i->MouseAxe * Settings::MouseSensivity().Get();
-			i->movement += i->ArrowAxe;
-			i->movement += i->NumpadAxe;
+			Input::movement() = glm::vec3();
+
+			Input::movement() += Input::MouseAxe() * Settings::MouseSensivity().Get();
+			Input::movement() += Input::ArrowAxe();
+			Input::movement() += Input::NumpadAxe();
+			});
+		Input::AddHandler([] {
+			if (Input::IsPressed(Key::Modifier::Alt)) {
+				if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty()) {
+					glm::vec3 v(0);
+					for (auto& o : ObjectSelection::Selected())
+						v += o.Get()->GetWorldPosition();
+					v /= ObjectSelection::Selected().size();
+					Scene::cross()->SetWorldPosition(v);
+				}
+				else if (Input::IsDown(Key::N0, true))
+					Scene::cross()->SetWorldPosition(glm::vec3());
+			}
+			else if (Input::IsPressed(Key::Modifier::Control)) {
+				if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty())
+					Scene::cross()->SetWorldRotation(ObjectSelection::Selected().begin()._Ptr->_Myval->GetWorldRotation());
+				else if (Input::IsDown(Key::N0, true))
+					Scene::cross()->SetWorldRotation(glm::quat(1, 0, 0, 0));
+			}
 			});
 	}
-	void Cross() {
+	static void Cross() {
 		// Resize cross.
-		AddHandler([i = input, c = cross, &sp = crossScaleSpeed, &min = crossMinSize, &max = crossMaxSize] {
-			bool isScaleUp = i->IsPressed(Key::N3, true);
-			bool isScaleDown = i->IsPressed(Key::N7, true);
+		Input::AddHandler([&sp = crossScaleSpeed(), &min = crossMinSize(), &max = crossMaxSize()] {
+			bool isScaleUp = Input::IsPressed(Key::N3, true);
+			bool isScaleDown = Input::IsPressed(Key::N7, true);
 
 			if (isScaleUp == isScaleDown)
 				return;
 
 			if (isScaleUp) {
-				float newSize = c->size += sp;
+				float newSize = Scene::cross()->size += sp;
 				if (max < newSize)
-					c->size = max;
+					Scene::cross()->size = max;
 				else
-					c->size = newSize;
+					Scene::cross()->size = newSize;
 			}
 			else {
-				float newSize = c->size -= sp;
+				float newSize = Scene::cross()->size -= sp;
 				if (newSize < min)
-					c->size = min;
+					Scene::cross()->size = min;
 				else
-					c->size = newSize;
+					Scene::cross()->size = newSize;
 			}
 
-			c->ForceUpdateCache();
+			Scene::cross()->ForceUpdateCache();
 			});
 	}
-	bool Init() {
+
+public:
+	StaticFieldDefault(float, crossScaleSpeed, 1)
+	StaticFieldDefault(float, crossMinSize, .1f)
+	StaticFieldDefault(float, crossMaxSize, 100)
+
+	static bool Init() {
 		ResetFocus();
 		BindInputToMovement();
 		Cross();

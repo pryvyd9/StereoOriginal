@@ -1112,7 +1112,7 @@ class TransformToolWindow : Window, Attributes {
 			ImGui::DragFloat("scale", &tool->scale, 0.01f, 0, 0, "%.2f");
 			break;
 		case TransformToolMode::Rotate:
-			if (!tool->keyBinding->input->IsContinuousInputNoDelay())
+			if (!Input::IsContinuousInputNoDelay())
 				oldAngle = tool->angle;
 
 			ImGui::Separator();
