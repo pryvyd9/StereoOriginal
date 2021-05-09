@@ -321,6 +321,62 @@ public:
 
 		return true;
 	}
+
+	static const glm::vec3 GetRelativeRotation(const glm::vec3& defaultAngle) {
+		static glm::vec3 zero = glm::vec3();
+
+		if (!Input::IsPressed(Key::Modifier::Control) || Input::movement() == zero)
+			return defaultAngle;
+
+		// If all 3 axes are modified then don't apply such rotation.
+		// Quaternion can't rotate around 3 axes.
+		if (Input::movement().x && Input::movement().y && Input::movement().z)
+			return defaultAngle;
+
+		auto mouseThresholdMin = 0.8;
+		auto mouseThresholdMax = 1.25;
+		auto mouseAxe = Input::MouseAxe();
+		auto maxAxe = 0;
+
+		// Find non-zero axes
+		short t[2] = { 0,0 };
+		short n = 0;
+		for (short i = 0; i < 3; i++)
+			if (mouseAxe[i] != 0)
+				t[n] = i;
+
+		// Nullify weak axes (those with small values)
+		auto ratio = abs(mouseAxe[t[0]]) / abs(mouseAxe[t[1]]);
+		if (ratio < mouseThresholdMin)
+			mouseAxe[t[0]] = 0;
+		else if (ratio > mouseThresholdMax)
+			mouseAxe[t[1]] = 0;
+		// If 2 axes are used simultaneously it breaks the quaternion somehow.
+		else
+			mouseAxe = zero;
+
+		mouseAxe *= Settings::MouseSensivity().Get() * Input::MouseSpeed();
+
+		auto na = (Input::ArrowAxe() + Input::NumpadAxe() + mouseAxe) * Settings::RotationStep().Get();
+		return na;
+	}
+	static const glm::vec3 GetRelativeMovement(const glm::vec3& defaultMovement) {
+		static glm::vec3 zero = glm::vec3();
+
+		if (!Input::IsPressed(Key::Modifier::Alt) || Input::movement() == zero)
+			return defaultMovement;
+
+		return Input::movement() * Settings::TranslationStep().Get();
+	}
+	static const float GetNewScale(const float& currentScale) {
+		static glm::vec3 zero = glm::vec3();
+
+		if (!Input::IsPressed(Key::Modifier::Shift) || Input::movement() == zero)
+			return currentScale;
+
+		return currentScale + Input::movement().x * Settings::ScalingStep().Get();
+	}
+
 };
 
 class KeyBinding {

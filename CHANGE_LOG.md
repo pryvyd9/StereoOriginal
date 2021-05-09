@@ -49,3 +49,6 @@ Now Release copies (CopyIfNewer) necessary files to output so the folder can be 
 Added Publish configuration that cleans output before build and copies only necessary files without any debug symbols;
 # 0.13.3
 - property/event overhaul;
+# 0.14
+- introduced independent cross movement and rotation;
+- isolated main math in separate static classes;

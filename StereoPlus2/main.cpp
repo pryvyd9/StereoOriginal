@@ -136,21 +136,19 @@ int main() {
 		return false;
 
 	cross.Name = "Cross";
-	cross.GUIPositionEditHandler = [&cross, i = &gui.input]() { i->movement() += cross.GUIPositionEditDifference; };
+	cross.GUIPositionEditHandler = [] { Input::movement() += Scene::cross()->GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = Input::AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingHandler = [&cross, i = &gui.input]() {
-		if (!Input::IsPressed(Key::Modifier::Alt) && cross.GUIPositionEditDifference == glm::vec3())
-			return;
+	cross.keyboardBindingHandler = [] {
+		auto relativeRotation = Input::GetRelativeRotation(glm::vec3());
+		auto relativeMovement = Input::GetRelativeMovement(Scene::cross()->GUIPositionEditDifference);
 
-		auto m = i->movement() * Settings::TranslationStep().Get();
-		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			m = glm::rotate(cross.GetWorldRotation(), m);
-
-		cross.SetWorldPosition(cross.GetWorldPosition() + m);
+		if (relativeRotation != glm::vec3())
+			Transform::Rotate(Scene::cross()->GetWorldPosition(), relativeRotation, &Scene::cross().Get());
+		if (relativeMovement != glm::vec3())
+			Transform::Translate(relativeMovement, &Scene::cross().Get());
 	};
 	cross.keyboardBindingHandlerId = Input::AddHandler(cross.keyboardBindingHandler);
 
-	ToolPool::KeyBinding() = &gui.keyBinding;
 	if (!ToolPool::Init())
 		return false;
 

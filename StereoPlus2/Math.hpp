@@ -78,7 +78,7 @@ class Transform {
 	}
 
 public:
-	static void Scale(const glm::vec3& center, const float& oldScale, const float& scale, std::list<PON>& targets) {
+	static void Scale(const glm::vec3& center, const float& oldScale, const float& scale, std::vector<PON>& targets) {
 		for (auto& target : targets) {
 			target->SetWorldPosition((target->GetWorldPosition() - center) / oldScale * scale + center);
 			for (size_t i = 0; i < target->GetVertices().size(); i++)
@@ -94,7 +94,7 @@ public:
 
 		cross->SetWorldPosition(cross->GetWorldPosition() + transformVector);
 	}
-	static void Translate(const glm::vec3& transformVector, std::list<PON>& targets, SceneObject* cross) {
+	static void Translate(const glm::vec3& transformVector, std::vector<PON>& targets, SceneObject* cross) {
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
 		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
@@ -136,7 +136,7 @@ public:
 
 		cross->SetLocalRotation(r * cross->GetLocalRotation());
 	}
-	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::list<PON>& targets, SceneObject* cross) {
+	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::vector<PON>& targets, SceneObject* cross) {
 		glm::vec3 axe;
 		float angle;
 
@@ -164,6 +164,8 @@ public:
 			target->SetWorldRotation(r * target->GetWorldRotation());
 		}
 	}
+
+
 };
 
 struct Convert {
