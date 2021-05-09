@@ -47,9 +47,10 @@ For more details see Tools.
 - Esc - exit text inputting mode. Remove focus from all widgets. When no widget is active - deactivates tools;
 - Ctrl+Z - undo;
 - Ctrl+Y - redo;
-- Ctrl+Q - toggle discrete movement mode;
-- Ctrl+W - switch space mode (Local/World);
 - Ctrl+D - deselect all scene objects;
+- Q - toggle discrete movement mode;
+- W - switch space mode (Local/World);
+- C - switch target mode (Object/Pivot);
 - T - transformation tool;
 - P - pen tool;
 - E - extrusion tool;

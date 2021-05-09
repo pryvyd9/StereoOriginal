@@ -18,14 +18,19 @@ enum class ExtrusionEditingToolMode {
 	Step,
 };
 
-enum class ObjectMode {
-	Object,
-	Vertex,
-};
+//enum class ObjectMode {
+//	Object,
+//	Vertex,
+//};
 
 enum class SpaceMode {
 	World,
 	Local,
+};
+
+enum class TargetMode {
+	Object,
+	Pivot,
 };
 
 enum class TransformToolMode {
@@ -42,10 +47,13 @@ enum class MoveCoordinateAction {
 
 class Settings {
 public:
-	StaticProperty(::ObjectMode, ObjectMode)
+	//StaticProperty(::ObjectMode, ObjectMode)
 	StaticProperty(::SpaceMode, SpaceMode)
+	StaticProperty(::TargetMode, TargetMode)
 	StaticProperty(::MoveCoordinateAction, MoveCoordinateAction)
 	StaticProperty(bool, ShouldDetectPosition)
+
+	StaticProperty(bool, ShouldRestrictTargetModeToPivot)
 
 	// Settings
 	StaticProperty(std::string, Language)

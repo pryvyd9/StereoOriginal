@@ -115,4 +115,7 @@ Provides relevant localization as quickly as possible.
 Receives a collestion of scene objects and draw them either dim or bright depending on their selections status.
 
 ### Windows
-Middlemen between GUI and tools/objects
+Middlemen between GUI and tools/objects.
+
+### Math
+Contains main math functions that made this program possible.

@@ -1021,6 +1021,8 @@ public:
 
 class TransformToolWindow : Window, Attributes {
 	int maxPrecision = 5;
+	bool isRelativeMode;
+
 	glm::vec3 oldAngle = glm::vec3();
 
 	std::string GetName(SceneObject* obj) {
@@ -1095,9 +1097,9 @@ class TransformToolWindow : Window, Attributes {
 		switch (transformToolModeCopy) {
 		case TransformToolMode::Translate:
 			ImGui::Separator();
-			ImGui::Checkbox("Relative", &tool->isRelativeMode);
+			ImGui::Checkbox("Relative", &isRelativeMode);
 
-			if (tool->isRelativeMode)
+			if (isRelativeMode)
 				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 1);
 			else {
 				auto crossPosCopy = tool->cross->GetLocalPosition();
@@ -1110,7 +1112,7 @@ class TransformToolWindow : Window, Attributes {
 			ImGui::DragFloat("scale", &tool->scale, 0.01f, 0, 0, "%.2f");
 			break;
 		case TransformToolMode::Rotate:
-			if (!tool->keyBinding->input->IsContinuousInputNoDelay())
+			if (!Input::IsContinuousInputNoDelay())
 				oldAngle = tool->angle;
 
 			ImGui::Separator();
@@ -1266,7 +1268,8 @@ class ToolWindow : Window {
 	}
 
 public:
-	AttributesWindow* attributesWindow;
+	StaticProperty(::AttributesWindow*, AttributesWindow)
+	StaticProperty(std::function<void()>, ApplyDefaultTool)
 
 	template<typename T>
 	using unbindTool = decltype(std::declval<T>().UnbindTool());
@@ -1274,23 +1277,23 @@ public:
 	template<typename T>
 	static constexpr bool hasUnbindTool = is_detected_v<unbindTool, T>;
 
-	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>> * = nullptr>
-	void ApplyTool() {
+	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>>* = nullptr>
+	static void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
 		tool->tool->Activate();
 
 		auto targetWindow = new SceneObjectPropertiesWindow();
-		attributesWindow->UnbindTarget();
-		attributesWindow->UnbindTool();
-		attributesWindow->BindTool((Attributes*)tool);
-		attributesWindow->BindTarget((Attributes*)targetWindow);
+		AttributesWindow()->UnbindTarget();
+		AttributesWindow()->UnbindTool();
+		AttributesWindow()->BindTool((Attributes*)tool);
+		AttributesWindow()->BindTarget((Attributes*)targetWindow);
 
 		auto deleteAllhandlerId = Scene::OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindTool();
 		};
-		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId] {
+		AttributesWindow()->onUnbindTool = [t = tool, d = deleteAllhandlerId] {
 			t->tool->UnbindTool();
 			Scene::OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
@@ -1298,15 +1301,8 @@ public:
 		};
 	}
 
-
-	void Unbind() {
-		attributesWindow->UnbindTarget();
-		attributesWindow->UnbindTool();
-	}
-
-
 	virtual bool Init() {
-		if (attributesWindow == nullptr)
+		if (!AttributesWindow().IsAssigned())
 		{
 			log.Error("AttributesWindow was null");
 			return false;
@@ -1329,25 +1325,25 @@ public:
 	virtual bool Design() {
 		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
 		ImGui::Begin(windowName.c_str());
-
-		if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
-			polyLineTool.Create();
-		if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
-			sineCurveTool.Create();
-		if (ImGui::Button(LocaleProvider::GetC("object:group")))
-			groupObjectTool.Create();
-
-		ImGui::Separator();
-
-		if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
-			ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
-		if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
-			ApplyTool<PenToolWindow, PenTool>();
-		if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
-			ApplyTool<SinePenToolWindow, SinePenTool>();
-		if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
-			ApplyTool<TransformToolWindow, TransformTool>();
-
+		{
+			if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
+				polyLineTool.Create();
+			if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
+				sineCurveTool.Create();
+			if (ImGui::Button(LocaleProvider::GetC("object:group")))
+				groupObjectTool.Create();
+		}
+		{
+			ImGui::Separator();
+			if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
+				ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
+				ApplyTool<PenToolWindow, PenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
+				ApplyTool<SinePenToolWindow, SinePenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
+				ApplyTool<TransformToolWindow, TransformTool>();
+		}
 		{
 			ImGui::Separator();
 			auto v = (int)Settings::SpaceMode().Get();
@@ -1356,15 +1352,25 @@ public:
 			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
 				Settings::SpaceMode() = SpaceMode::Local;
 		}
-		//{
-		//	ImGui::Separator();
-		//	ImGui::Text(LocaleProvider::GetC("actionOnParentChange"));
-		//	static int v = (int)Settings::MoveCoordinateAction().Get();
-		//	if (ImGui::RadioButton(LocaleProvider::GetC("adaptCoordinates"), &v, (int)MoveCoordinateAction::Adapt))
-		//		Settings::MoveCoordinateAction() = MoveCoordinateAction::Adapt;
-		//	if (ImGui::RadioButton(LocaleProvider::GetC("none"), &v, (int)MoveCoordinateAction::None))
-		//		Settings::MoveCoordinateAction() = MoveCoordinateAction::None;
-		//}
+		{
+			ImGui::Separator();
+			if (Settings::ShouldRestrictTargetModeToPivot().Get()) {
+				auto v = (int)TargetMode::Pivot;
+				ImGui::Extensions::PushActive(false);
+				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+					Settings::TargetMode() = TargetMode::Object;
+				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+					Settings::TargetMode() = TargetMode::Pivot;
+				ImGui::Extensions::PopActive();
+			}
+			else {
+				auto v = (int)Settings::TargetMode().Get();
+				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+					Settings::TargetMode() = TargetMode::Object;
+				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+					Settings::TargetMode() = TargetMode::Pivot;
+			}
+		}
 
 		ImGui::Separator();
 		if (bool v = Settings::UseDiscreteMovement().Get();
@@ -1550,7 +1556,7 @@ public:
 		}
 
 		if (auto v = Settings::StateBufferLength().Get();
-			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 0.01, 0.1, 4))
+			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 1, 10, 4))
 			Settings::StateBufferLength() = v;
 		if (auto v = Settings::Language().Get();
 			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {

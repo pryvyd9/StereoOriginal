@@ -159,7 +159,6 @@ public:
 
 	bool Init()
 	{
-		keyBinding.input = &input;
 		input.GLFWindow() = glWindow;
 
 		
@@ -221,7 +220,7 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("open-sans.ttf", 20);
 		//IM_ASSERT(font != NULL);
 
-		input.io = io;
+		input.io() = io;
 		if (!input.Init() ||
 			!keyBinding.Init())
 			return false;

@@ -8,6 +8,7 @@
 #include "DomainUtils.hpp"
 #include <glm/gtx/vector_angle.hpp>
 #include <regex>
+#include "Math.hpp"
 
 class GroupObject : public SceneObject {
 public:
@@ -224,30 +225,7 @@ class SineCurve : public LeafObject {
 	}
 
 	void updateCacheAsPolyLine(int from, int to) {
-		auto size = to - from;
-		std::vector<glm::vec3> vs;
-
-		for (size_t i = 0; i < size; i++)
-			vs.push_back(vertices[i + from]);
-
-		for (auto v : vs)
-			verticesCache.push_back(v);
-	}
-
-	glm::quat getRotation(glm::vec3 ac, glm::vec3 ab) {
-		auto zPlaneLocal = glm::cross(ac, ab);
-		zPlaneLocal = glm::normalize(zPlaneLocal);
-
-		auto zPlaneGlobal = glm::vec3(0, 0, 1);
-
-		auto r1 = glm::rotation(zPlaneGlobal, zPlaneLocal);
-
-		auto acRotatedBack = glm::rotate(glm::inverse(r1), ac);
-		acRotatedBack = glm::normalize(acRotatedBack);
-
-		auto r2 = glm::rotation(glm::vec3(1, 0, 0), acRotatedBack);
-		auto r = r1 * r2;
-		return r;
+		verticesCache.insert(verticesCache.end(), vertices.begin() + from, vertices.begin() + to);
 	}
 
 	/// <summary>
@@ -278,74 +256,16 @@ void UpdateCache() {
 		return;
 	}
 
-	size_t i = 0;
-
-	for (; i < vertices.size(); i += 2)
+	for (size_t i = 0; i < vertices.size(); i += 2)
 	{
 		if (i + 2 >= vertices.size())
 		{
 			updateCacheAsPolyLine(i + 1, vertices.size());
 			break;
 		}
-
-		auto ac = vertices[i + 2] - vertices[i];
-		auto ab = vertices[i + 1] - vertices[i];
-		auto bc = vertices[i + 2] - vertices[i + 1];
-
-		auto acUnit = glm::normalize(ac);
-		auto abadScalarProjection = glm::dot(ab, acUnit);
-		auto db = ab - acUnit * abadScalarProjection;
-		auto abdbScalarProjection = glm::dot(ab, glm::normalize(db));
-
-		if (isnan(abadScalarProjection) || isnan(abdbScalarProjection)) {
-			updateCacheAsPolyLine(i, i + 2);
-			break;
-		}
-
-		auto r = getRotation(ac, ab);
 		
-		if (isnan(r.x) || isnan(r.y) || isnan(r.z) || isnan(r.w)) {
-			updateCacheAsPolyLine(i, i + 2);
-			break;
-		}
-
-		auto rotatedY = glm::rotate(r, glm::vec3(0, 1, 0));
-		auto sameDirection = glm::dot(glm::normalize(db), rotatedY) > 0;
-
-		auto acLength = glm::length(ac);
-		auto abLength = glm::length(ab);
-		auto bdLength = abdbScalarProjection;
-		auto adLength = abadScalarProjection;
-		auto dcLength = acLength - adLength;
-
-		static const auto hpi = 3.1415926 / 2.;
-
-		auto bcLength = glm::length(bc);
-
-		int abNumber = abLength / 5 + 1;
-		int bcNumber = bcLength / 5 + 1;
-
-		std::vector<glm::vec3> points;
-
-		for (size_t j = 0; j < abNumber; j++) {
-			auto x = -hpi + hpi * j / (float)abNumber;
-			auto nx = j / (float)abNumber * adLength;
-			auto ny = cos(x) * bdLength;
-			points.push_back(glm::vec3(nx, ny, 0));
-		}
-		for (size_t j = 0; j <= bcNumber; j++) {
-			auto x = hpi * j / (float)bcNumber;
-			auto nx = j / (float)bcNumber * dcLength + adLength;
-			auto ny = cos(x) * bdLength;
-			points.push_back(glm::vec3(nx, ny, 0));
-		}
-
-		if (!sameDirection)
-			for (size_t j = 0; j < points.size(); j++)
-				points[j].y = -points[j].y;
-
-		for (auto p : points)
-			verticesCache.push_back(glm::rotate(r, p) + vertices[i]);
+		auto points = Build::Sine(&vertices[i]);
+		verticesCache.insert(verticesCache.end(), points.begin(), points.end());
 	}
 
 	CascadeTransform(verticesCache);
@@ -826,93 +746,11 @@ class Camera : public LeafObject
 		return positionModifier + GetLocalPosition();
 	}
 
-	glm::vec3 getLeft(const glm::vec3& posMillimeters) {
-		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
-		auto cameraPos = GetPos();
-		float denominator = cameraPos.z - pos.z;
-		return glm::vec3(
-			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
-			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-			0
-		);
-	}
-	glm::vec3 getRight(const glm::vec3& posMillimeters) {
-		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
-		auto cameraPos = GetPos();
-		float denominator = cameraPos.z - pos.z;
-		return glm::vec3(
-			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
-			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-			0
-		);
-	}
-
-
 	Event<> onPropertiesChanged;
 
 	virtual void HandleBeforeUpdate() override {
 		onPropertiesChanged.Invoke();
 	}
-
-	// Millimeters to pixels
-	static glm::vec3 ConvertMillimetersToPixels(const glm::vec3& vMillimeters) {
-		static float inchToMillimeter = 0.0393701;
-		// vMillimiters[millimiter]
-		// inchToMillemeter[inch/millimeter]
-		// PPI[pixel/inch]
-		// vMillimiters*PPI*inchToMillemeter[millimeter*(pixel/inch)*(inch/millimeter) = millimeter*(pixel/millimeter) = pixel]
-		auto vPixels = Settings::PPI().Get() * inchToMillimeter * vMillimeters;
-		return vPixels;
-	}
-
-	// Millimeters to [-1;1]
-	// World center-centered
-	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
-	static glm::vec3 ConvertMillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels, const float& viewSizeZMillimeters) {
-		static float inchToMillimeter = 0.0393701;
-		auto vsph = viewSizePixels / 2.f;
-		auto vszmh = viewSizeZMillimeters / 2.f;
-
-		auto vView = glm::vec3(
-			vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
-			vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
-			vMillimeters.z / vszmh
-		);
-		return vView;
-	}
-
-	// Millimeters to [-1;1]
-	// World center-centered
-	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
-	static float ConvertMillimetersToViewCoordinates(const float& vMillimeters, const float& viewSizePixels) {
-		static float inchToMillimeter = 0.0393701;
-		auto vsph = viewSizePixels / 2.f;
-
-		auto vView = vMillimeters * Settings::PPI().Get() * inchToMillimeter / vsph;
-		return vView;
-	}
-
-
-	// Pixels to Millimeters
-	static glm::vec3 ConvertPixelsToMillimeters(const glm::vec3& vPixels) {
-		static float inchToMillimeter = 0.0393701;
-		// vPixels[pixel]
-		// inchToMillimeter[inch/millimeter]
-		// PPI[pixel/inch]
-		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
-		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
-		return vMillimiters;
-	}
-	static glm::vec2 ConvertPixelsToMillimeters(const glm::vec2& vPixels) {
-		static float inchToMillimeter = 0.0393701;
-		// vPixels[pixel]
-		// inchToMillimeter[inch/millimeter]
-		// PPI[pixel/inch]
-		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
-		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
-		return vMillimiters;
-	}
-
 public:
 	// Pixels
 	ReadonlyProperty<glm::vec2> ViewSize;
@@ -925,9 +763,9 @@ public:
 	Camera() {
 		Name = "camera";
 		EyeToCenterDistance.OnChanged() += [&](const float& v) {
-			eyeToCenterDistance = ConvertMillimetersToViewCoordinates(v, ViewSize->x); };
+			eyeToCenterDistance = Convert::MillimetersToViewCoordinates(v, ViewSize->x); };
 		PositionModifier.OnChanged() += [&](const glm::vec3& v) {
-			positionModifier = ConvertMillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
+			positionModifier = Convert::MillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
 
 		ViewSize.OnChanged() += [&](const glm::vec2 v) {
 			// Trigger conversion.
@@ -941,10 +779,10 @@ public:
 	}
 
 	glm::vec3 GetLeft(const glm::vec3& v) {
-		return getLeft(v);
+		return Stereo::GetLeft(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
 	}
 	glm::vec3 GetRight(const glm::vec3& v) {
-		return getRight(v);
+		return Stereo::GetRight(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
 	}
 
 
@@ -957,7 +795,7 @@ public:
 
 			ImGui::Extensions::PushActive(false);
 			ImGui::DragFloat2("view size", (float*)&ViewSize.Get());
-			auto viewSizeMillimeters = ConvertPixelsToMillimeters(ViewSize.Get());
+			auto viewSizeMillimeters = Convert::PixelsToMillimeters(ViewSize.Get());
 			ImGui::DragFloat2("view size millimeters", (float*)(&viewSizeMillimeters), 1, 0, 0, "%.1f");
 			ImGui::Extensions::PopActive();
 

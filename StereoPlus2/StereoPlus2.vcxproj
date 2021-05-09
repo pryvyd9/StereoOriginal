@@ -163,6 +163,7 @@
     <ClInclude Include="Json.hpp" />
     <ClInclude Include="Key.hpp" />
     <ClInclude Include="Localization.hpp" />
+    <ClInclude Include="Math.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="SceneObject.hpp" />
     <ClInclude Include="SettingsLoader.hpp" />
@@ -241,6 +242,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
     <None Include="settings.json" />
