@@ -1301,12 +1301,6 @@ public:
 		};
 	}
 
-	/*void Unbind() {
-		attributesWindow->UnbindTarget();
-		attributesWindow->UnbindTool();
-	}*/
-
-
 	virtual bool Init() {
 		if (!AttributesWindow().IsAssigned())
 		{
@@ -1360,11 +1354,22 @@ public:
 		}
 		{
 			ImGui::Separator();
-			auto v = (int)Settings::TargetMode().Get();
-			if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
-				Settings::TargetMode() = TargetMode::Object;
-			if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
-				Settings::TargetMode() = TargetMode::Pivot;
+			if (Settings::ShouldRestrictTargetModeToPivot().Get()) {
+				auto v = (int)TargetMode::Pivot;
+				ImGui::Extensions::PushActive(false);
+				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+					Settings::TargetMode() = TargetMode::Object;
+				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+					Settings::TargetMode() = TargetMode::Pivot;
+				ImGui::Extensions::PopActive();
+			}
+			else {
+				auto v = (int)Settings::TargetMode().Get();
+				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+					Settings::TargetMode() = TargetMode::Object;
+				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+					Settings::TargetMode() = TargetMode::Pivot;
+			}
 		}
 
 		ImGui::Separator();

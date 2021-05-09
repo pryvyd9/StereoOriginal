@@ -304,6 +304,16 @@ public:
 		auto ab = vertices[1] - vertices[0];
 		auto bc = vertices[2] - vertices[1];
 		
+		auto acLength = glm::length(ac);
+		auto abLength = glm::length(ab);
+		auto bcLength = glm::length(bc);
+
+		static const auto E = glm::epsilon<float>();
+
+		// Draw straight line if 2 vertices are at the same location.
+		if (bcLength < E || abLength < E || acLength < E)
+			return { vertices[0], vertices[1], vertices[2] };
+
 		auto acUnit = glm::normalize(ac);
 		auto abadScalarProjection = glm::dot(ab, acUnit);
 		auto dbUnit = glm::normalize(ab - acUnit * abadScalarProjection);
@@ -317,15 +327,11 @@ public:
 		if (isnan(r.x) || isnan(r.y) || isnan(r.z) || isnan(r.w))
 			return { vertices[0], vertices[1], vertices[2] };
 
-		auto acLength = glm::length(ac);
-		auto abLength = glm::length(ab);
 		auto bdLength = abdbScalarProjection;
 		auto adLength = abadScalarProjection;
 		auto dcLength = acLength - adLength;
 
 		static const auto hpi = glm::half_pi<float>();
-
-		auto bcLength = glm::length(bc);
 
 		int abNumber = abLength / 5 + 1;
 		int bcNumber = bcLength / 5 + 1;

@@ -420,6 +420,7 @@ class PenTool : public EditingTool {
 			StateBuffer::Commit();
 			wasCommitDone = true;
 		};
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 	}
 
@@ -470,12 +471,15 @@ public:
 			StateBuffer::Commit();
 			wasCommitDone = true;
 		};
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
 		if (!lockCreateNewObjectHandlerId)
 			Input::RemoveHandler(createNewObjectHandlerId);
+		
+		Settings::ShouldRestrictTargetModeToPivot() = false;
 
 		if (!target.HasValue())
 			return true;
@@ -866,9 +870,13 @@ public:
 
 			cross->SetWorldPosition(pos);
 			};
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
 		switch (mode)
 		{
 		case  Mode::Immediate:
@@ -1372,7 +1380,7 @@ class SinePenTool : public EditingTool {
 			if (Settings::ShouldMoveCrossOnSinePenModeChange().Get())
 				moveCrossToVertice(currentVertice);
 		};
-
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 	}
 
 public:
@@ -1422,12 +1430,18 @@ public:
 			StateBuffer::Commit();
 			wasCommitDone = true;
 		};
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
+		// On unbinding objects the tool goes to 
+		// creating new object awaiting state.
+		// But if the tool is unbind then it should be cancelled.
 		if (!lockCreateNewObjectHandlerId)
 			Input::RemoveHandler(createNewObjectHandlerId);
+
+		Settings::ShouldRestrictTargetModeToPivot() = false;
 
 		if (!target.HasValue())
 			return true;
@@ -1449,12 +1463,6 @@ public:
 	}
 	virtual void UnbindTool() override {
 		UnbindSceneObjects();
-
-		// On unbinding objects the tool goes to 
-		// creating new object awaiting state.
-		// But if the tool is unbind then it should be cancelled.
-		if (!lockCreateNewObjectHandlerId)
-			Input::RemoveHandler(createNewObjectHandlerId);
 	}
 
 	SceneObject* GetTarget() {

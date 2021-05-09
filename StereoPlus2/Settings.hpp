@@ -53,6 +53,8 @@ public:
 	StaticProperty(::MoveCoordinateAction, MoveCoordinateAction)
 	StaticProperty(bool, ShouldDetectPosition)
 
+	StaticProperty(bool, ShouldRestrictTargetModeToPivot)
+
 	// Settings
 	StaticProperty(std::string, Language)
 	StaticProperty(int, StateBufferLength)
