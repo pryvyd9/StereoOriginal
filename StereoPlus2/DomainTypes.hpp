@@ -5,7 +5,10 @@
 #include <set>
 #include <array>
 #include "ImGuiExtensions.hpp"
-#include "SceneObject.hpp"
+#include "DomainUtils.hpp"
+#include <glm/gtx/vector_angle.hpp>
+#include <regex>
+#include "Math.hpp"
 
 class GroupObject : public SceneObject {
 public:
@@ -36,7 +39,7 @@ public:
 
 };
 
-class StereoPolyLine : public LeafObject {
+class PolyLine : public LeafObject {
 	std::vector<glm::vec3> vertices;
 
 	std::vector<glm::vec3> verticesCache;
@@ -71,13 +74,13 @@ class StereoPolyLine : public LeafObject {
 
 public:
 
-	StereoPolyLine() {}
-	StereoPolyLine(const StereoPolyLine* copy) : LeafObject(copy){
+	PolyLine() {}
+	PolyLine(const PolyLine* copy) : LeafObject(copy){
 		vertices = copy->vertices;
 	}
 
 	virtual ObjectType GetType() const override {
-		return StereoPolyLineT;
+		return PolyLineT;
 	}
 	virtual const std::vector<glm::vec3>& GetVertices() const override {
 		return vertices;
@@ -177,9 +180,213 @@ public:
 	}
 
 	SceneObject* Clone() const override {
-		return new StereoPolyLine(this);
+		return new PolyLine(this);
 	}
-	StereoPolyLine& operator=(const StereoPolyLine& o) {
+	PolyLine& operator=(const PolyLine& o) {
+		vertices = o.vertices;
+		LeafObject::operator=(o);
+		return *this;
+	}
+};
+
+class SineCurve : public LeafObject {
+	const Log Logger = Log::For<SineCurve>();
+
+	std::vector<glm::vec3> vertices;
+	bool isPositionCreated = false;
+
+	std::vector<glm::vec3> verticesCache;
+
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) override {
+		UpdateCache();
+
+		leftBuffer = std::vector<glm::vec3>(verticesCache.size());
+		rightBuffer = std::vector<glm::vec3>(verticesCache.size());
+		for (size_t i = 0; i < verticesCache.size(); i++) {
+			leftBuffer[i] = toLeft(verticesCache[i]);
+			rightBuffer[i] = toRight(verticesCache[i]);
+		}
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	void updateCacheAsPolyLine() {
+		verticesCache = vertices;
+		CascadeTransform(verticesCache);
+		shouldUpdateCache = false;
+	}
+
+	void updateCacheAsPolyLine(int from, int to) {
+		verticesCache.insert(verticesCache.end(), vertices.begin() + from, vertices.begin() + to);
+	}
+
+	/// <summary>
+	///    B
+	///  / |  \
+	/// A--D---C
+	/// </summary>
+void UpdateCache() {
+	if (vertices.size() == 0)
+		return;
+
+	verticesCache = std::vector<glm::vec3>();
+
+	if (!isPositionCreated) {
+		isPositionCreated = true;
+
+		// Requests a redundant cache update.
+		SetWorldPosition(vertices[0]);
+	}
+
+	if (vertices.size() < 3) {
+		updateCacheAsPolyLine(0, vertices.size());
+		CascadeTransform(verticesCache);
+
+		// Remove all cache update requests.
+		shouldUpdateCache = false;
+
+		return;
+	}
+
+	for (size_t i = 0; i < vertices.size(); i += 2)
+	{
+		if (i + 2 >= vertices.size())
+		{
+			updateCacheAsPolyLine(i + 1, vertices.size());
+			break;
+		}
+		
+		auto points = Build::Sine(&vertices[i]);
+		verticesCache.insert(verticesCache.end(), points.begin(), points.end());
+	}
+
+	CascadeTransform(verticesCache);
+
+	// Remove all cache update requests.
+	shouldUpdateCache = false;
+	return;
+}
+
+public:
+
+	SineCurve() {
+	}
+	SineCurve(const SineCurve* copy) : LeafObject(copy) {
+		vertices = copy->vertices;
+	}
+
+	virtual ObjectType GetType() const override {
+		return SineCurveT;
+	}
+	virtual const std::vector<glm::vec3>& GetVertices() const override {
+		return vertices;
+	}
+
+	virtual void AddVertice(const glm::vec3& v) override {
+		HandleBeforeUpdate();
+		vertices.push_back(v);
+		shouldUpdateCache = true;
+	}
+	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
+		for (auto v : vs)
+			AddVertice(v);
+	}
+	virtual void SetVertice(size_t index, const glm::vec3& v) override {
+		HandleBeforeUpdate();
+		vertices[index] = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVerticeX(size_t index, const float& v) override {
+		HandleBeforeUpdate();
+		vertices[index].x = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVerticeY(size_t index, const float& v) override {
+		HandleBeforeUpdate();
+		vertices[index].y = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVerticeZ(size_t index, const float& v) override {
+		HandleBeforeUpdate();
+		vertices[index].z = v;
+		shouldUpdateCache = true;
+	}
+	virtual void SetVertices(const std::vector<glm::vec3>& vs) override {
+		HandleBeforeUpdate();
+		vertices.clear();
+		for (auto v : vs)
+			AddVertice(v);
+		shouldUpdateCache = true;
+	}
+
+	virtual void RemoveVertice() override {
+		HandleBeforeUpdate();
+		if (vertices.size() > 0)
+			vertices.pop_back();
+		shouldUpdateCache = true;
+	}
+
+	virtual void DesignProperties() override {
+		if (ImGui::TreeNodeEx("polyline", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Indent(propertyIndent);
+
+			std::stringstream ss;
+			ss << (vertices.size() > 0 ? vertices.size() - 1 : 0);
+
+			ImGui::LabelText("line count", ss.str().c_str());
+
+			ImGui::Unindent(propertyIndent);
+			ImGui::TreePop();
+		}
+		SceneObject::DesignProperties();
+	}
+
+	virtual void Reset() override {
+		vertices.clear();
+		SceneObject::Reset();
+	}
+
+	virtual void DrawLeft(GLuint shader) override {
+		if (verticesCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
+	}
+	virtual void DrawRight(GLuint shader) override {
+		if (verticesCache.size() < 2)
+			return;
+
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
+	}
+
+	SceneObject* Clone() const override {
+		return new SineCurve(this);
+	}
+	SineCurve& operator=(const SineCurve& o) {
 		vertices = o.vertices;
 		LeafObject::operator=(o);
 		return *this;
@@ -529,7 +736,7 @@ public:
 	}
 };
 
-class StereoCamera : public LeafObject
+class Camera : public LeafObject
 {
 	// View coordinates
 	float eyeToCenterDistance;
@@ -539,113 +746,31 @@ class StereoCamera : public LeafObject
 		return positionModifier + GetLocalPosition();
 	}
 
-	glm::vec3 getLeft(const glm::vec3& posMillimeters) {
-		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
-		auto cameraPos = GetPos();
-		float denominator = cameraPos.z - pos.z;
-		return glm::vec3(
-			(pos.x * cameraPos.z - pos.z * (cameraPos.x - eyeToCenterDistance)) / denominator,
-			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-			0
-		);
-	}
-	glm::vec3 getRight(const glm::vec3& posMillimeters) {
-		auto pos = ConvertMillimetersToViewCoordinates(posMillimeters, ViewSize.Get(), viewSizeZ);
-		auto cameraPos = GetPos();
-		float denominator = cameraPos.z - pos.z;
-		return glm::vec3(
-			(pos.x * cameraPos.z - pos.z * (cameraPos.x + eyeToCenterDistance)) / denominator,
-			(cameraPos.z * -pos.y + cameraPos.y * pos.z) / denominator,
-			0
-		);
-	}
-
-
 	Event<> onPropertiesChanged;
 
 	virtual void HandleBeforeUpdate() override {
 		onPropertiesChanged.Invoke();
 	}
-
-	// Millimeters to pixels
-	static glm::vec3 ConvertMillimetersToPixels(const glm::vec3& vMillimeters) {
-		static float inchToMillimeter = 0.0393701;
-		// vMillimiters[millimiter]
-		// inchToMillemeter[inch/millimeter]
-		// PPI[pixel/inch]
-		// vMillimiters*PPI*inchToMillemeter[millimeter*(pixel/inch)*(inch/millimeter) = millimeter*(pixel/millimeter) = pixel]
-		auto vPixels = Settings::PPI().Get() * inchToMillimeter * vMillimeters;
-		return vPixels;
-	}
-
-	// Millimeters to [-1;1]
-	// World center-centered
-	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
-	static glm::vec3 ConvertMillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels, const float& viewSizeZMillimeters) {
-		static float inchToMillimeter = 0.0393701;
-		auto vsph = viewSizePixels / 2.f;
-		auto vszmh = viewSizeZMillimeters / 2.f;
-
-		auto vView = glm::vec3(
-			vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
-			vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
-			vMillimeters.z / vszmh
-		);
-		return vView;
-	}
-
-	// Millimeters to [-1;1]
-	// World center-centered
-	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
-	static float ConvertMillimetersToViewCoordinates(const float& vMillimeters, const float& viewSizePixels) {
-		static float inchToMillimeter = 0.0393701;
-		auto vsph = viewSizePixels / 2.f;
-
-		auto vView = vMillimeters * Settings::PPI().Get() * inchToMillimeter / vsph;
-		return vView;
-	}
-
-
-	// Pixels to Millimeters
-	static glm::vec3 ConvertPixelsToMillimeters(const glm::vec3& vPixels) {
-		static float inchToMillimeter = 0.0393701;
-		// vPixels[pixel]
-		// inchToMillimeter[inch/millimeter]
-		// PPI[pixel/inch]
-		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
-		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
-		return vMillimiters;
-	}
-	static glm::vec2 ConvertPixelsToMillimeters(const glm::vec2& vPixels) {
-		static float inchToMillimeter = 0.0393701;
-		// vPixels[pixel]
-		// inchToMillimeter[inch/millimeter]
-		// PPI[pixel/inch]
-		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
-		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
-		return vMillimiters;
-	}
-
 public:
 	// Pixels
-	Property<glm::vec2> ViewSize;
+	ReadonlyProperty<glm::vec2> ViewSize;
 	// Millimeters
 	float viewSizeZ = 100;
 	Property<float> EyeToCenterDistance = 34;
 	Property<glm::vec3> PositionModifier = glm::vec3(0, 50, 600);
 	
 
-	StereoCamera() {
+	Camera() {
 		Name = "camera";
 		EyeToCenterDistance.OnChanged() += [&](const float& v) {
-			eyeToCenterDistance = ConvertMillimetersToViewCoordinates(v, ViewSize->x); };
+			eyeToCenterDistance = Convert::MillimetersToViewCoordinates(v, ViewSize->x); };
 		PositionModifier.OnChanged() += [&](const glm::vec3& v) {
-			positionModifier = ConvertMillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
+			positionModifier = Convert::MillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
 
 		ViewSize.OnChanged() += [&](const glm::vec2 v) {
 			// Trigger conversion.
-			EyeToCenterDistance.Set(EyeToCenterDistance.Get());
-			PositionModifier.Set(PositionModifier.Get());
+			EyeToCenterDistance = EyeToCenterDistance.Get();
+			PositionModifier = PositionModifier.Get();
 		};
 	}
 
@@ -654,10 +779,10 @@ public:
 	}
 
 	glm::vec3 GetLeft(const glm::vec3& v) {
-		return getLeft(v);
+		return Stereo::GetLeft(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
 	}
 	glm::vec3 GetRight(const glm::vec3& v) {
-		return getRight(v);
+		return Stereo::GetRight(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
 	}
 
 
@@ -670,7 +795,7 @@ public:
 
 			ImGui::Extensions::PushActive(false);
 			ImGui::DragFloat2("view size", (float*)&ViewSize.Get());
-			auto viewSizeMillimeters = ConvertPixelsToMillimeters(ViewSize.Get());
+			auto viewSizeMillimeters = Convert::PixelsToMillimeters(ViewSize.Get());
 			ImGui::DragFloat2("view size millimeters", (float*)(&viewSizeMillimeters), 1, 0, 0, "%.1f");
 			ImGui::Extensions::PopActive();
 
@@ -715,110 +840,240 @@ public:
 	
 };
 
-// Persistent object node
-class PON {
-	struct Node {
-		SceneObject* object = nullptr;
-		int referenceCount = 0;
-	};
-	Node* node = nullptr;
-	static std::map<SceneObject*, Node*>& existingNodes() {
-		static std::map<SceneObject*, Node*> v;
+class Scene {
+	Log Logger = Log::For<Scene>();
+
+	static Event<>& deleteAll() {
+		static Event<> v;
 		return v;
 	}
-	constexpr void Init(const PON& o) {
-		node = o.node;
-		if (node)
-			node->referenceCount++;
+
+	static const SceneObject* FindRoot(const SceneObject* o) {
+		auto parent = o->GetParent();
+		if (parent == nullptr)
+			return o;
+
+		return FindRoot(parent);
+	}
+	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
+		if (oldParent == nullptr) {
+			Log::For<Scene>().Error("Object doesn't have a parent");
+			return nullptr;
+		}
+
+		if (exists(*items, oldParent))
+			return FindNewParent(const_cast<SceneObject*>(oldParent->GetParent()), items);
+
+		return oldParent;
+	}
+	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
+		if (oldParent == nullptr)
+			return nullptr;
+
+		if (exists(disconnectedItemsToBeMoved, oldParent))
+			return oldParent;
+
+		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), disconnectedItemsToBeMoved);
+	}
+
+	static PON CreateRoot() {
+		auto r = new GroupObject();
+		r->Name = "Root";
+		return PON(r);
 	}
 public:
-	PON() {
-		node = nullptr;
+	// Stores all objects.
+	StaticProperty(std::vector<PON>, Objects);
+	StaticProperty(PON, root);
+	StaticProperty(Cross*, cross);
+	Camera* camera;
+
+	GLFWwindow* glWindow;
+
+
+
+	static IEvent<>& OnDeleteAll() {
+		return deleteAll();
 	}
-	PON(const PON& o) {
-		Init(o);
+
+	Scene() {
+		root() = CreateRoot();
 	}
-	PON(SceneObject* o) {
-		if (auto n = existingNodes().find(o);
-			n != existingNodes().end()) {
-			node = n->second;
+
+	static bool Insert(SceneObject* destination, SceneObject* obj) {
+		obj->SetParent(destination);
+		Objects().Get().push_back(obj);
+		return true;
+	}
+	static bool Insert(SceneObject* obj) {
+		obj->SetParent(root().Get().Get());
+		Objects().Get().push_back(obj);
+		return true;
+	}
+
+	static bool Delete(SceneObject* source, SceneObject* obj) {
+		if (!source) {
+			Log::For<Scene>().Warning("You cannot delete root object");
+			return true;
 		}
-		else {
-			node = new Node();
-			existingNodes()[o] = node;
-			Set(o);
+
+		for (size_t i = 0; i < source->children.size(); i++)
+			if (source->children[i] == obj)
+				for (size_t j = 0; i < Objects()->size(); j++)
+					if (Objects().Get()[j].Get() == obj) {
+						source->children.erase(source->children.begin() + i);
+						Objects().Get().erase(Objects()->begin() + j);
+						return true;
+					}
+
+		Log::For<Scene>().Error("The object for deletion was not found");
+		return false;
+	}
+	void DeleteSelected() {
+		for (auto o : ObjectSelection::Selected()) {
+			o->Reset();
+			(new FuncCommand())->func = [this, o] {
+				Delete(const_cast<SceneObject*>(o.Get()->GetParent()), o.Get());
+			};
 		}
-
-		node->referenceCount++;
 	}
-	~PON() {
-		if (!node)
-			return;
+	void DeleteAll() {
+		deleteAll().Invoke();
+		cross()->SetParent(nullptr);
 
-		node->referenceCount--;
-		if (node->referenceCount > 0)
-			return;
-
-		existingNodes().erase(node->object);
-		Delete();
-		delete node;
+		Objects().Get().clear();
+		root() = CreateRoot();
 	}
 
-	bool HasValue() const {
-		return node && node->object;
-	}
-
-	SceneObject* Get() const {
-		if (!node)
-			throw new std::exception("PON doesn't have value");
-
-		return node->object;
-	}
-	void Set(SceneObject* o) {
-		if (node) {
-			if (node->object)
-				existingNodes().erase(node->object);
-			Delete();
-		}
-		else
-			node = new Node();
-
-		node->object = o;
-		existingNodes()[o] = node;
-	}
-	void Delete() {
-		if (!node->object)
-			return;
-
-		delete node->object;
-		node->object = nullptr;
-	}
-
-	SceneObject* operator->() {
-		return Get();
-	}
-	const SceneObject* operator->() const {
-		return Get();
-	}
-
-
-	constexpr PON& operator=(const PON& o) {
-		Init(o);
-		return *this;
-	}
-	constexpr bool operator<(const PON& o) const {
-		return node < o.node;
-	}
-	constexpr bool operator!=(const PON& o) const {
-		return node != o.node;
-	}
-	constexpr bool operator==(const PON& o) const {
-		return node == o.node;
-	}
-
-	struct less {
-		bool operator()(const PON& o1, const PON& o2) {
-			return o1 < o2;
-		}
+	struct CategorizedObjects {
+		std::list<SceneObject*> parentObjects;
+		std::set<SceneObject*> childObjects;
+		// Items that will not be modified and their new parents in case current parents are removed.
+		// Item, NewParent
+		std::list<std::pair<SceneObject*, SceneObject*>> orphanedObjects;
 	};
+	struct CategorizedPON {
+		std::list<PON> parentObjects;
+		std::set<PON> childObjects;
+		// Items that will not be modified and their new parents in case current parents are removed.
+		// Item, NewParent
+		std::list<std::pair<PON, PON>> orphanedObjects;
+	};
+
+	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedObjects& categorizedObjects) {
+		root->CallRecursive(root, std::function<SceneObject* (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
+			if (exists(*items, o)) {
+				if (exists(categorizedObjects.childObjects, parent) || exists(categorizedObjects.parentObjects, parent))
+					categorizedObjects.childObjects.emplace(o);
+				else if (auto newParent = FindConnectedParent(parent, categorizedObjects.parentObjects))
+					categorizedObjects.orphanedObjects.push_back({ o, newParent });
+				else
+					categorizedObjects.parentObjects.push_back(o);
+			}
+			else if (exists(*items, parent))
+				categorizedObjects.orphanedObjects.push_back({ o, FindNewParent(parent, items) });
+
+			return o;
+			}));
+	}
+	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedPON& categorizedObjects) {
+		CategorizedObjects co;
+		CategorizeObjects(root, items, co);
+		for (auto o : co.parentObjects)
+			categorizedObjects.parentObjects.push_back(o);
+		for (auto o : co.childObjects)
+			categorizedObjects.childObjects.emplace(o);
+		for (auto [o, np] : co.orphanedObjects)
+			categorizedObjects.orphanedObjects.push_back({ o, np });
+	}
+	static void CategorizeObjects(SceneObject* root, std::vector<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
+	static void CategorizeObjects(SceneObject* root, const std::set<PON>& items, CategorizedPON& categorizedObjects) {
+		std::set<SceneObject*> is;
+		for (auto o : items)
+			is.emplace(o.Get());
+
+		CategorizeObjects(root, &is, categorizedObjects);
+	}
+
+
+	// Tree structure is preserved even if there is an unselected link.
+	//-----------------------------------------------------------------
+	// * - selected
+	//
+	//   *a      b  *a
+	//    b   ->    *c
+	//   *c
+	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
+		auto root = const_cast<SceneObject*>(FindRoot(destination));
+
+		// parentObjects will be moved to destination
+		// childObjects will be ignored during move but will be moved with their parents
+		// orphanedObjects will not be moved with their parents.
+		// New parents will be assigned.
+		CategorizedObjects categorizedObjects;
+
+		CategorizeObjects(root, items, categorizedObjects);
+
+		if ((pos & InsertPosition::Bottom) != 0)
+			for (auto o : categorizedObjects.parentObjects)
+				o->SetParent(destination, destinationPos, pos);
+		else
+			std::for_each(categorizedObjects.parentObjects.rbegin(), categorizedObjects.parentObjects.rend(), [&](auto o) {
+			o->SetParent(destination, destinationPos, pos); });
+
+		for (auto pair : categorizedObjects.orphanedObjects)
+			pair.first->SetParent(pair.second, true);
+
+		return true;
+	}
+	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<PON>* items, InsertPosition pos) {
+		std::set<SceneObject*> nitems;
+		for (auto o : *items)
+			nitems.emplace(o.Get());
+
+		return MoveTo(destination, destinationPos, &nitems, pos);
+	}
+
+	static int GetNextDuplicateIndex(const std::string& originalName) {
+		std::string regex;
+		{
+			std::stringstream ss;
+			ss << originalName << " " << "(\\d+)";
+			regex = ss.str();
+		}
+		auto r = std::regex(regex);
+
+		int max = 0;
+		for (auto& o : Objects().Get()) {
+			std::smatch m;
+			if (!std::regex_search(o->Name, m, r))
+				continue;
+
+			std::stringstream ss;
+			ss << m[1];
+			int current;
+			ss >> current;
+			if (current > max)
+				max = current;
+		}
+
+		return max + 1;
+	}
+
+	static void AssignUniqueName(SceneObject* o, const std::string& originalName) {
+		std::stringstream ss;
+		ss << originalName << " " << GetNextDuplicateIndex(originalName);
+		o->Name = ss.str();
+	}
+
+
+	~Scene() {
+		Objects().Get().clear();
+	}
 };

@@ -1,4 +1,4 @@
-# StereoOriginal documentation
+# StereoOriginal User documentation
 ## GUI
 GUI is designed using ImGui library https://github.com/ocornut/imgui.
 ### Tool window
@@ -47,9 +47,10 @@ For more details see Tools.
 - Esc - exit text inputting mode. Remove focus from all widgets. When no widget is active - deactivates tools;
 - Ctrl+Z - undo;
 - Ctrl+Y - redo;
-- Ctrl+Q - toggle discrete movement mode;
-- Ctrl+W - switch space mode (Local/World);
 - Ctrl+D - deselect all scene objects;
+- Q - toggle discrete movement mode;
+- W - switch space mode (Local/World);
+- C - switch target mode (Object/Pivot);
 - T - transformation tool;
 - P - pen tool;
 - E - extrusion tool;
@@ -85,5 +86,18 @@ Pressing Enter will unbind current polyline and enter OCM.
 #### Step mode
 SM requires pressing Enter to fix the point and create a new one.
 
+### SinePen
+Operates the same as Pen SM.
+ShouldMoveCrossOnSinePenModeChange option determines if the cross' position will be set to the relevant vertice on mode change.
+
+#### Step123
+Second point is (0,1) for cosine.
+#### Step132
+Tried point is (0,1) for cosine.
+
 ### Transformation
+
+When multiple objects are selected cross' rotation is equal to the first object in selection and position is equal to mean position of all selected objects. 
+See TransformTool::OnSelectionChanged for more details.
+
 ### Extrusion

@@ -4,12 +4,12 @@
 
 enum ObjectType {
 	Group,
-	StereoPolyLineT,
+	PolyLineT,
 	MeshT,
 	CameraT,
 	CrossT,
 	TraceObjectT,
-	//TraceObjectNodeT,
+	SineCurveT,
 };
 
 enum InsertPosition {
@@ -368,4 +368,112 @@ public:
 
 		return *this;
 	}
+};
+
+// Persistent object node
+class PON {
+	struct Node {
+		SceneObject* object = nullptr;
+		int referenceCount = 0;
+	};
+	Node* node = nullptr;
+	static std::map<SceneObject*, Node*>& existingNodes() {
+		static std::map<SceneObject*, Node*> v;
+		return v;
+	}
+	constexpr void Init(const PON& o) {
+		node = o.node;
+		if (node)
+			node->referenceCount++;
+	}
+public:
+	PON() {
+		node = nullptr;
+	}
+	PON(const PON& o) {
+		Init(o);
+	}
+	PON(SceneObject* o) {
+		if (auto n = existingNodes().find(o);
+			n != existingNodes().end()) {
+			node = n->second;
+		}
+		else {
+			node = new Node();
+			existingNodes()[o] = node;
+			Set(o);
+		}
+
+		node->referenceCount++;
+	}
+	~PON() {
+		if (!node)
+			return;
+
+		node->referenceCount--;
+		if (node->referenceCount > 0)
+			return;
+
+		existingNodes().erase(node->object);
+		Delete();
+		delete node;
+	}
+
+	bool HasValue() const {
+		return node && node->object;
+	}
+
+	SceneObject* Get() const {
+		if (!node)
+			throw new std::exception("PON doesn't have value");
+
+		return node->object;
+	}
+	void Set(SceneObject* o) {
+		if (node) {
+			if (node->object)
+				existingNodes().erase(node->object);
+			Delete();
+		}
+		else
+			node = new Node();
+
+		node->object = o;
+		existingNodes()[o] = node;
+	}
+	void Delete() {
+		if (!node->object)
+			return;
+
+		delete node->object;
+		node->object = nullptr;
+	}
+
+	SceneObject* operator->() {
+		return Get();
+	}
+	const SceneObject* operator->() const {
+		return Get();
+	}
+
+
+	constexpr PON& operator=(const PON& o) {
+		Init(o);
+		return *this;
+	}
+	constexpr bool operator<(const PON& o) const {
+		return node < o.node;
+	}
+	constexpr bool operator!=(const PON& o) const {
+		return node != o.node;
+	}
+	constexpr bool operator==(const PON& o) const {
+		return node == o.node;
+	}
+
+	struct less {
+		bool operator()(const PON& o1, const PON& o2) {
+			return o1 < o2;
+		}
+	};
 };

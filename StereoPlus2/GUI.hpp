@@ -60,11 +60,11 @@ class GUI {
 
 			if (auto h = Settings::ShouldDetectPosition().Get(); 
 				ImGui::MenuItem(LocaleProvider::GetC("usePositionDetection"), nullptr, &h))
-				Settings::ShouldDetectPosition().Set(h);
+				Settings::ShouldDetectPosition() = h;
 			ImGui::MenuItem(LocaleProvider::GetC("showFPS"), nullptr, &shouldShowFPS);
 
 			if (ImGui::MenuItem(LocaleProvider::GetC("settings"), nullptr, false))
-				settingsWindow->IsOpen.Set(true);
+				settingsWindow->IsOpen = true;
 
 			if (ImGui::MenuItem(LocaleProvider::GetC("exit"), nullptr, false))
 				shouldClose = true;
@@ -159,7 +159,6 @@ public:
 
 	bool Init()
 	{
-		keyBinding.input = &input;
 		input.GLFWindow() = glWindow;
 
 		
@@ -221,7 +220,7 @@ public:
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("open-sans.ttf", 20);
 		//IM_ASSERT(font != NULL);
 
-		input.io = io;
+		input.io() = io;
 		if (!input.Init() ||
 			!keyBinding.Init())
 			return false;
