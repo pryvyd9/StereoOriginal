@@ -1153,7 +1153,6 @@ class SinePenTool : public EditingTool {
 	const Log Logger = Log::For<SinePenTool>();
 
 	size_t inputHandlerId;
-	size_t spaceModeChangeHandlerId;
 	size_t stateChangedHandlerId;
 	size_t anyObjectChangedHandlerId;
 	size_t modeChangedHandlerId;
@@ -1334,9 +1333,6 @@ class SinePenTool : public EditingTool {
 
 		target = t;
 
-		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetWorldRotation(target.Get()->GetWorldRotation());
-
 		if (!target->GetVertices().empty())
 			cross->SetWorldPosition(target->GetVertices().back());
 
@@ -1345,12 +1341,6 @@ class SinePenTool : public EditingTool {
 			if (inputHandlerId)
 				ProcessInput();
 			});
-		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			if (v == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
-			else
-				cross->SetWorldRotation(glm::quat());
-		};
 		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
@@ -1411,12 +1401,6 @@ public:
 			if (inputHandlerId)
 				ProcessInput();
 			});
-		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			if (v == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
-			else
-				cross->SetWorldRotation(glm::quat());
-		};
 		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
@@ -1452,7 +1436,6 @@ public:
 		createdAdditionalPoints = false;
 
 		Input::RemoveHandler(inputHandlerId);
-		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		StateBuffer::OnStateChange() -= stateChangedHandlerId;
 		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
 		mode.OnChanged() -= modeChangedHandlerId;
