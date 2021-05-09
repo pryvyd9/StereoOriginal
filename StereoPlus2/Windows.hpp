@@ -1021,6 +1021,8 @@ public:
 
 class TransformToolWindow : Window, Attributes {
 	int maxPrecision = 5;
+	bool isRelativeMode;
+
 	glm::vec3 oldAngle = glm::vec3();
 
 	std::string GetName(SceneObject* obj) {
@@ -1095,9 +1097,9 @@ class TransformToolWindow : Window, Attributes {
 		switch (transformToolModeCopy) {
 		case TransformToolMode::Translate:
 			ImGui::Separator();
-			ImGui::Checkbox("Relative", &tool->isRelativeMode);
+			ImGui::Checkbox("Relative", &isRelativeMode);
 
-			if (tool->isRelativeMode)
+			if (isRelativeMode)
 				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 1);
 			else {
 				auto crossPosCopy = tool->cross->GetLocalPosition();

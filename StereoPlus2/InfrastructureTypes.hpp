@@ -442,7 +442,6 @@ template<typename T>
 class PropertyNode {
 	T value;
 	Event<T> changed;
-	bool isAssigned = false;
 public:
 	const T& Get() const {
 		return value;
@@ -452,14 +451,13 @@ public:
 	}
 	void Set(const T& v) {
 		value = v;
-		isAssigned = true;
 		changed.Invoke(v);
 	}
 	IEvent<T>& OnChanged() {
 		return changed;
 	}
 	bool IsAssigned() {
-		return isAssigned;
+		return true;
 	}
 };
 template<typename T>

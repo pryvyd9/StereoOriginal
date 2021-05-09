@@ -1052,34 +1052,7 @@ class TransformTool : public EditingTool {
 		if (Settings::TargetMode().Get() == TargetMode::Pivot)
 			TransformCross(relativeMovement, relativeScale, relativeRotation);
 		else
-			switch (mode) {
-			case Mode::Translate:
-				if (relativeMovement == zero)
-					return;
-			
-				Translate(relativeMovement, targets.parentObjects);
-				break;
-			case Mode::Scale:
-				TransformCross(relativeMovement, relativeScale, relativeRotation);
-				if (relativeScale == oldScale)
-					return;
-
-				Scale(cross->GetWorldPosition(), oldScale, relativeScale, targets.parentObjects);
-				oldScale = scale = relativeScale;
-				break;
-			case Mode::Rotate:
-				TranslateCross(relativeMovement);
-				if (relativeRotation == zero)
-					return;
-
-				Rotate(cross->GetWorldPosition(), relativeRotation, targets.parentObjects);
-				nullifyUntouchedAngles();
-				oldAngle = angle;
-				break;
-			default:
-				Logger.Warning("Unsupported Editing Tool target Type or Unsupported combination of ObjectType and Transformation");
-				break;
-			}
+			Transform(relativeMovement, relativeScale, relativeRotation);
 
 		transformOldPos = transformPos;
 	}
@@ -1142,6 +1115,19 @@ class TransformTool : public EditingTool {
 		}
 	}
 
+	void Transform(const glm::vec3& relativeMovement, const float relativeScale, const glm::vec3& relativeRotation) {
+		if (relativeMovement != glm::vec3())
+			Translate(relativeMovement, targets.parentObjects);
+		if (relativeRotation != glm::vec3()) {
+			Rotate(cross->GetWorldPosition(), relativeRotation, targets.parentObjects);
+			nullifyUntouchedAngles();
+			oldAngle = angle;
+		}
+		if (relativeScale != oldScale) {
+			Scale(cross->GetWorldPosition(), oldScale, relativeScale, targets.parentObjects);
+			oldScale = scale = relativeScale;
+		}
+	}
 	void TransformCross(const glm::vec3& relativeMovement, const float relativeScale, const glm::vec3& relativeRotation) {
 		if (relativeMovement != glm::vec3())
 			Transform::Translate(relativeMovement, &cross.Get());
@@ -1205,22 +1191,19 @@ class TransformTool : public EditingTool {
 		for (auto& o : v)
 			targets.parentObjects.push_back(o);
 		
-		cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
-		if (Settings::SpaceMode().Get() == SpaceMode::World)
-			cross->SetWorldRotation(cross->unitQuat());
-		else if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
-			cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
+		if (Settings::TargetMode().Get() == TargetMode::Object) {
+			cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
+			if (Settings::SpaceMode().Get() == SpaceMode::World)
+				cross->SetWorldRotation(cross->unitQuat());
+			else if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
+				cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
+		}
 
 		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
 		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
-		//inputHandlerId = keyBinding->AddHandler([this](Input* input) { 
-		//	this->ProcessInput(type, mode, input); 
-		//	if (input->IsDown(Key::N5))
-		//		cross->SetWorldPosition(Avg(GetWorldPositions(targets.parentObjects)));
-		//	else if (input->IsDown(Key::N0))
-		//		cross->SetWorldPosition(glm::vec3(0,0,0));
-		//	});
 		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
+			if (Settings::TargetMode().Get() == TargetMode::Pivot)
+				return;
 			cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
 			});
 		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
@@ -1234,14 +1217,6 @@ class TransformTool : public EditingTool {
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
-
-			if (v == SpaceMode::Local) {
-				if (!targets.parentObjects.empty() && targets.parentObjects.front().HasValue())
-					cross->SetLocalRotation(targets.parentObjects.front()->GetWorldRotation());
-				//cross->SetLocalRotation(cross->unitQuat());
-			}
-			else
-				cross->SetWorldRotation(cross->unitQuat());
 		};
 
 	}
@@ -1252,7 +1227,6 @@ public:
 	float scale = 1;
 	glm::vec3 angle;
 	glm::vec3 transformPos;
-	bool isRelativeMode;
 	bool shouldTrace;
 
 	CreatingTool<TraceObject> traceObjectTool;

@@ -215,6 +215,8 @@ public:
 		}
 	}
 
+	// Checks if key changed state to Pressed.
+	// ignoreCaptured ignores the key and returns false if keyboard is captured by text input.
 	static bool IsDown(const Key::KeyPair& key, bool ignoreCaptured = false) {
 		if (ignoreCaptured && ImGui::GetIO().WantCaptureKeyboard && !IsAcceptableCombination(key.code, true, 0, Key::Modifier::None))
 			return false;

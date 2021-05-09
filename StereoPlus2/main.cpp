@@ -49,6 +49,8 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 		ToolWindow::ApplyTool<TransformToolWindow, TransformTool>);
 	Input::AddShortcut(Key::Combination(Key::P),
 		ToolWindow::ApplyTool<PenToolWindow, PenTool>);
+	Input::AddShortcut(Key::Combination(Key::S),
+		ToolWindow::ApplyTool<SinePenToolWindow, SinePenTool>);
 	Input::AddShortcut(Key::Combination(Key::E),
 		ToolWindow::ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>);
 
@@ -59,9 +61,9 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 		[&] { crw.shouldSaveAdvancedImage = true; });
 	
 	// State
-	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Q),
+	Input::AddShortcut(Key::Combination(Key::D),
 		[] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
-	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
+	Input::AddShortcut(Key::Combination(Key::W),
 		[] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 	Input::AddShortcut(Key::Combination(Key::C),
 		[] { Settings::TargetMode() = Settings::TargetMode().Get() == TargetMode::Object ? TargetMode::Pivot : TargetMode::Object; });
@@ -105,6 +107,10 @@ int main() {
 	cameraPropertiesWindow.Object = &camera;
 	crossPropertiesWindow.Object = &cross;
 
+	ToolWindow::ApplyDefaultTool() = ToolWindow::ApplyTool<TransformToolWindow, TransformTool>;
+	ToolWindow::AttributesWindow() = &attributesWindow;
+	ToolWindow::ApplyDefaultTool()();
+	
 	scene.camera = &camera;
 	scene.glWindow = renderPipeline.glWindow;
 	scene.camera->ViewSize <<= customRenderWindow.RenderSize;
@@ -145,16 +151,22 @@ int main() {
 	};
 	cross.keyboardBindingHandlerId = gui.keyBinding.AddHandler(cross.keyboardBindingHandler);
 	gui.keyBinding.AddHandler([&cross]() {
-		if (Input::IsDown(Key::N5, true)) {
-			if (Input::IsPressed(Key::Modifier::Control)) {
+		if (Input::IsPressed(Key::Modifier::Alt)) {
+			if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty()) {
 				glm::vec3 v(0);
 				for (auto& o : ObjectSelection::Selected())
 					v += o.Get()->GetWorldPosition();
 				v /= ObjectSelection::Selected().size();
 				cross.SetWorldPosition(v);
 			}
-			else
+			else if (Input::IsDown(Key::N0, true))
 				cross.SetWorldPosition(glm::vec3());
+		}
+		else if (Input::IsPressed(Key::Modifier::Control)) {
+			if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty())
+				cross.SetWorldRotation(ObjectSelection::Selected().begin()._Ptr->_Myval->GetWorldRotation());
+			else if (Input::IsDown(Key::N0, true))
+				cross.SetWorldRotation(glm::quat(1,0,0,0));
 		}
 	});
 
@@ -163,9 +175,6 @@ int main() {
 	if (!ToolPool::Init())
 		return false;
 
-	ToolWindow::ApplyDefaultTool() = ToolWindow::ApplyTool<TransformToolWindow, TransformTool>;
-	ToolWindow::AttributesWindow() = &attributesWindow;
-	ToolWindow::ApplyDefaultTool()();
 
 	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
 	StateBuffer::RootObject() <<= scene.root();
