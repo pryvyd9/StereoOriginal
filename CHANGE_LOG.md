@@ -53,3 +53,6 @@ Added Publish configuration that cleans output before build and copies only nece
 - introduced independent cross movement and rotation;
 - isolated main math in separate static classes;
 - fixed sine building when 2 points are at the same location;
+# 0.14.1
+- fixed target mode locking;
+- added combination Ctrl+A - select all scene objects;

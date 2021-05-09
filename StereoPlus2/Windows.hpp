@@ -1279,13 +1279,13 @@ public:
 
 	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>>* = nullptr>
 	static void ApplyTool() {
+		AttributesWindow()->UnbindTarget();
+		AttributesWindow()->UnbindTool();
+
+		auto targetWindow = new SceneObjectPropertiesWindow();
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
 		tool->tool->Activate();
-
-		auto targetWindow = new SceneObjectPropertiesWindow();
-		AttributesWindow()->UnbindTarget();
-		AttributesWindow()->UnbindTool();
 		AttributesWindow()->BindTool((Attributes*)tool);
 		AttributesWindow()->BindTarget((Attributes*)targetWindow);
 

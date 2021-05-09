@@ -40,8 +40,12 @@ public:
 	}
 	static void Set(const std::vector<SceneObject*>& os) {
 		selected().clear();
-		for (auto o : os)
-			selected().emplace(o);
+		selected().insert(os.begin(), os.end());
+		onChanged().Invoke(selected());
+	}
+	static void Set(const std::vector<PON>& os) {
+		selected().clear();
+		selected().insert(os.begin(), os.end());
 		onChanged().Invoke(selected());
 	}
 	static void Add(SceneObject* o) {

@@ -42,7 +42,10 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
 		StateBuffer::Repeat);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
-		ObjectSelection::RemoveAll);
+		ObjectSelection::RemoveAll);	
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::A),
+		[] { ObjectSelection::Set(Scene::Objects().Get()); });
+
 
 	// Tools
 	Input::AddShortcut(Key::Combination(Key::T),

@@ -368,6 +368,7 @@ class PenTool : public EditingTool {
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
 		// Don't work with deleted objects even if they stay selected.
 		auto targets = GetExistingObjects(v);
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		if (targets.empty())
 			return TryCreateNewObject();
@@ -420,8 +421,6 @@ class PenTool : public EditingTool {
 			StateBuffer::Commit();
 			wasCommitDone = true;
 		};
-		Settings::ShouldRestrictTargetModeToPivot() = true;
-
 	}
 
 public:
@@ -806,6 +805,9 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		return i++;
 	}
 
+	virtual void OnToolActivated(const ObjectSelection::Selection& v) override { 
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+	}
 
 public:
 	NonAssignProperty<Cross*> cross;
@@ -830,6 +832,8 @@ public:
 	}
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
 		if (pen.HasValue() && !UnbindSceneObjects())
 			return false;
 
@@ -870,12 +874,11 @@ public:
 
 			cross->SetWorldPosition(pos);
 			};
-		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		Settings::ShouldRestrictTargetModeToPivot() = true;
+		Settings::ShouldRestrictTargetModeToPivot() = false;
 
 		switch (mode)
 		{
@@ -1322,6 +1325,7 @@ class SinePenTool : public EditingTool {
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
 		// Don't work with deleted objects even if they stay selected.
 		auto targets = GetExistingObjects(v);
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		if (targets.empty())
 			return TryCreateNewObject();
@@ -1380,7 +1384,6 @@ class SinePenTool : public EditingTool {
 			if (Settings::ShouldMoveCrossOnSinePenModeChange().Get())
 				moveCrossToVertice(currentVertice);
 		};
-		Settings::ShouldRestrictTargetModeToPivot() = true;
 	}
 
 public:
