@@ -1266,7 +1266,8 @@ class ToolWindow : Window {
 	}
 
 public:
-	AttributesWindow* attributesWindow;
+	StaticProperty(::AttributesWindow*, AttributesWindow)
+	StaticProperty(std::function<void()>, ApplyDefaultTool)
 
 	template<typename T>
 	using unbindTool = decltype(std::declval<T>().UnbindTool());
@@ -1274,23 +1275,23 @@ public:
 	template<typename T>
 	static constexpr bool hasUnbindTool = is_detected_v<unbindTool, T>;
 
-	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>> * = nullptr>
-	void ApplyTool() {
+	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>>* = nullptr>
+	static void ApplyTool() {
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
 		tool->tool->Activate();
 
 		auto targetWindow = new SceneObjectPropertiesWindow();
-		attributesWindow->UnbindTarget();
-		attributesWindow->UnbindTool();
-		attributesWindow->BindTool((Attributes*)tool);
-		attributesWindow->BindTarget((Attributes*)targetWindow);
+		AttributesWindow()->UnbindTarget();
+		AttributesWindow()->UnbindTool();
+		AttributesWindow()->BindTool((Attributes*)tool);
+		AttributesWindow()->BindTarget((Attributes*)targetWindow);
 
 		auto deleteAllhandlerId = Scene::OnDeleteAll() += [t = tool] {
 			t->UnbindTargets();
 			t->tool->UnbindTool();
 		};
-		attributesWindow->onUnbindTool = [t = tool, d = deleteAllhandlerId] {
+		AttributesWindow()->onUnbindTool = [t = tool, d = deleteAllhandlerId] {
 			t->tool->UnbindTool();
 			Scene::OnDeleteAll().RemoveHandler(d);
 			t->OnExit();
@@ -1298,15 +1299,14 @@ public:
 		};
 	}
 
-
-	void Unbind() {
+	/*void Unbind() {
 		attributesWindow->UnbindTarget();
 		attributesWindow->UnbindTool();
-	}
+	}*/
 
 
 	virtual bool Init() {
-		if (attributesWindow == nullptr)
+		if (!AttributesWindow().IsAssigned())
 		{
 			log.Error("AttributesWindow was null");
 			return false;
@@ -1549,7 +1549,7 @@ public:
 		}
 
 		if (auto v = Settings::StateBufferLength().Get();
-			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 0.01, 0.1, 4))
+			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 1, 10, 4))
 			Settings::StateBufferLength() = v;
 		if (auto v = Settings::Language().Get();
 			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {

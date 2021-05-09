@@ -33,24 +33,24 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 	return true;
 }
 
-void ConfigureShortcuts(ToolWindow& tw, CustomRenderWindow& crw) {
+void ConfigureShortcuts(CustomRenderWindow& crw) {
 	// Internal shortcuts.
 	Input::AddShortcut(Key::Combination(Key::Escape),
-		[&] { tw.Unbind(); });
+		ToolWindow::ApplyDefaultTool().Get());
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
-		[&] { StateBuffer::Rollback(); });
+		StateBuffer::Rollback);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
-		[&] { StateBuffer::Repeat(); });
+		StateBuffer::Repeat);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
-		[&] { ObjectSelection::RemoveAll(); });
+		ObjectSelection::RemoveAll);
 
 	// Tools
 	Input::AddShortcut(Key::Combination(Key::T),
-		[&] { tw.ApplyTool<TransformToolWindow, TransformTool>(); });
+		ToolWindow::ApplyTool<TransformToolWindow, TransformTool>);
 	Input::AddShortcut(Key::Combination(Key::P),
-		[&] { tw.ApplyTool<PenToolWindow, PenTool>(); });
+		ToolWindow::ApplyTool<PenToolWindow, PenTool>);
 	Input::AddShortcut(Key::Combination(Key::E),
-		[&] { tw.ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>(); });
+		ToolWindow::ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>);
 
 	// Render
 	Input::AddShortcut(Key::Combination(Key::F5),
@@ -60,11 +60,11 @@ void ConfigureShortcuts(ToolWindow& tw, CustomRenderWindow& crw) {
 	
 	// State
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Q),
-		[&] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
+		[] { Settings::UseDiscreteMovement() = !Settings::UseDiscreteMovement().Get(); });
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::W),
-		[&] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
+		[] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 	Input::AddShortcut(Key::Combination(Key::C),
-		[&] { Settings::TargetMode() = Settings::TargetMode().Get() == TargetMode::Object ? TargetMode::Pivot : TargetMode::Object; });
+		[] { Settings::TargetMode() = Settings::TargetMode().Get() == TargetMode::Object ? TargetMode::Pivot : TargetMode::Object; });
 }
 
 int main() {
@@ -99,8 +99,6 @@ int main() {
 	Cross cross;
 
 	// Initialize main components.
-	toolWindow.attributesWindow = &attributesWindow;
-
 	inspectorWindow.rootObject <<= scene.root();
 	inspectorWindow.input = &gui.input;
 
@@ -165,6 +163,10 @@ int main() {
 	if (!ToolPool::Init())
 		return false;
 
+	ToolWindow::ApplyDefaultTool() = ToolWindow::ApplyTool<TransformToolWindow, TransformTool>;
+	ToolWindow::AttributesWindow() = &attributesWindow;
+	ToolWindow::ApplyDefaultTool()();
+
 	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
 	StateBuffer::RootObject() <<= scene.root();
 	StateBuffer::Objects() <<= scene.Objects();
@@ -209,7 +211,7 @@ int main() {
 	customRenderWindow.OnResize() += updateCacheForAllObjects;
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 
-	ConfigureShortcuts(toolWindow, customRenderWindow);
+	ConfigureShortcuts(customRenderWindow);
 
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |

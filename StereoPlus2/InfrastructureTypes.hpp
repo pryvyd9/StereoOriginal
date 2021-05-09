@@ -442,6 +442,7 @@ template<typename T>
 class PropertyNode {
 	T value;
 	Event<T> changed;
+	bool isAssigned = false;
 public:
 	const T& Get() const {
 		return value;
@@ -451,18 +452,19 @@ public:
 	}
 	void Set(const T& v) {
 		value = v;
+		isAssigned = true;
 		changed.Invoke(v);
 	}
 	IEvent<T>& OnChanged() {
 		return changed;
 	}
 	bool IsAssigned() {
-		return true;
+		return isAssigned;
 	}
 };
 template<typename T>
 class PropertyNode<T*> {
-	T* value;
+	T* value = nullptr;
 	Event<T> changed;
 public:
 	const T& Get() const {
@@ -482,6 +484,31 @@ public:
 		return value != nullptr;
 	}
 };
+template<typename R, typename ...T>
+class PropertyNode<std::function<R(T...)>> {
+	std::function<R(T...)> value;
+	Event<std::function<R(T...)>> changed;
+	bool isAssigned = false;
+public:
+	const std::function<R(T...)>& Get() const {
+		return value;
+	}
+	void Set(const std::function<R(T...)>& v) {
+		value = v;
+		isAssigned = true;
+		changed.Invoke(v);
+	}
+	IEvent<std::function<R(T...)>>& OnChanged() {
+		return changed;
+	}
+	bool IsAssigned() {
+		return isAssigned;
+	}
+	R operator()(T... vs) {
+		return value(vs...);
+	}
+};
+
 
 template<typename T>
 class ReadonlyProperty {
@@ -565,6 +592,47 @@ public:
 		ReplaceNode(v.node);
 	}
 };
+template<typename R, typename ...T>
+class ReadonlyProperty<std::function<R(T...)>> {
+protected:
+	std::shared_ptr<PropertyNode<std::function<R(T...)>>> node = std::make_shared<PropertyNode<std::function<R(T...)>>>();
+	ReadonlyProperty(const std::shared_ptr<PropertyNode<std::function<R(T...)>>>& node) {
+		this->node = node;
+	}
+	void ReplaceNode(const std::shared_ptr<PropertyNode<std::function<R(T...)>>>& node) {
+		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+		this->node = node;
+	}
+public:
+	ReadonlyProperty() {}
+	ReadonlyProperty(std::function<R(T...)> o) {
+		node->Set(o);
+	}
+
+	bool IsAssigned() {
+		return node->IsAssigned();
+	}
+
+	const std::function<R(T...)>& Get() const {
+		return node->Get();
+	}
+
+	ReadonlyProperty<std::function<R(T...)>> CloneReadonly() {
+		return new ReadonlyProperty(node);
+	}
+
+	IEvent<std::function<R(T...)>>& OnChanged() {
+		return node->OnChanged();
+	}
+
+	ReadonlyProperty<std::function<R(T...)>>& operator=(const ReadonlyProperty<std::function<R(T...)>>&) = delete;
+	R operator()(T... vs) const {
+		return Get()(vs...);
+	}
+	void operator<<=(const ReadonlyProperty<std::function<R(T...)>>& v) {
+		ReplaceNode(v.node);
+	}
+};
 
 template<typename T>
 class NonAssignProperty : public ReadonlyProperty<T> {
@@ -618,6 +686,25 @@ public:
 		ReadonlyProperty<T*>::ReplaceNode(v.node);
 	}
 };
+template<typename R, typename ...T>
+class NonAssignProperty<std::function<R(T...)>> : public ReadonlyProperty<std::function<R(T...)>> {
+protected:
+	NonAssignProperty(const PropertyNode<std::function<R(T...)>>& node) {
+		ReadonlyProperty<std::function<R(T...)>>::node = node;
+	}
+public:
+	NonAssignProperty() {}
+	NonAssignProperty(const std::function<R(T...)>& o) : ReadonlyProperty<std::function<R(T...)>>(o) {}
+
+	NonAssignProperty<std::function<R(T...)>> CloneNonAssign() {
+		return new NonAssignProperty(ReadonlyProperty<std::function<R(T...)>>::node);
+	}
+
+	NonAssignProperty<std::function<R(T...)>>& operator=(const NonAssignProperty<std::function<R(T...)>>&) = delete;
+	void operator<<=(const NonAssignProperty<std::function<R(T...)>>& v) {
+		ReadonlyProperty<std::function<R(T...)>>::ReplaceNode(v.node);
+	}
+};
 
 template<typename T>
 class Property : public NonAssignProperty<T> {
@@ -649,6 +736,23 @@ public:
 	}
 	void operator<<=(const Property<T*>& v) {
 		ReadonlyProperty<T*>::ReplaceNode(v.node);
+	}
+};
+template<typename R, typename ...T>
+class Property< std::function<R(T...)>> : public NonAssignProperty<std::function<R(T...)>> {
+public:
+	Property() {}
+	Property(const std::function<R(T...)>& o) : NonAssignProperty<std::function<R(T...)>>(o) {}
+	Property(const Property<std::function<R(T...)>>&) = delete;
+
+
+	Property<std::function<R(T...)>>& operator=(const Property<std::function<R(T...)>>&) = delete;
+	Property<std::function<R(T...)>>& operator=(const std::function<R(T...)>& v) {
+		ReadonlyProperty<std::function<R(T...)>>::node->Set(v);
+		return *this;
+	}
+	void operator<<=(const Property<std::function<R(T...)>>& v) {
+		ReadonlyProperty<std::function<R(T...)>>::ReplaceNode(v.node);
 	}
 };
 

@@ -212,7 +212,7 @@ class PenTool : public EditingTool {
 	
 	// If the cos between vectors is less than E
 	// then we merge those vectors.
-	double E = 1e-6;
+	float E = 1e-6;
 
 	// If distance between previous point and 
 	// cursor is less than this number 
@@ -985,9 +985,9 @@ class TransformTool : public EditingTool {
 		auto maxAxe = 0;
 
 		// Find non-zero axes
-		int t[2] = {0,0};
-		size_t n = 0;
-		for (size_t i = 0; i < 3; i++) {
+		short t[2] = {0,0};
+		short n = 0;
+		for (short i = 0; i < 3; i++) {
 			if (mouseAxe[i] != 0)
 				t[n] = i;
 		}
@@ -1159,9 +1159,9 @@ class TransformTool : public EditingTool {
 
 	void nullifyUntouchedAngles() {
 		auto da = angle - oldAngle;
-		for (size_t i = 0; i < 3; i++)
-			if (da[i] == 0)
-				angle[i] = oldAngle [i] = 0;
+		for (auto i = 0; i < 3; i++)
+			if (da[i] == 0.f)
+				angle[i] = oldAngle[i] = 0.f;
 	}
 
 
@@ -1213,6 +1213,13 @@ class TransformTool : public EditingTool {
 
 		keyBinding->RemoveHandler(cross->keyboardBindingHandlerId);
 		inputHandlerId = keyBinding->AddHandler([this](Input* input) { this->ProcessInput(type, mode, input); });
+		//inputHandlerId = keyBinding->AddHandler([this](Input* input) { 
+		//	this->ProcessInput(type, mode, input); 
+		//	if (input->IsDown(Key::N5))
+		//		cross->SetWorldPosition(Avg(GetWorldPositions(targets.parentObjects)));
+		//	else if (input->IsDown(Key::N0))
+		//		cross->SetWorldPosition(glm::vec3(0,0,0));
+		//	});
 		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
 			cross->SetLocalPosition(Avg(GetWorldPositions(targets.parentObjects)));
 			});
@@ -1315,7 +1322,7 @@ class SinePenTool : public EditingTool {
 	bool createdAdditionalPoints;
 	bool createdNewObject;
 
-	int currentVertice = 0;
+	size_t currentVertice = 0;
 
 	void Step123() {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
