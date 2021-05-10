@@ -58,3 +58,4 @@ Added Publish configuration that cleans output before build and copies only nece
 - added combination Ctrl+A - select all scene objects;
 # 0.14.2
 - removed duplicate shaders;
+- added tool tips;
