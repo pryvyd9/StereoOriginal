@@ -148,6 +148,7 @@
     <ClInclude Include="FileManager.hpp" />
     <ClInclude Include="GLLoader.hpp" />
     <ClInclude Include="GUI.hpp" />
+    <ClInclude Include="ImGuiExtensions.hpp" />
     <ClInclude Include="include\GL\gl3w.h" />
     <ClInclude Include="include\GL\glcorearb.h" />
     <ClInclude Include="include\imgui\imconfig.h" />
@@ -246,10 +247,7 @@
     <None Include="locales\en.json" />
     <None Include="locales\ua.json" />
     <None Include="settings.json" />
-    <None Include="shaders\Left.frag" />
-    <None Include="shaders\Right.frag" />
-    <None Include="shaders\WhiteSquare.frag" />
-    <None Include="shaders\zero.frag" />
+    <None Include="shaders\.frag" />
     <None Include="shaders\.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

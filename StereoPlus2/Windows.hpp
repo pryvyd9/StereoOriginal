@@ -18,6 +18,18 @@
 #include "include/stb/stb_image_write.h"
 
 
+namespace ImGui::Extensions {
+	static bool RadioButton(const std::string& localizationPath, int* v, int v_button, const std::string& toolTipLocalizationPath) {
+		auto res = ImGui::RadioButton(LocaleProvider::GetC(localizationPath), v, v_button);
+		ImGui::SameLine();
+		ImGui::Extensions::HelpMarker(LocaleProvider::GetC(toolTipLocalizationPath));
+		return res;
+	}
+	static bool RadioButton(const std::string& localizationPath, int* v, int v_button) {
+		return ImGui::RadioButton(LocaleProvider::GetC(localizationPath), v, v_button);
+	}
+}
+
 //class TemplateWindow : Window {
 //	const Log log = Log::For<TemplateWindow>();
 //public:
@@ -1347,9 +1359,9 @@ public:
 		{
 			ImGui::Separator();
 			auto v = (int)Settings::SpaceMode().Get();
-			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
+			if (ImGui::Extensions::RadioButton("spaceMode:world", &v, (int)SpaceMode::World, "spaceMode:worldTip"))
 				Settings::SpaceMode() = SpaceMode::World;
-			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
+			if (ImGui::Extensions::RadioButton("spaceMode:local", &v, (int)SpaceMode::Local, "spaceMode:localTip"))
 				Settings::SpaceMode() = SpaceMode::Local;
 		}
 		{
@@ -1357,17 +1369,17 @@ public:
 			if (Settings::ShouldRestrictTargetModeToPivot().Get()) {
 				auto v = (int)TargetMode::Pivot;
 				ImGui::Extensions::PushActive(false);
-				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+				if (ImGui::Extensions::RadioButton("targetMode:object", &v, (int)TargetMode::Object, "targetMode:objectTip"))
 					Settings::TargetMode() = TargetMode::Object;
-				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+				if (ImGui::Extensions::RadioButton("targetMode:cross", &v, (int)TargetMode::Pivot, "targetMode:crossTip"))
 					Settings::TargetMode() = TargetMode::Pivot;
 				ImGui::Extensions::PopActive();
 			}
 			else {
 				auto v = (int)Settings::TargetMode().Get();
-				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+				if (ImGui::Extensions::RadioButton("targetMode:object", &v, (int)TargetMode::Object, "targetMode:objectTip"))
 					Settings::TargetMode() = TargetMode::Object;
-				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+				if (ImGui::Extensions::RadioButton("targetMode:cross", &v, (int)TargetMode::Pivot, "targetMode:crossTip"))
 					Settings::TargetMode() = TargetMode::Pivot;
 			}
 		}

@@ -3,7 +3,6 @@
 #include "InfrastructureTypes.hpp"
 #include <stringapiset.h>
 
-
 namespace Locale {
 	const std::string UA = "ua";
 	const std::string EN = "en";

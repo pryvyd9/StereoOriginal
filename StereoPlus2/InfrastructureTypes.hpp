@@ -737,7 +737,7 @@ public:
 	}
 };
 template<typename R, typename ...T>
-class Property< std::function<R(T...)>> : public NonAssignProperty<std::function<R(T...)>> {
+class Property<std::function<R(T...)>> : public NonAssignProperty<std::function<R(T...)>> {
 public:
 	Property() {}
 	Property(const std::function<R(T...)>& o) : NonAssignProperty<std::function<R(T...)>>(o) {}
