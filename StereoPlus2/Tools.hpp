@@ -91,23 +91,6 @@ public:
 };
 
 class EditingTool : Tool {
-	//static size_t& isBeingModifiedHandler() {
-	//	static size_t v;
-	//	return v;
-	//}
-	//static bool& isAnyActive() {
-	//	static bool v;
-	//	return v;
-	//}
-	//static size_t& selectionChangedhandlerId() {
-	//	static size_t v;
-	//	return v;
-	//}
-	//static EditingTool*& activeTool() {
-	//	static EditingTool* v = nullptr;
-	//	return v;
-	//}
-
 protected:
 	static bool& isBeingModified() {
 		static bool v;
@@ -115,15 +98,7 @@ protected:
 	}
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) {}
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) { OnSelectionChanged(v); }
-	//virtual void OnBeforeDeactivate() {}
-
 public:
-	enum Type {
-		PointPen,
-		Extrusion,
-		Transform,
-	};
-
 	EditingTool() {
 		if (isBeingModifiedHandler() != 0)
 			return;
@@ -145,16 +120,12 @@ public:
 		};
 
 		isAnyActive() = true;
-		//activeTool() = this;
 
 		OnToolActivated(ObjectSelection::Selected());
 	}
 	static void Deactivate() {
 		if (!isAnyActive())
 			return;
-
-		//if (activeTool())
-		//	static_cast<EditingTool*>(activeTool())->UnbindSceneObjects();
 
 		ObjectSelection::OnChanged() -= selectionChangedhandlerId();
 		selectionChangedhandlerId() = 0;

@@ -82,16 +82,16 @@ class Renderer {
 
 	void CreateShaders()
 	{
-		std::string vertexShaderSource1		   = GLLoader::ReadShader("shaders/.vert");
-		std::string fragmentShaderSourceLeft1  = GLLoader::ReadShader("shaders/Left.frag");
-		std::string fragmentShaderSourceRight1 = GLLoader::ReadShader("shaders/Right.frag");
+		std::string vertexShaderSource1	= GLLoader::ReadShader("shaders/.vert");
+		std::string fragmentShaderSource1 = GLLoader::ReadShader("shaders/.frag");
 
 		const char* vertexShaderSource = vertexShaderSource1.c_str();
-		const char* fragmentShaderSourceLeft = fragmentShaderSourceLeft1.c_str();
-		const char* fragmentShaderSourceRight = fragmentShaderSourceRight1.c_str();
-
-		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
+		const char* fragmentShaderSource = fragmentShaderSource1.c_str();
+		
+		// We need separate shaders to be able to set different colors.
+		// It's possible to change colors while switching between left and right but it's slow.
+		ShaderLeft  = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
 
 		UpdateShaderColor(Settings::ColorLeft().Get(), Settings::ColorRight().Get());
 

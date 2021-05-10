@@ -176,7 +176,7 @@ public:
 
 		// Apply shader
 		glUseProgram(shader);
-		glDrawArrays(GL_LINE_STRIP, 0, GetVertices().size());
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 
 	SceneObject* Clone() const override {
@@ -618,7 +618,7 @@ public:
 	{
 
 		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
-		auto fragmentShaderSource = GLLoader::ReadShader("shaders/WhiteSquare.frag");
+		auto fragmentShaderSource = GLLoader::ReadShader("shaders/.frag");
 
 		ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
 

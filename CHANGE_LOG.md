@@ -56,3 +56,5 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.14.1
 - fixed target mode locking;
 - added combination Ctrl+A - select all scene objects;
+# 0.14.2
+- removed duplicate shaders;
