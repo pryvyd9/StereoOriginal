@@ -233,7 +233,8 @@ public:
 		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1),0);
 
 		ImGui::PopStyleColor(3);
-	
+
+		// true when mouse is pressed in rectangle of the item.
 		Input::IsCustomRenderImageActive() = ImGui::IsItemActive();
 
 		HandleResize();

@@ -59,3 +59,7 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.14.2
 - removed duplicate shaders;
 - added tool tips;
+# 0.15
+- added context menu to scene object inspector;
+# 0.15.1
+- fixed Z axis when moving with mouse; 

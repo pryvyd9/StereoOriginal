@@ -93,7 +93,7 @@ class Input {
 		if (IsCustomRenderImageActive().Get()) {
 			auto mouseMoveDirection = MouseMoveDirection();
 			MouseAxe() = IsPressed(Key::MouseRight)
-				? glm::vec3(0, 0, -mouseMoveDirection.y)
+				? glm::vec3(0, 0, mouseMoveDirection.y)
 				: glm::vec3(mouseMoveDirection.x, -mouseMoveDirection.y, 0);
 
 		}
