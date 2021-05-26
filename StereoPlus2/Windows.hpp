@@ -330,9 +330,9 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	const glm::vec4 selectedActiveColor = glm::vec4(0, 0, 0.8, 1);
 	const glm::vec4 unselectedColor = glm::vec4(0, 0, 0, 0);
 
-	bool hasMovementOccured;
+	bool hasMovementOccured = false;
 	StaticField(int, GetID)
-
+	
 	MoveCommand* moveCommand;
 
 
@@ -348,93 +348,28 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return false;
 	}
 
-	bool TryContextWindow(SceneObject* t, bool isSelected, int flags) {
-		static int clickedItemIDRightMouse = -1;
-
-		if (Input::IsDown(Key::MouseRight))
-			clickedItemIDRightMouse = ImGui::GetHoveredID();
-
-		if (ImGui::GetItemID() == clickedItemIDRightMouse && ImGui::BeginPopupContextWindow()) {
-			if (auto selectTreeSupported = (!(flags & ImGuiTreeNodeFlags_Leaf) || (flags & ImGuiTreeNodeFlags_DefaultOpen));
-				selectTreeSupported && ImGui::Selectable("Select Tree")) {
-
-				ImGui::EndPopup();
-
-				TrySelect(t, isSelected, false, true);
-
-				// Close popup
-				clickedItemIDRightMouse = -1;
-
-				return true;
-			}
-			ImGui::EndPopup();
-		}
-
-		return false;
-	}
-
-	void Select(SceneObject* t, bool isSelected = false, bool ignoreCtrl = false, bool forceShift = false) {
-		auto isCtrlPressed = ignoreCtrl
-			? false
-			: input->IsPressed(Key::Modifier::Control);
-		auto isShiftPressed = forceShift || input->IsPressed(Key::Modifier::Shift);
+	void Select(SceneObject* t, bool isSelected = false, bool forceRecursive = false, bool selectChildren = false) {
+		auto isCtrlPressed = input->IsPressed(Key::Modifier::Control);
+		bool isRecursive = forceRecursive || input->IsPressed(Key::Modifier::Alt);
 
 		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
 			? ObjectSelection::Remove
 			: ObjectSelection::Add;
-		bool isRecursive = isShiftPressed;
 		bool mustRemoveAllBeforeSelect = !isCtrlPressed;
 
 
 		if (mustRemoveAllBeforeSelect)
 			ObjectSelection::RemoveAll();
 
-		if (isRecursive)
+		if (selectChildren)
+			for (auto c : t->children)
+				func(c);
+		else if (isRecursive)
 			t->CallRecursive([func](SceneObject* o) { func(o); });
 		else
 			func(t);
 	}
 
-	// Tries to select
-	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false, bool forceTreeSelection = false) {
-		static SceneObject* clickedItemLeftMouse;
-
-		if (hasMovementOccured)
-			clickedItemLeftMouse = nullptr;
-		else if (ImGui::IsItemClicked(Key::MouseLeft.code))
-			clickedItemLeftMouse = t;
-
-		if (forceTreeSelection) {
-			Select(t, isSelected, false, true);
-			return true;
-		}
-
-		if (!input->IsUp(Key::MouseLeft) || !ImGui::IsItemHovered() || clickedItemLeftMouse != t)
-			return false;
-
-		if (!isFullySelectable && GetSelectPosition() != Rest)
-			return false;
-
-		Select(t, isSelected);
-
-		return true;
-	}
-	bool TryDragDropSource(SceneObject* o, bool isSelected, ImGuiDragDropFlags flags = 0) {
-		if (!ImGui::BeginDragDropSource(flags))
-			return false;
-
-		if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
-			ImGui::Text("Moving \"%s\"", o->Name.c_str());
-
-		if (!isSelected)
-			Select(o);
-
-		EmplaceDragDropSelected();
-
-		ImGui::EndDragDropSource();
-
-		return true;
-	}
 	bool TryDragDropTarget(SceneObject* o, int pos, int positionMask, ImGuiDragDropFlags flags = 0) {
 		if (!ImGui::BeginDragDropTarget())
 			return false;
@@ -459,6 +394,88 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		return true;
 	}
+	bool TryDragDropSource(SceneObject* o, bool isSelected, ImGuiDragDropFlags flags = 0) {
+		if (!ImGui::BeginDragDropSource(flags))
+			return false;
+
+		if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
+			ImGui::Text("Moving \"%s\"", o->Name.c_str());
+
+		if (!isSelected)
+			Select(o);
+
+		EmplaceDragDropSelected();
+
+		ImGui::EndDragDropSource();
+
+		return true;
+	}
+	bool TryContextWindow(SceneObject* t, bool isSelected, int flags) {
+		static int clickedItemIDRightMouse = -1;
+
+		if (Input::IsDown(Key::MouseRight))
+			clickedItemIDRightMouse = ImGui::GetHoveredID();
+
+		if (ImGui::GetItemID() == clickedItemIDRightMouse && ImGui::BeginPopupContextWindow()) {
+
+			auto treeSelectionSupported = (!(flags & ImGuiTreeNodeFlags_Leaf) || (flags & ImGuiTreeNodeFlags_DefaultOpen));
+			if (treeSelectionSupported && ImGui::Selectable("Select Tree")) {
+
+				ImGui::EndPopup();
+
+				TrySelect(t, isSelected, false, true);
+
+				// Close popup
+				clickedItemIDRightMouse = -1;
+
+				return true;
+			}
+			if (treeSelectionSupported && ImGui::Selectable("Select Children")) {
+
+				ImGui::EndPopup();
+
+				TrySelect(t, isSelected, false, false, true);
+
+				// Close popup
+				clickedItemIDRightMouse = -1;
+
+				return true;
+			}
+			ImGui::EndPopup();
+		}
+
+		return false;
+	}
+	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false, bool forceTreeSelection = false, bool forceChildrenSelection = false) {
+		static SceneObject* clickedItemLeftMouse;
+
+		if (hasMovementOccured)
+			clickedItemLeftMouse = nullptr;
+		else if (ImGui::IsItemClicked(Key::MouseLeft.code))
+			clickedItemLeftMouse = t;
+
+		if (forceTreeSelection) {
+			Select(t, isSelected, true);
+			return true;
+		}
+		else if (forceChildrenSelection) {
+			Select(t, isSelected, false, true);
+			return true;
+		}
+
+
+		if (!input->IsUp(Key::MouseLeft) || !ImGui::IsItemHovered() || clickedItemLeftMouse != t)
+			return false;
+
+		if (!isFullySelectable && GetSelectPosition() != Rest)
+			return false;
+
+		Select(t, isSelected);
+
+		return true;
+	}
+
+
 
 	bool TreeNode(SceneObject* t, bool& isSelected, int& flags) {
 		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
