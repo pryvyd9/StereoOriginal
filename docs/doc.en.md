@@ -18,7 +18,10 @@ An exception is Rool object.
 It has a point but it's just to forbid it's minimizing.
 
 Several objects can be selected by modifying LMB with Ctrl. 
-A tree of objects can be selected by modifying LMB with Shift.
+A tree of objects can be selected by modifying LMB with Alt.
+
+Click RMB on an item to open a context menu.
+Context menu has 2 items: Select tree, Select children.
 ### Properties window
 ### Settings window
 - Buffer size;
