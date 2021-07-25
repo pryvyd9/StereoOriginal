@@ -493,14 +493,11 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
 	size_t stateChangedHandlerId;
-	size_t anyObjectChangedHandlerId;
 
 	Mode mode;
 
 	PON mesh = nullptr;
 	PON pen = nullptr;
-
-	bool wasCommitDone = false;
 
 	glm::vec3 crossStartPosition;
 	glm::vec3 crossOldPosition;
@@ -531,9 +528,9 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	}
 	template<>
 	void ProcessInput<PolyLineT, Mode::Immediate>() {
-		if (!Input::IsContinuousInputOneSecondDelay()) {
-			isBeingModified() = false;
-			wasCommitDone = false;
+		if (Input::HasContinuousInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+			Changes::Commit();
+			SceneObject::ResetIsAnyElementChanged();
 		}
 
 		if (!mesh.HasValue() || crossOldPosition == GetPos())
@@ -652,9 +649,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		}
 
 		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
-
 			auto s = meshPoints.size();
 			mesh->AddVertice(penPoints[0] + transformVector);
 			mesh->Connect(s - penPoints.size(), s);
@@ -665,6 +659,8 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 				mesh->Connect(s - penPoints.size(), s);
 				mesh->Connect(s - 1, s);
 			}
+
+			Changes::Commit();
 			return;
 		}
 
@@ -693,8 +689,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	void UnbindSceneObjects<PolyLineT, Mode::Immediate>() {
 		if (!pen.HasValue())
 			return;
-
-		//this->pen = nullptr;
 	}
 	template<>
 	void UnbindSceneObjects<PolyLineT, Mode::Step>() {
@@ -728,8 +722,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 				mesh->RemoveVertice();
 			}
 		}
-
-		//this->pen = nullptr;
 	}
 
 	void ResetTool() {
@@ -739,7 +731,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		Input::RemoveHandler(inputHandlerId);
 		Changes::OnStateChange().RemoveHandler(stateChangedHandlerId);
-		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 
 		DeleteConfig();
 	}
@@ -793,14 +784,6 @@ public:
 		stateChangedHandlerId = Changes::OnStateChange().AddHandler([&] {
 			cross->SetParent(mesh.Get(), false, true, true, false);
 			cross->SetLocalPosition(glm::vec3());
-			});
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
-			if (wasCommitDone)
-				return;
-
-			Changes::Commit();
-			wasCommitDone = true;
-			//Logger.Information("commit");
 			});
 
 		
@@ -1094,7 +1077,6 @@ class SinePenTool : public EditingTool {
 
 	size_t inputHandlerId;
 	size_t stateChangedHandlerId;
-	size_t anyObjectChangedHandlerId;
 	size_t modeChangedHandlerId;
 
 	// Create new object by pressing Enter.
@@ -1105,7 +1087,6 @@ class SinePenTool : public EditingTool {
 	PON target;
 
 	SceneObject* crossOriginalParent;
-	bool wasCommitDone = false;
 
 	bool createdAdditionalPoints;
 	bool createdNewObject;
@@ -1122,10 +1103,10 @@ class SinePenTool : public EditingTool {
 		}
 
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
 			createdNewObject = false;
 			target->AddVertice(cross->GetWorldPosition());
+
+			Changes::Commit();
 			return;
 		}
 
@@ -1144,12 +1125,10 @@ class SinePenTool : public EditingTool {
 		}
 
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
 			createdNewObject = false;
-
 			createVertice132();
 
+			Changes::Commit();
 			return;
 		}
 
@@ -1264,7 +1243,7 @@ class SinePenTool : public EditingTool {
 			return;
 		}
 
-		auto t = targets.begin()._Ptr->_Myval;
+		auto& t = targets.begin()._Ptr->_Myval;
 
 		if (t->GetType() != SineCurveT)
 			return TryCreateNewObject();
@@ -1300,13 +1279,6 @@ class SinePenTool : public EditingTool {
 				return;
 
 			cross->SetWorldPosition(target->GetVertices().back());
-		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			Changes::Commit();
-			wasCommitDone = true;
 		};
 		modeChangedHandlerId = mode.OnChanged() += [&](const Mode& v) {
 			currentVertice = getCurrentVertice();
@@ -1355,13 +1327,6 @@ public:
 
 			cross->SetWorldPosition(target->GetVertices().back());
 		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			Changes::Commit();
-			wasCommitDone = true;
-		};
 		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		return true;
@@ -1383,7 +1348,6 @@ public:
 
 		Input::RemoveHandler(inputHandlerId);
 		Changes::OnStateChange() -= stateChangedHandlerId;
-		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
 		mode.OnChanged() -= modeChangedHandlerId;
 
 		target = PON();
