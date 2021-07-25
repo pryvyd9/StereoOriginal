@@ -84,6 +84,7 @@ private:
 	StaticField(std::list<State*>, pastStates)
 	StaticField(std::list<State*>, futureStates)
 	StaticField(State*, presentBackup)
+	StaticFieldDefault(Log, logger, Log::For<State>())
 
 	StaticField(Event<>, onStateChange)
 
@@ -160,7 +161,8 @@ private:
 
 		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject* (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
 			if (!o) {
-				std::cout << "null" << std::endl;
+				logger().Error("Null object was found in attempted state. Returning to previous active state.");
+				//std::cout << "null" << std::endl;
 			}
 			if (p != nullptr)
 				o->SetParent(p, false, true, false, false);
@@ -226,6 +228,9 @@ public:
 			Log::For<Changes>().Error("Initialization failed.");
 			return false;
 		}
+
+		// Commit initial state
+		Commit();
 
 		return true;
 	}

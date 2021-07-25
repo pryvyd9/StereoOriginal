@@ -67,6 +67,7 @@ class Input {
 
 	StaticFieldDefault(ContinuousInput, continuousInputOneSecondDelay, ContinuousInput(1))
 	StaticFieldDefault(ContinuousInput, continuousInputNoDelay, ContinuousInput(0))
+	StaticFieldDefault(ContinuousInput, continuousMovementInputNoDelay, ContinuousInput(0))
 
 	static std::map<size_t, std::function<void()>>& handlers() {
 		static std::map<size_t, std::function<void()>> v;
@@ -258,6 +259,10 @@ public:
 	static bool HasContinuousInputNoDelayStopped() {
 		return continuousInputNoDelay().HasStopped();
 	}
+	static bool HasContinuousMovementInputNoDelayStopped() {
+		return continuousMovementInputNoDelay().HasStopped();
+	}
+
 
 	static bool MouseMoved() {
 		return MouseSpeed() > mouseSensivity() && MouseSpeed() < mouseMaxMagnitude();
@@ -310,8 +315,17 @@ public:
 	static void ProcessInput() {
 		FillAxes();
 
-		continuousInputOneSecondDelay().Process(io()->AnyKeyPressed);
-		continuousInputNoDelay().Process(io()->AnyKeyPressed);
+		{
+			continuousInputOneSecondDelay().Process(io()->AnyKeyPressed);
+			continuousInputNoDelay().Process(io()->AnyKeyPressed);
+
+			auto isModifiedForMovement = io()->KeyAlt || io()->KeyCtrl || io()->KeyShift;
+			auto isMoving = IsPressed(Key::Left) || IsPressed(Key::Right) || IsPressed(Key::Up) || IsPressed(Key::Down)
+				|| IsPressed(Key::N4) || IsPressed(Key::N2) || IsPressed(Key::N6) || IsPressed(Key::N8) || IsPressed(Key::N1) || IsPressed(Key::N9)
+				|| IsCustomRenderImageActive().Get() && MouseMoved();
+
+			continuousMovementInputNoDelay().Process(isModifiedForMovement && isMoving);
+		}
 
 		// Make sure printable characters don't trigger combinations
 		// while keyboard is captured by text input

@@ -189,7 +189,7 @@ class PenTool : public EditingTool {
 			TryCreateNewObject();
 			return;
 		}
-		else if (Input::HasContinuousInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+		else if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
 			Changes::Commit();
 			SceneObject::ResetIsAnyElementChanged();
 		}
@@ -307,6 +307,7 @@ class PenTool : public EditingTool {
 					ObjectSelection::Set(o);
 					Input::RemoveHandler(createNewObjectHandlerId);
 					lockCreateNewObjectHandlerId = false;
+					Changes::Commit();
 				};
 			}
 			});
@@ -528,7 +529,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	}
 	template<>
 	void ProcessInput<PolyLineT, Mode::Immediate>() {
-		if (Input::HasContinuousInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+		if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
 			Changes::Commit();
 			SceneObject::ResetIsAnyElementChanged();
 		}
@@ -875,7 +876,7 @@ class TransformTool : public EditingTool {
 
 
 	void ProcessInput(const ObjectType& type, const Mode& mode) {
-		if (Input::HasContinuousInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+		if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
 			Changes::Commit();
 			SceneObject::ResetIsAnyElementChanged();
 
@@ -1212,6 +1213,7 @@ class SinePenTool : public EditingTool {
 					ObjectSelection::Set(o);
 					Input::RemoveHandler(createNewObjectHandlerId);
 					lockCreateNewObjectHandlerId = false;
+					Changes::Commit();
 				};
 			}
 			});
