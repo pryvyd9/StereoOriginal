@@ -32,7 +32,7 @@ protected:
 	bool shouldTransformRotation = false;
 	GLuint VBOLeft, VBORight, VAO;
 
-	static bool& isAnyObjectUpdated() {
+	static bool& isAnyElementChanged() {
 		static bool v;
 		return v;
 	}
@@ -47,12 +47,16 @@ protected:
 	const float propertyIndent = -20;
 
 	virtual void HandleBeforeUpdate() {
-		if (!isAnyObjectUpdated()) {
-			isAnyObjectUpdated() = true;
+		static bool isTriggered = false;
+		
+		isAnyElementChanged() = true;
+
+		if (!isTriggered) {
+			isTriggered = true;
 			onBeforeAnyElementChanged().Invoke();
 
 			(new FuncCommand())->func = [&] {
-				isAnyObjectUpdated() = false;
+				isTriggered = false;
 			};
 		}
 	}
@@ -105,6 +109,14 @@ public:
 	static IEvent<>& OnBeforeAnyElementChanged() {
 		return onBeforeAnyElementChanged();
 	}
+	static bool IsAnyElementChanged() {
+		return isAnyElementChanged();
+	}
+	static void ResetIsAnyElementChanged() {
+		isAnyElementChanged() = false;
+	}
+
+	StaticFieldDefault(bool, isDeletionExpected, true)
 
 	SceneObject() {
 		glGenBuffers(2, &VBOLeft);
@@ -120,6 +132,9 @@ public:
 	~SceneObject() {
 		glDeleteBuffers(2, &VBOLeft);
 		glDeleteVertexArrays(1, &VAO);
+
+		if (!isDeletionExpected())
+			Log::For<SceneObject>().Warning("Deletion is not expected");
 	}
 
 	virtual void Draw(
@@ -358,7 +373,7 @@ public:
 			c->CallRecursive(t, f);
 	}
 
-	virtual SceneObject* Clone() const { return nullptr; }
+	virtual SceneObject* Clone() const { throw std::exception("not implemented"); }
 	SceneObject& operator=(const SceneObject& o) {
 		position = o.position;
 		rotation = o.rotation;

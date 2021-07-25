@@ -62,12 +62,12 @@ public:
 	}
 };
 
-class StateBuffer {
+// State Buffer
+class Changes {
 public:
-	// Buffer requires 1 additional state for saving current state.
-	StaticProperty(int, BufferSize)
 	StaticProperty(PON, RootObject)
 	StaticProperty(std::vector<PON>, Objects)
+	StaticProperty(bool, ShouldIgnoreCommit)
 private:
 	struct State {
 		// Reference, Shallow copy
@@ -81,35 +81,41 @@ private:
 		SceneObject* rootCopy;
 	};
 
-	static std::list<State>& states() {
-		static std::list<State> v;
-		return v;
-	}
+	StaticField(std::list<State*>, pastStates)
+	StaticField(std::list<State*>, futureStates)
+	StaticField(State*, presentBackup)
 
-	static int& position() {
-		static int v = 0;
-		return v;
-	}
+	StaticField(Event<>, onStateChange)
 
-	static Event<>& onStateChange() {
-		static Event<> v;
-		return v;
-	}
-
-	static void PushPast(std::vector<PON>& objects) {
-		states().push_back(State());
-
-		if (auto correctedBuffer = BufferSize().Get() + 1;
-			correctedBuffer < states().size())
-			Erase(0, states().size() - correctedBuffer);
-
-		position() = states().size();
-
-		auto current = &states().back();
+	static State* CreateState(std::vector<PON>& objects) {
+		auto current = new State();
 
 		current->rootCopy = RootObject().Get()->Clone();
 
-		for (auto o : objects) {
+		for (auto& o : objects) {
+			current->objects.push_back({ o.Get(), o });
+			current->copies[o.Get()] = o->Clone();
+		}
+
+		for (auto& o : ObjectSelection::Selected())
+			current->selection.push_back(o.Get());
+
+		return current;
+	}
+
+
+	static void PushPast(std::vector<PON>& objects) {
+		auto current = new State();
+		{
+			pastStates().push_back(current);
+
+			if (Settings::StateBufferLength().Get() < pastStates().size())
+				EraseOldestState();
+		}
+
+		current->rootCopy = RootObject().Get()->Clone();
+
+		for (auto& o : objects) {
 			current->objects.push_back({ o.Get(), o });
 			current->copies[o.Get()] = o->Clone();
 		}
@@ -118,76 +124,95 @@ private:
 			current->selection.push_back(o.Get());
 	}
 
-	// Erase saved copies.
-	static void Erase(int from, int to) {
-		auto f = iterAt(from);
-		auto t = iterAt(to);
-		for (auto it = f; it != t; it++) {
-			delete it->rootCopy;
-			for (auto o : it->copies)
-				delete o.second;
-		}
+	static void EraseOldestState() {
+		DeleteState(pastStates().front());
 
-		states().erase(f, t);
+		pastStates().pop_front();
 	}
+
+	static void DeleteState(State* state) {
+		delete state->rootCopy;
+		for (auto& o : state->copies)
+			delete o.second;
+
+		delete state;
+	}
+
 	static void ClearFuture() {
-		Erase(position(), states().size());
+		for (auto& s : futureStates())
+			DeleteState(s);
+
+		futureStates().clear();
 	}
 
-	static std::list<State>::iterator iterAt(int pos) {
-		auto it = states().begin();
-		for (size_t i = 0; i < pos; i++, it++);
-		return it;
-	}
-	static State& at(int pos) {
-		return iterAt(pos)._Ptr->_Myval;
-	}
-
-	static void Apply(std::vector<PON>& objects, int pos) {
-		// Saved state at position pos.
-		auto saved = at(pos);
-
-		// Delete current objects.
-		for (auto& o : objects)
-			o.Delete();
-
+	static void Apply(std::vector<PON>& objects, State* saved) {
 		std::map<SceneObject*, SceneObject*> newCopies;
-		for (auto [f,s] : saved.copies)
+		for (auto& [f, s] : saved->copies)
 			newCopies[f] = s->Clone();
 
-		objects.clear();
-		for (auto [a,b] : saved.objects) {
-			b.Set(newCopies[a]);
-			objects.push_back(b);
+		if (newCopies.size() != saved->copies.size()) {
+			std::cout << "sizes don't match" << std::endl;
 		}
 
-		std::vector<SceneObject*> newSelection;
-		for (auto o : saved.selection)
-			newSelection.push_back(newCopies[o]);
+		auto newRoot = saved->rootCopy->Clone();
 
-		ObjectSelection::Set(newSelection);
+		SceneObject::isDeletionExpected() = false;
 
-		auto newRoot = saved.rootCopy->Clone();
-
-		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
-			if (p != nullptr) 
+		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject* (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
+			if (!o) {
+				std::cout << "null" << std::endl;
+			}
+			if (p != nullptr)
 				o->SetParent(p, false, true, false, false);
-			
+
 			for (size_t i = 0; i < o->children.size(); i++)
 				o->children[i] = newCopies[o->children[i]];
 
 			return o;
 			}));
 
+		SceneObject::isDeletionExpected() = true;
+
 		RootObject() = newRoot;
+
+		// Delete current objects.
+		for (auto& o : objects)
+			o.Delete();
+		objects.clear();
+
+		for (auto& [a, b] : saved->objects) {
+			b.Set(newCopies[a]);
+			objects.push_back(b);
+		}
+
+		std::vector<SceneObject*> newSelection;
+		for (auto o : saved->selection)
+			newSelection.push_back(newCopies[o]);
+
+		ObjectSelection::Set(newSelection);
 	}
+
 	static void ApplyPast(std::vector<PON>& objects) {
-		position()--;
-		Apply(objects, position());
+		auto stateToApply = pastStates().back();
+		pastStates().pop_back();
+		
+		if (presentBackup())
+			futureStates().push_back(presentBackup());
+
+		presentBackup() = stateToApply;
+
+		Apply(objects, stateToApply);
 	}
 	static void ApplyFuture(std::vector<PON>& objects) {
-		position()++;
-		Apply(objects, position());
+		auto stateToApply = futureStates().back();
+		futureStates().pop_back();
+
+		if (presentBackup())
+			pastStates().push_back(presentBackup());
+
+		presentBackup() = stateToApply;
+
+		Apply(objects, stateToApply);
 	}
 
 public:
@@ -198,7 +223,7 @@ public:
 	static bool Init() {
 		if (!RootObject().Get().Get() ||
 			!Objects().IsAssigned()) {
-			Log::For<StateBuffer>().Error("Initialization failed.");
+			Log::For<Changes>().Error("Initialization failed.");
 			return false;
 		}
 
@@ -207,18 +232,8 @@ public:
 
 	// Revert, Undo, Apply previous state
 	static void Rollback() {
-		if (position() < 1)
+		if (pastStates().empty())
 			return;
-
-		if (position() == states().size() - 1) {
-			ClearFuture();
-			PushPast(Objects().Get());
-			position()--;
-		}
-		else if (position() == states().size()) {
-			PushPast(Objects().Get());
-			position()--;
-		}
 
 		ApplyPast(Objects().Get());
 
@@ -227,15 +242,26 @@ public:
 
 	// Do, Save current state
 	static void Commit() {
-		if (position() < states().size())
+		if (ShouldIgnoreCommit().Get())
+			return;
+
+		if (!futureStates().empty())
 			ClearFuture();
 
-		PushPast(Objects().Get());
+		if (presentBackup()) {
+			pastStates().push_back(presentBackup());
+			presentBackup() = nullptr;
+		}
+
+		if (Settings::StateBufferLength().Get() < pastStates().size())
+			EraseOldestState();
+
+		presentBackup() = CreateState(Objects().Get());
 	}
 
 	// Repeat, Redo, Apply next state
 	static void Repeat() {
-		if (states().empty() || position() >= states().size() - 1)
+		if (futureStates().empty())
 			return;
 
 		ApplyFuture(Objects().Get());
@@ -244,7 +270,17 @@ public:
 	}
 
 	static void Clear() {
-		Erase(0, states().size());
+		ClearFuture();
+
+		for (auto& s : pastStates())
+			DeleteState(s);
+
+		pastStates().clear();
+
+		if (presentBackup()) {
+			DeleteState(presentBackup());
+			presentBackup() = nullptr;
+		}
 	}
 };
 
@@ -284,4 +320,3 @@ public:
 		ImGui::SetDragDropPayload("SceneObjects", ObjectSelection::SelectedP(), sizeof(ObjectSelection::Selection*));
 	}
 };
-

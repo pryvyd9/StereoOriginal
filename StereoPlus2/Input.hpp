@@ -28,17 +28,21 @@ class Input {
 
 	// Continuous input is a state when there is
 	// input with delay in between.
-	struct ContinuousInput {
+	class ContinuousInput {
+		bool iscontinuousInputLast = false;
+		bool isAnythingPressedLast = false;
+		size_t lastPressedTime;
+	public:
 		bool isContinuousInput = false;
 		// seconds
 		float continuousInputAwaitTime;
-		size_t lastPressedTime;
 
-		bool isAnythingPressedLast = false;
 
 		ContinuousInput(float continuousInputAwaitTime) : continuousInputAwaitTime(continuousInputAwaitTime) {}
 
 		void Process(bool isAnythingPressed) {
+			iscontinuousInputLast = isContinuousInput;
+
 			if (isAnythingPressed) {
 				isContinuousInput = true;
 				lastPressedTime = Time::GetTime();
@@ -47,8 +51,8 @@ class Input {
 				isContinuousInput = false;
 		}
 
-		void UpdateOld(bool isAnythingPressed) {
-			isAnythingPressedLast = isAnythingPressed;
+		bool HasStopped() {
+			return !isContinuousInput && iscontinuousInputLast;
 		}
 	};
 
@@ -248,6 +252,12 @@ public:
 	static bool IsContinuousInputNoDelay() {
 		return continuousInputNoDelay().isContinuousInput;
 	}
+	static bool HasContinuousInputOneSecondDelayStopped() {
+		return continuousInputOneSecondDelay().HasStopped();
+	}
+	static bool HasContinuousInputNoDelayStopped() {
+		return continuousInputNoDelay().HasStopped();
+	}
 
 	static bool MouseMoved() {
 		return MouseSpeed() > mouseSensivity() && MouseSpeed() < mouseMaxMagnitude();
@@ -309,11 +319,8 @@ public:
 			ExecuteFirstMatchingCombination(combinationTree(), io()->WantCaptureKeyboard);
 
 		// Handle OnInput actions
-		for (auto [id,handler] : handlers())
+		for (auto& [id,handler] : handlers())
 			handler();
-
-		continuousInputOneSecondDelay().UpdateOld(io()->AnyKeyPressed);
-		continuousInputNoDelay().UpdateOld(io()->AnyKeyPressed);
 	}
 
 	static bool Init() {

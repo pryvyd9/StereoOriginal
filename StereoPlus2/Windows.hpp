@@ -1557,7 +1557,7 @@ public:
 						: FileManager::Save;
 
 					if (mode == FileWindow::Load) {
-						StateBuffer::Commit();
+						Changes::Commit();
 						scene->DeleteAll();
 					}
 

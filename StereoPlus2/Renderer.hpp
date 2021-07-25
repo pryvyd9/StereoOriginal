@@ -183,14 +183,14 @@ public:
 		}
 		
 		if (ObjectSelection::Selected().empty()) {
-			for (auto o : scene.Objects().Get())
+			for (auto& o : scene.Objects().Get())
 				DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, &scene.cross().Get());
 			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
 			std::set<PON> objectsSorted;
-			for (auto o : scene.Objects().Get())
+			for (auto& o : scene.Objects().Get())
 				objectsSorted.emplace(o);
 
 			std::vector<PON> dimObjects;
@@ -202,11 +202,11 @@ public:
 				ObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));
 
-			for (auto o : dimObjects)
+			for (auto& o : dimObjects)
 				DrawDim(scene.camera, o.Get());
 			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
-			for (auto o : ObjectSelection::Selected())
+			for (auto& o : ObjectSelection::Selected())
 				if (o.HasValue())
 					DrawBright(scene.camera, o.Get());
 			DrawBright(scene.camera, &scene.cross().Get());
