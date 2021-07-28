@@ -826,6 +826,9 @@ class TraceObject : public GroupObject {
 	}
 
 public:
+	TraceObject() {}
+	TraceObject(const TraceObject* copy) : GroupObject(copy) {}
+
 	void IgnoreParentOnce() {
 		shouldIgnoreParent = true;
 	}
@@ -837,7 +840,9 @@ public:
 			? nullptr
 			: GroupObject::GetParent();
 	}
-	
+	virtual SceneObject* Clone() const override {
+		return new TraceObject(this);
+	}
 };
 
 class Scene {
