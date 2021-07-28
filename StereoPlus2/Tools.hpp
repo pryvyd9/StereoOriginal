@@ -62,6 +62,7 @@ public:
 	PON target;
 
 	std::function<void(SceneObject*)> init;
+	std::function<void(SceneObject*)> onCreated = [](SceneObject*) {};
 
 	SceneObject* Create() {
 		// Clone the object before it's modified
@@ -77,6 +78,7 @@ public:
 			init(clone);
 			return clone;
 		};
+		command->onCreated = onCreated;
 
 		return clone;
 	}
@@ -876,7 +878,7 @@ class TransformTool : public EditingTool {
 
 
 	void ProcessInput(const ObjectType& type, const Mode& mode) {
-		if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+		if (!shouldTrace && Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
 			Changes::Commit();
 			SceneObject::ResetIsAnyElementChanged();
 
@@ -948,7 +950,11 @@ class TransformTool : public EditingTool {
 				cloneTool.destination = traceObjectTool.Create();
 				cloneTool.target = o.Get();
 				cloneTool.init = [](SceneObject* obj) {
+					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
+				};
+				cloneTool.onCreated = [](SceneObject*) {
+					Changes::Commit();
 				};
 				cloneTool.Create();
 
@@ -959,7 +965,11 @@ class TransformTool : public EditingTool {
 				cloneTool.destination = o->children[pos];
 				cloneTool.target = o;
 				cloneTool.init = [p = o->GetWorldPosition(), r = o->GetWorldRotation()](SceneObject* obj) {
+					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
+				};
+				cloneTool.onCreated = [](SceneObject*) {
+					Changes::Commit();
 				};
 				cloneTool.Create();
 			}
