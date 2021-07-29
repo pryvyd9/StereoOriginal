@@ -98,6 +98,11 @@ private:
 			current->copies[o.Get()] = o->Clone();
 		}
 
+		if (current->objects.size() != current->copies.size()) {
+			logger().Error("The number of objects and the number their copies don't match.");
+			throw new std::exception("The number of objects and the number their copies don't match.");
+		}
+
 		for (auto& o : ObjectSelection::Selected())
 			current->selection.push_back(o.Get());
 
@@ -139,11 +144,37 @@ private:
 		delete state;
 	}
 
+	static void ClearPresent() {
+		if (presentBackup()) {
+			DeleteState(presentBackup());
+			presentBackup() = nullptr;
+		}
+	}
+	static void ClearPast() {
+		for (auto& s : pastStates())
+			DeleteState(s);
+
+		pastStates().clear();
+
+		ClearPresent();
+	}
 	static void ClearFuture() {
 		for (auto& s : futureStates())
 			DeleteState(s);
 
 		futureStates().clear();
+
+		ClearPresent();
+	}
+
+	static void AbortApply(SceneObject* newRoot, std::map<SceneObject*, SceneObject*>& newCopies) {
+		SceneObject::isDeletionExpected().push(true);
+
+		for (auto& [f, s] : newCopies)
+			delete s;
+		delete newRoot;
+
+		SceneObject::isDeletionExpected().pop();
 	}
 
 	static void Apply(std::vector<PON>& objects, State* saved) {
@@ -151,29 +182,37 @@ private:
 		for (auto& [f, s] : saved->copies)
 			newCopies[f] = s->Clone();
 
-		if (newCopies.size() != saved->copies.size()) {
-			std::cout << "sizes don't match" << std::endl;
-		}
-
 		auto newRoot = saved->rootCopy->Clone();
 
-		SceneObject::isDeletionExpected() = false;
+		SceneObject::isDeletionExpected().push(false);
 
 		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject* (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
 			if (!o) {
 				logger().Error("Null object was found in attempted state. Returning to previous active state.");
-				//std::cout << "null" << std::endl;
+				AbortApply(newRoot, newCopies);
+				
+				SceneObject::isDeletionExpected().pop();
+				throw new std::exception("State change aborted.");
 			}
+
 			if (p != nullptr)
 				o->SetParent(p, false, true, false, false);
 
 			for (size_t i = 0; i < o->children.size(); i++)
-				o->children[i] = newCopies[o->children[i]];
+				if (auto pair = newCopies.find(o->children[i]); pair != newCopies.end())
+					o->children[i] = pair->second;
+				else {
+					logger().Error("Child was not found in copied state. Returning to previous active state.");
+					AbortApply(newRoot, newCopies);
+
+					SceneObject::isDeletionExpected().pop();
+					throw new std::exception("State change aborted.");
+				}
 
 			return o;
 			}));
 
-		SceneObject::isDeletionExpected() = true;
+		SceneObject::isDeletionExpected().pop();
 
 		RootObject() = newRoot;
 
@@ -185,11 +224,24 @@ private:
 		for (auto& [a, b] : saved->objects) {
 			b.Set(newCopies[a]);
 			objects.push_back(b);
+
+			//int count = 0;
+			//for (auto& v : objects)
+			//	if (v.Get() == b.Get())
+			//		count++;
+
+			//if (count > 1)
+			//	throw new std::exception("Found 2 nodes pointing to the same object. Each node must correspond to 1 object.");
 		}
+
+
 
 		std::vector<SceneObject*> newSelection;
 		for (auto o : saved->selection)
-			newSelection.push_back(newCopies[o]);
+			if (auto pair = newCopies.find(o); pair != newCopies.end())
+				newSelection.push_back(pair->second);
+			else
+				logger().Warning("Attempted to select unexistent object during state change.");
 
 		ObjectSelection::Set(newSelection);
 	}
@@ -240,7 +292,14 @@ public:
 		if (pastStates().empty())
 			return;
 
-		ApplyPast(Objects().Get());
+		__try {
+			ApplyPast(Objects().Get());
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			logger().Error("Error occured in Rollback");
+			ClearPast();
+			return;
+		}
 
 		onStateChange().Invoke();
 	}
@@ -269,23 +328,21 @@ public:
 		if (futureStates().empty())
 			return;
 
-		ApplyFuture(Objects().Get());
+		__try {
+			ApplyFuture(Objects().Get());
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			logger().Error("Error occured in Repeat");
+			ClearFuture();
+			return;
+		}
 
 		onStateChange().Invoke();
 	}
 
 	static void Clear() {
+		ClearPast();
 		ClearFuture();
-
-		for (auto& s : pastStates())
-			DeleteState(s);
-
-		pastStates().clear();
-
-		if (presentBackup()) {
-			DeleteState(presentBackup());
-			presentBackup() = nullptr;
-		}
 	}
 };
 

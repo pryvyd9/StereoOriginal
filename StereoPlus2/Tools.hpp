@@ -931,16 +931,19 @@ class TransformTool : public EditingTool {
 	void Trace(std::vector<PON>& targets) {
 		static int id = 0;
 		
-		for (auto& o : targets) {
-			if (o->GetType() == TraceObjectT)
-				continue;
+		std::vector<PON> nonTraceObjects;
+		for (auto& o : targets)
+			if (o->GetType() != TraceObjectT)
+				nonTraceObjects.push_back(o);
 
-			auto pos = findBack(o->children, std::function([](SceneObject* so) {
+		for (size_t i = 0; i < nonTraceObjects.size(); i++)
+		{
+			auto pos = findBack(nonTraceObjects[i]->children, std::function([](SceneObject* so) {
 				return so->GetType() == TraceObjectT;
 				}));
 
 			if (pos < 0) {
-				traceObjectTool.destination = o;
+				traceObjectTool.destination = nonTraceObjects[i];
 				traceObjectTool.init = [&, id = id](SceneObject* o) {
 					std::stringstream ss;
 					ss << "TraceObject" << id;
@@ -948,28 +951,29 @@ class TransformTool : public EditingTool {
 				};
 
 				cloneTool.destination = traceObjectTool.Create();
-				cloneTool.target = o.Get();
+				cloneTool.target = nonTraceObjects[i].Get();
 				cloneTool.init = [](SceneObject* obj) {
 					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
 				};
-				cloneTool.onCreated = [](SceneObject*) {
-					Changes::Commit();
+				cloneTool.onCreated = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1](SceneObject*) {
+					if (isTheLastObjectInCloneGroup)
+						Changes::Commit();
 				};
 				cloneTool.Create();
 
 				id++;
 			}
-
 			else {
-				cloneTool.destination = o->children[pos];
-				cloneTool.target = o;
-				cloneTool.init = [p = o->GetWorldPosition(), r = o->GetWorldRotation()](SceneObject* obj) {
+				cloneTool.destination = nonTraceObjects[i]->children[pos];
+				cloneTool.target = nonTraceObjects[i];
+				cloneTool.init = [p = nonTraceObjects[i]->GetWorldPosition(), r = nonTraceObjects[i]->GetWorldRotation()](SceneObject* obj) {
 					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
 				};
-				cloneTool.onCreated = [](SceneObject*) {
-					Changes::Commit();
+				cloneTool.onCreated = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1](SceneObject*) {
+					if (isTheLastObjectInCloneGroup)
+						Changes::Commit();
 				};
 				cloneTool.Create();
 			}

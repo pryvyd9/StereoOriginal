@@ -1,6 +1,7 @@
 #pragma once
 #include "GLLoader.hpp"
 #include "Settings.hpp"
+#include <stack>
 
 enum ObjectType {
 	Group,
@@ -22,6 +23,9 @@ enum InsertPosition {
 // Abstract scene object.
 // Parent to all scene objects.
 class SceneObject {
+	StaticField(size_t, freeId)
+
+	size_t id;
 	// Local position;
 	glm::vec3 position;
 	// Local rotation;
@@ -106,6 +110,10 @@ public:
 	std::vector<SceneObject*> children;
 	std::string Name = "noname";
 
+	const size_t& Id() const {
+		return id;
+	}
+
 	static IEvent<>& OnBeforeAnyElementChanged() {
 		return onBeforeAnyElementChanged();
 	}
@@ -116,13 +124,17 @@ public:
 		isAnyElementChanged() = false;
 	}
 
-	StaticFieldDefault(bool, isDeletionExpected, true)
+	StaticFieldDefault(std::stack<bool>, isDeletionExpected, std::stack<bool>(std::deque<bool>({ true })))
 
 	SceneObject() {
+		id = freeId()++;
+
 		glGenBuffers(2, &VBOLeft);
 		glGenVertexArrays(1, &VAO);
 	}
 	SceneObject(const SceneObject* copy) : SceneObject() {
+		id = freeId()++;
+
 		position = copy->position;
 		rotation = copy->rotation;
 		parent = copy->parent;
@@ -133,7 +145,7 @@ public:
 		glDeleteBuffers(2, &VBOLeft);
 		glDeleteVertexArrays(1, &VAO);
 
-		if (!isDeletionExpected())
+		if (!isDeletionExpected().empty() && !isDeletionExpected().top())
 			Log::For<SceneObject>().Warning("Deletion is not expected");
 	}
 
@@ -392,14 +404,22 @@ class PON {
 		int referenceCount = 0;
 	};
 	Node* node = nullptr;
-	static std::map<SceneObject*, Node*>& existingNodes() {
-		static std::map<SceneObject*, Node*> v;
+
+	static std::map<size_t, Node*>& existingNodes() {
+		static std::map<size_t, Node*> v;
 		return v;
 	}
 	constexpr void Init(const PON& o) {
 		node = o.node;
 		if (node)
 			node->referenceCount++;
+	}
+	static const size_t* findNode(Node* o) {
+		for (auto& [k, v] : existingNodes())
+			if (v == o)
+				return &k;
+
+		return nullptr;
 	}
 public:
 	PON() {
@@ -409,13 +429,12 @@ public:
 		Init(o);
 	}
 	PON(SceneObject* o) {
-		if (auto n = existingNodes().find(o);
-			n != existingNodes().end()) {
+		if (auto n = existingNodes().find(o->Id()); n != existingNodes().end()) {
 			node = n->second;
 		}
 		else {
 			node = new Node();
-			existingNodes()[o] = node;
+			existingNodes()[o->Id()] = node;
 			Set(o);
 		}
 
@@ -429,7 +448,11 @@ public:
 		if (node->referenceCount > 0)
 			return;
 
-		existingNodes().erase(node->object);
+		if (node->object)
+			existingNodes().erase(node->object->Id());
+		else if (auto n = findNode(node); n)
+			existingNodes().erase(*n);
+
 		Delete();
 		delete node;
 	}
@@ -447,14 +470,14 @@ public:
 	void Set(SceneObject* o) {
 		if (node) {
 			if (node->object)
-				existingNodes().erase(node->object);
+				existingNodes().erase(node->object->Id());
 			Delete();
 		}
 		else
 			node = new Node();
 
 		node->object = o;
-		existingNodes()[o] = node;
+		existingNodes()[o->Id()] = node;
 	}
 	void Delete() {
 		if (!node->object)
