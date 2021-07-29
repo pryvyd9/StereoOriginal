@@ -765,7 +765,7 @@ static Property<type>& name() {\
 
 #define StaticField(type,name)\
 static type& name() {\
-	static type v = type();\
+	static type v;\
 	return v;\
 }
 
@@ -774,3 +774,27 @@ static type& name() {\
 	static type v = defaultValue;\
 	return v;\
 }
+
+template<typename T>
+class ValueStability {
+	bool lastValueMatches = false;
+	bool currentValueMatches = false;
+	std::function<bool(const T&)> condition = [] { return false; };
+public:
+	void ApplyCondition(std::function<bool(const T&)> cond) {
+		condition = cond;
+	}
+	void ApplyValue(const T& v) {
+		currentValueMatches = condition(v);
+	}
+
+	void IsStable() {
+		return lastValueMatches && currentValueMatches;
+	}
+	void IsBroken() {
+		return lastValueMatches && !currentValueMatches;
+	}
+	void IsRepaired() {
+		return !lastValueMatches && currentValueMatches;
+	}
+};

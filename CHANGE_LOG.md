@@ -63,3 +63,6 @@ Added Publish configuration that cleans output before build and copies only nece
 - added context menu to scene object inspector;
 # 0.15.1
 - fixed Z axis when moving with mouse; 
+# 0.16
+- reworked change buffer;
+- fixed issue with selecting incorrect object when selecting via inspector;

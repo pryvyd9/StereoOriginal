@@ -38,9 +38,9 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 	Input::AddShortcut(Key::Combination(Key::Escape),
 		ToolWindow::ApplyDefaultTool().Get());
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
-		StateBuffer::Rollback);
+		Changes::Rollback);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
-		StateBuffer::Repeat);
+		Changes::Repeat);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
 		ObjectSelection::RemoveAll);	
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::A),
@@ -156,16 +156,15 @@ int main() {
 		return false;
 
 
-	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
-	StateBuffer::RootObject() <<= scene.root();
-	StateBuffer::Objects() <<= scene.Objects();
+	Changes::RootObject() <<= scene.root();
+	Changes::Objects() <<= scene.Objects();
 	Input::AddHandler([s = &scene]{
 		if (Input::IsDown(Key::Delete, true)) {
-			StateBuffer::Commit();
+			Changes::Commit();
 			s->DeleteSelected();
 			}
 		});
-	if (!StateBuffer::Init())
+	if (!Changes::Init())
 		return false;
 
 	if (!LocaleProvider::Init())
@@ -211,7 +210,7 @@ int main() {
 
 	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
-	StateBuffer::Clear();
+	Changes::Clear();
 	SettingsLoader::Save();
     return true;
 }

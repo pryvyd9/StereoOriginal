@@ -28,17 +28,21 @@ class Input {
 
 	// Continuous input is a state when there is
 	// input with delay in between.
-	struct ContinuousInput {
+	class ContinuousInput {
+		bool iscontinuousInputLast = false;
+		bool isAnythingPressedLast = false;
+		size_t lastPressedTime;
+	public:
 		bool isContinuousInput = false;
 		// seconds
 		float continuousInputAwaitTime;
-		size_t lastPressedTime;
 
-		bool isAnythingPressedLast = false;
 
 		ContinuousInput(float continuousInputAwaitTime) : continuousInputAwaitTime(continuousInputAwaitTime) {}
 
 		void Process(bool isAnythingPressed) {
+			iscontinuousInputLast = isContinuousInput;
+
 			if (isAnythingPressed) {
 				isContinuousInput = true;
 				lastPressedTime = Time::GetTime();
@@ -47,8 +51,8 @@ class Input {
 				isContinuousInput = false;
 		}
 
-		void UpdateOld(bool isAnythingPressed) {
-			isAnythingPressedLast = isAnythingPressed;
+		bool HasStopped() {
+			return !isContinuousInput && iscontinuousInputLast;
 		}
 	};
 
@@ -63,6 +67,7 @@ class Input {
 
 	StaticFieldDefault(ContinuousInput, continuousInputOneSecondDelay, ContinuousInput(1))
 	StaticFieldDefault(ContinuousInput, continuousInputNoDelay, ContinuousInput(0))
+	StaticFieldDefault(ContinuousInput, continuousMovementInputNoDelay, ContinuousInput(0))
 
 	static std::map<size_t, std::function<void()>>& handlers() {
 		static std::map<size_t, std::function<void()>> v;
@@ -248,6 +253,16 @@ public:
 	static bool IsContinuousInputNoDelay() {
 		return continuousInputNoDelay().isContinuousInput;
 	}
+	static bool HasContinuousInputOneSecondDelayStopped() {
+		return continuousInputOneSecondDelay().HasStopped();
+	}
+	static bool HasContinuousInputNoDelayStopped() {
+		return continuousInputNoDelay().HasStopped();
+	}
+	static bool HasContinuousMovementInputNoDelayStopped() {
+		return continuousMovementInputNoDelay().HasStopped();
+	}
+
 
 	static bool MouseMoved() {
 		return MouseSpeed() > mouseSensivity() && MouseSpeed() < mouseMaxMagnitude();
@@ -300,8 +315,17 @@ public:
 	static void ProcessInput() {
 		FillAxes();
 
-		continuousInputOneSecondDelay().Process(io()->AnyKeyPressed);
-		continuousInputNoDelay().Process(io()->AnyKeyPressed);
+		{
+			continuousInputOneSecondDelay().Process(io()->AnyKeyPressed);
+			continuousInputNoDelay().Process(io()->AnyKeyPressed);
+
+			auto isModifiedForMovement = io()->KeyAlt || io()->KeyCtrl || io()->KeyShift;
+			auto isMoving = IsPressed(Key::Left) || IsPressed(Key::Right) || IsPressed(Key::Up) || IsPressed(Key::Down)
+				|| IsPressed(Key::N4) || IsPressed(Key::N2) || IsPressed(Key::N6) || IsPressed(Key::N8) || IsPressed(Key::N1) || IsPressed(Key::N9)
+				|| IsCustomRenderImageActive().Get() && MouseMoved();
+
+			continuousMovementInputNoDelay().Process(isModifiedForMovement && isMoving);
+		}
 
 		// Make sure printable characters don't trigger combinations
 		// while keyboard is captured by text input
@@ -309,11 +333,8 @@ public:
 			ExecuteFirstMatchingCombination(combinationTree(), io()->WantCaptureKeyboard);
 
 		// Handle OnInput actions
-		for (auto [id,handler] : handlers())
+		for (auto& [id,handler] : handlers())
 			handler();
-
-		continuousInputOneSecondDelay().UpdateOld(io()->AnyKeyPressed);
-		continuousInputNoDelay().UpdateOld(io()->AnyKeyPressed);
 	}
 
 	static bool Init() {

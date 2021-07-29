@@ -1556,12 +1556,13 @@ public:
 						? FileManager::Load 
 						: FileManager::Save;
 
-					if (mode == FileWindow::Load) {
-						StateBuffer::Commit();
+					if (mode == FileWindow::Load)
 						scene->DeleteAll();
-					}
 
 					action(fileName, scene);
+
+					if (mode == FileWindow::Load)
+						Changes::Commit();
 
 					shouldClose = true;
 				}
