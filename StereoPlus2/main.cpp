@@ -193,7 +193,9 @@ int main() {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 	auto updateCacheForAllObjects = [&scene] {
-		for (auto& o : scene.Objects().Get())
+		Scene::cross()->ForceUpdateCache();
+
+		for (auto& o : Scene::Objects().Get())
 			o->ForceUpdateCache();
 	};
 	customRenderWindow.OnResize() += updateCacheForAllObjects;

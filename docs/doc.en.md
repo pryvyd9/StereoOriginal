@@ -71,6 +71,10 @@ Movement from keyboard is scaled by a set step in settings. Movement from mouse 
 - Numpad7/Numpad3 to resize cross;
 - Alt+LMB on scene+Mouse movement to move in XY plane;
 - Alt+LMB on scene+RMB+Mouse movement to move in Z axe;
+- Alt+Numpad5 moves cross to the selected object;
+- Alt+Numpad0 moves cross to (0;0;0);
+- Ctrl+Numpad5 set rotation to the selected object's rotation;
+- Ctrl+Numpad0 set rotation to (0;0;0;0);
 ### File
 ## Render
 Rendering is implemented with OpenGL 4.1+

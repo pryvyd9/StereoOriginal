@@ -156,8 +156,10 @@ public:
 		GLuint shaderRight,
 		GLuint stencilMaskLeft,
 		GLuint stencilMaskRight) {
-		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get())
+		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get()) {
 			UpdateOpenGLBuffer(toLeft, toRight);
+			shouldUpdateCache = false;
+		}
 
 		glStencilMask(stencilMaskLeft);
 		glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);

@@ -69,7 +69,6 @@ class PolyLine : public LeafObject {
 	void UpdateCache() {
 		verticesCache = vertices;
 		CascadeTransform(verticesCache);
-		shouldUpdateCache = false;
 	}
 
 public:
@@ -221,7 +220,6 @@ class SineCurve : public LeafObject {
 	void updateCacheAsPolyLine() {
 		verticesCache = vertices;
 		CascadeTransform(verticesCache);
-		shouldUpdateCache = false;
 	}
 
 	void updateCacheAsPolyLine(int from, int to) {
@@ -249,10 +247,6 @@ void UpdateCache() {
 	if (vertices.size() < 3) {
 		updateCacheAsPolyLine(0, vertices.size());
 		CascadeTransform(verticesCache);
-
-		// Remove all cache update requests.
-		shouldUpdateCache = false;
-
 		return;
 	}
 
@@ -269,10 +263,6 @@ void UpdateCache() {
 	}
 
 	CascadeTransform(verticesCache);
-
-	// Remove all cache update requests.
-	shouldUpdateCache = false;
-	return;
 }
 
 public:
@@ -434,7 +424,6 @@ private:
 	void UpdateCache() {
 		vertexCache = vertices;
 		CascadeTransform(vertexCache);
-		shouldUpdateCache = false;
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
@@ -669,7 +658,6 @@ class Cross : public LeafObject {
 		vertices[5].z += size;
 
 		CascadeTransform(vertices);
-		shouldUpdateCache = false;
 	}
 
 	// Cross is being continuously modified so don't notify it's updates.
@@ -709,7 +697,11 @@ public:
 		// Hask to enable cross movement via GUI editing count as input movement.
 		// It enables tools to react to it properly and work correctly.
 		GUIPositionEditDifference = GetLocalPosition() - oldPos;
-		SetLocalPosition(oldPos);
+
+		if (GUIPositionEditDifference != glm::vec3())
+			SetLocalPosition(oldPos);
+
+		//shouldUpdateCache = true;
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
