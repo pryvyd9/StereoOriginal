@@ -195,7 +195,20 @@ struct Convert {
 		);
 		return vView;
 	}
-
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static glm::vec3 MillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
+		
+		auto vView = glm::vec3(
+			vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
+			vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
+			0
+		);
+		return vView;
+	}
 	// Millimeters to [-1;1]
 	// World center-centered
 	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
@@ -218,6 +231,15 @@ struct Convert {
 		return vMillimiters;
 	}
 	static glm::vec2 PixelsToMillimeters(const glm::vec2& vPixels) {
+		static float inchToMillimeter = 0.0393701;
+		// vPixels[pixel]
+		// inchToMillimeter[inch/millimeter]
+		// PPI[pixel/inch]
+		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
+		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
+		return vMillimiters;
+	}
+	static float PixelsToMillimeters(const float& vPixels) {
 		static float inchToMillimeter = 0.0393701;
 		// vPixels[pixel]
 		// inchToMillimeter[inch/millimeter]
@@ -356,4 +378,26 @@ public:
 
 		return points;
 	}
+
+	static const std::vector<glm::vec3> Circle(size_t verticeCount, float radius) {
+		std::vector<glm::vec3> vertices;
+		vertices.push_back(glm::vec3());
+
+		for (float i = 0; i <= glm::two_pi<float>(); i += glm::two_pi<float>() / verticeCount)
+		{
+			vertices.push_back(glm::vec3(
+				radius * cos(i),
+				radius * sin(i),
+				0
+			));
+		}
+		vertices.push_back(glm::vec3(
+			radius,
+			0,
+			0
+		));
+
+		return vertices;
+	}
+
 };

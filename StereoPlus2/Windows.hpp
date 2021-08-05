@@ -1317,6 +1317,7 @@ class ToolWindow : Window {
 	CreatingTool<PolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
 	CreatingTool<SineCurve> sineCurveTool;
+	CreatingTool<Point> pointTool;
 
 
 
@@ -1376,6 +1377,9 @@ public:
 		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
 			Scene::AssignUniqueName(o, "Group");
 		});
+		ConfigureCreationTool(pointTool, [](SceneObject* o) {
+			Scene::AssignUniqueName(o, "Point");
+			});
 
 		Window::name = "toolWindow";
 
@@ -1391,6 +1395,8 @@ public:
 				sineCurveTool.Create();
 			if (ImGui::Button(LocaleProvider::GetC("object:group")))
 				groupObjectTool.Create();
+			if (ImGui::Button(LocaleProvider::GetC("object:point")))
+				pointTool.Create();
 		}
 		{
 			ImGui::Separator();

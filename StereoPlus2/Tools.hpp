@@ -165,9 +165,6 @@ class PenTool : public EditingTool {
 	Mode mode;
 	PON target;
 
-	SceneObject* crossOriginalParent;
-	bool wasCommitDone = false;
-
 	bool createdAdditionalPoints;
 	bool createdNewObject;
 	
@@ -1100,8 +1097,6 @@ class SinePenTool : public EditingTool {
 
 	Property<Mode> mode;
 	PON target;
-
-	SceneObject* crossOriginalParent;
 
 	bool createdAdditionalPoints;
 	bool createdNewObject;

@@ -109,6 +109,7 @@ int main() {
 
 	cameraPropertiesWindow.Object = &camera;
 	crossPropertiesWindow.Object = &cross;
+	ReadOnlyState::ViewSize() <<= customRenderWindow.RenderSize;
 
 	ToolWindow::ApplyDefaultTool() = ToolWindow::ApplyTool<TransformToolWindow, TransformTool>;
 	ToolWindow::AttributesWindow() = &attributesWindow;

@@ -110,3 +110,7 @@ public:
 	}
 
 };
+
+struct ReadOnlyState {
+	StaticProperty(glm::vec2, ViewSize)
+};
