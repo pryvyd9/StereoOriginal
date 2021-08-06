@@ -151,7 +151,7 @@ protected:
 };
 
 class PenTool : public EditingTool {
-	using Mode = PointPenEditingToolMode;
+	using Mode = PolylinePenEditingToolMode;
 
 	const Log Logger = Log::For<PenTool>();
 
@@ -524,7 +524,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 #pragma region ProcessInput
 	template<ObjectType type, Mode mode>
 	void ProcessInput() {
-		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
+		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PolylinePenEditingToolMode" << std::endl;
 	}
 	template<>
 	void ProcessInput<PolyLineT, Mode::Immediate>() {
@@ -1380,5 +1380,189 @@ public:
 
 	void SetMode(Mode mode) {
 		this->mode = mode;
+	}
+};
+
+class PointPenTool : public EditingTool {
+	const Log Logger = Log::For<PointPenTool>();
+
+	size_t inputHandlerId;
+	size_t stateChangedHandlerId;
+
+	// Create new object by pressing Enter.
+	size_t createNewObjectHandlerId;
+	bool lockCreateNewObjectHandlerId;
+
+	PON target;
+
+	bool createdNewObject;
+
+	void TryCreateNewObject() {
+		if (createNewObjectHandlerId)
+			return;
+
+		createNewObjectHandlerId = Input::AddHandler([&] {
+			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
+				lockCreateNewObjectHandlerId = true;
+
+				auto cmd = new CreateCommand();
+
+				if (ObjectSelection::Selected().size() == 1) {
+					auto d = ObjectSelection::Selected().begin()._Ptr->_Myval.Get();
+					cmd->destination = d->GetParent() ? const_cast<SceneObject*>(d->GetParent()) : d;
+				}
+
+				cmd->init = [] {
+					auto o = new PointObject();
+					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
+					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
+					Scene::AssignUniqueName(o, "Point");
+					return o;
+				};
+				cmd->onCreated = [&](SceneObject* o) {
+					createdNewObject = true;
+					ObjectSelection::Set(o);
+					Input::RemoveHandler(createNewObjectHandlerId);
+					lockCreateNewObjectHandlerId = false;
+					Changes::Commit();
+				};
+			}
+			});
+	}
+
+	ObjectSelection::Selection GetExistingObjects(const ObjectSelection::Selection& v) {
+		ObjectSelection::Selection ns;
+		for (auto& o : Scene::Objects().Get())
+			if (v.find(o) != v.end())
+				ns.insert(o);
+
+		return ns;
+	}
+
+	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) override {
+		UnbindTool();
+		OnToolActivated(v);
+	}
+	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
+		// Don't work with deleted objects even if they stay selected.
+		auto targets = GetExistingObjects(v);
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
+		if (targets.empty())
+			return TryCreateNewObject();
+
+		if (targets.size() > 1) {
+			Logger.Warning("Cannot work with multiple objects");
+			return;
+		}
+
+		auto t = targets.begin()._Ptr->_Myval;
+
+		if (t->GetType() != PointT)
+			return TryCreateNewObject();
+
+		target = t;
+
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+		if (!target->GetVertices().empty())
+			cross->SetWorldPosition(target->GetVertices().back());
+
+		inputHandlerId = Input::AddHandler([&] {
+			TryCreateNewObject();
+			});
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
+			if (!target.HasValue()) {
+				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (!exists(Scene::Objects().Get(), target)) {
+				target = PON();
+				return;
+			}
+
+			if (target->GetVertices().empty())
+				return;
+
+			cross->SetWorldPosition(target->GetVertices().back());
+		};
+	}
+
+public:
+	NonAssignProperty<Cross*> cross;
+
+	virtual bool BindSceneObjects(std::vector<PON> objs) {
+		if (target.HasValue() && !UnbindSceneObjects())
+			return false;
+
+		if (objs[0]->GetType() != PolyLineT) {
+			Logger.Warning("Invalid Object passed to PointPenEditingTool");
+			return true;
+		}
+		target = objs[0];
+
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+		if (!target->GetVertices().empty())
+			cross->SetWorldPosition(target->GetVertices().back());
+
+		inputHandlerId = Input::AddHandler([&] {
+			// If handler was removed via shortcuts then don't execute it.
+			TryCreateNewObject();
+			});
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
+			if (!target.HasValue()) {
+				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (Settings::SpaceMode().Get() == SpaceMode::Local)
+				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+			if (target->GetVertices().empty())
+				return;
+
+			cross->SetWorldPosition(target->GetVertices().back());
+		};
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
+		return true;
+	}
+	virtual bool UnbindSceneObjects() {
+		if (!lockCreateNewObjectHandlerId)
+			Input::RemoveHandler(createNewObjectHandlerId);
+
+		Settings::ShouldRestrictTargetModeToPivot() = false;
+
+		if (!target.HasValue())
+			return true;
+
+		Input::RemoveHandler(inputHandlerId);
+		Changes::OnStateChange() -= stateChangedHandlerId;
+
+		target = PON();
+
+		// Go to creating mode after unbinding target;
+		TryCreateNewObject();
+
+		return true;
+	}
+	virtual void UnbindTool() override {
+		UnbindSceneObjects();
+
+		// On unbinding objects the tool goes to 
+		// creating new object awaiting state.
+		// But if the tool is unbind then it should be cancelled.
+		if (!lockCreateNewObjectHandlerId)
+			Input::RemoveHandler(createNewObjectHandlerId);
+	}
+
+	SceneObject* GetTarget() {
+		return target.HasValue()
+			? target.Get()
+			: nullptr;
 	}
 };

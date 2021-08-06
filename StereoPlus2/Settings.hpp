@@ -3,7 +3,7 @@
 #include "InfrastructureTypes.hpp"
 #include "Key.hpp"
 
-enum class PointPenEditingToolMode {
+enum class PolylinePenEditingToolMode {
 	Immediate,
 	Step,
 };

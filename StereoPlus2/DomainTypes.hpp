@@ -587,7 +587,7 @@ public:
 };
 
 // Hexagon that keeps 2 pixel radius.
-class Point : public LeafObject {
+class PointObject : public LeafObject {
 	float sizePixels = 2.f;
 	std::vector<glm::vec3> vertices;
 	std::vector<glm::vec3> leftBuffer;
@@ -639,20 +639,20 @@ class Point : public LeafObject {
 	}
 
 public:
-	Point() {
+	PointObject() {
 		vertices = Build::Circle(6, 1);
 	}
-	Point(const Point* copy) : LeafObject(copy) {
+	PointObject(const PointObject* copy) : LeafObject(copy) {
 		vertices = copy->vertices;
 	}
-	~Point() {}
+	~PointObject() {}
 
 	virtual ObjectType GetType() const override {
 		return PointT;
 	}
 
 	SceneObject* Clone() const override {
-		return new Point(this);
+		return new PointObject(this);
 	}
 };
 
