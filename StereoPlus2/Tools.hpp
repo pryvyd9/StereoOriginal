@@ -11,6 +11,7 @@
 #include "TemplateExtensions.hpp"
 #include "Settings.hpp"
 #include "Math.hpp"
+#include "Localization.hpp"
 
 class Tool {
 protected:
@@ -298,7 +299,7 @@ class PenTool : public EditingTool {
 					auto o = new PolyLine();
 					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
-					Scene::AssignUniqueName(o, "PolyLine");
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:polyline"));
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
@@ -942,9 +943,7 @@ class TransformTool : public EditingTool {
 			if (pos < 0) {
 				traceObjectTool.destination = nonTraceObjects[i];
 				traceObjectTool.init = [&, id = id](SceneObject* o) {
-					std::stringstream ss;
-					ss << "TraceObject" << id;
-					o->Name = ss.str();
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:trace"));
 				};
 
 				cloneTool.destination = traceObjectTool.Create();
@@ -1214,7 +1213,7 @@ class SinePenTool : public EditingTool {
 					auto o = new SineCurve();
 					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
-					Scene::AssignUniqueName(o, "SineCurve");
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:sinecurve"));
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
@@ -1416,7 +1415,7 @@ class PointPenTool : public EditingTool {
 					auto o = new PointObject();
 					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
-					Scene::AssignUniqueName(o, "Point");
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:point"));
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {

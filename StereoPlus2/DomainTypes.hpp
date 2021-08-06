@@ -910,6 +910,8 @@ public:
 class Scene {
 	Log Logger = Log::For<Scene>();
 
+	StaticField(std::function<std::string()>, getRootLocalizedName)
+
 	static Event<>& deleteAll() {
 		static Event<> v;
 		return v;
@@ -945,7 +947,7 @@ class Scene {
 
 	static PON CreateRoot() {
 		auto r = new GroupObject();
-		r->Name = "Root";
+		r->Name = getRootLocalizedName()();
 		return PON(r);
 	}
 public:
@@ -963,7 +965,8 @@ public:
 		return deleteAll();
 	}
 
-	Scene() {
+	Scene(std::function<std::string()> getRootLocalizedName) {
+		this->getRootLocalizedName() = getRootLocalizedName;
 		root() = CreateRoot();
 	}
 

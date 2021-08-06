@@ -1506,16 +1506,16 @@ public:
 		}
 
 		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "PolyLine");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:polyline"));
 		});
 		ConfigureCreationTool(sineCurveTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "SineCurve");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:sinecurve"));
 			});
 		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "Group");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:group"));
 		});
 		ConfigureCreationTool(pointTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "PointObject");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:point"));
 			});
 
 		Window::name = "toolWindow";
