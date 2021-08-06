@@ -2,6 +2,7 @@
 #include "Json.hpp"
 #include "InfrastructureTypes.hpp"
 #include <stringapiset.h>
+#include "FileManager.hpp"
 
 namespace Locale {
 	const std::string UA = "ua";

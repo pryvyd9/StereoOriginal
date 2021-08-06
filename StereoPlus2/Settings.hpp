@@ -3,7 +3,7 @@
 #include "InfrastructureTypes.hpp"
 #include "Key.hpp"
 
-enum class PointPenEditingToolMode {
+enum class PolylinePenEditingToolMode {
 	Immediate,
 	Step,
 };
@@ -109,4 +109,8 @@ public:
 		throw new std::exception("Name for a reference was not found.");
 	}
 
+};
+
+struct ReadOnlyState {
+	StaticProperty(glm::vec2, ViewSize)
 };

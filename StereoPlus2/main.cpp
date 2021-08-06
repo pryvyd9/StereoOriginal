@@ -76,6 +76,9 @@ int main() {
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
 
+	if (!LocaleProvider::Init())
+		return false;
+
 	//LogWindow logWindow;
 	//Log::AdditionalLogOutput() = [&](const std::string& v) { logWindow.Logs += v; };
 	Log::Sink() = Log::ConsoleSink;
@@ -99,7 +102,7 @@ int main() {
 	if (!renderPipeline.Init())
 		return false;
 
-	Scene scene;
+	Scene scene([] { return LocaleProvider::Get("object:root"); });
 	Camera camera;
 	Cross cross;
 
@@ -109,6 +112,7 @@ int main() {
 
 	cameraPropertiesWindow.Object = &camera;
 	crossPropertiesWindow.Object = &cross;
+	ReadOnlyState::ViewSize() <<= customRenderWindow.RenderSize;
 
 	ToolWindow::ApplyDefaultTool() = ToolWindow::ApplyTool<TransformToolWindow, TransformTool>;
 	ToolWindow::AttributesWindow() = &attributesWindow;
@@ -165,9 +169,6 @@ int main() {
 			}
 		});
 	if (!Changes::Init())
-		return false;
-
-	if (!LocaleProvider::Init())
 		return false;
 
 	scene.OnDeleteAll() += [] {

@@ -66,3 +66,9 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.16
 - reworked change buffer;
 - fixed issue with selecting incorrect object when selecting via inspector;
+# 0.17
+- added point object;
+- added point pen tool;
+- localized object names in inspector;
+- made ./scenes start directory for file management;
+- creates ./scenes directory if not exists;

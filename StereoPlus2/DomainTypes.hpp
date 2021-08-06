@@ -383,8 +383,7 @@ public:
 	}
 };
 
-struct Mesh : LeafObject {
-private:
+class Mesh : public LeafObject {
 	std::vector<glm::vec3> vertices;
 	std::vector<std::array<GLuint, 2>> connections;
 
@@ -447,6 +446,7 @@ private:
 
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		// IBO is bind in DrawLeft already so we don't bind it here.
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -584,6 +584,76 @@ public:
 		return *this;
 	}
 
+};
+
+// Hexagon that keeps 2 pixel radius.
+class PointObject : public LeafObject {
+	float sizePixels = 2.f;
+	std::vector<glm::vec3> vertices;
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) override {
+
+		auto leftCenter = toLeft(GetWorldPosition());
+		auto rightCenter = toRight(GetWorldPosition());
+		auto millimeterSize = Convert::PixelsToMillimeters(sizePixels);
+
+		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
+		for (size_t i = 0; i < vertices.size(); i++) {
+			auto p = Convert::MillimetersToViewCoordinates(vertices[i] * millimeterSize, ReadOnlyState::ViewSize().Get());
+			leftBuffer[i] = leftCenter + p;
+			rightBuffer[i] = rightCenter + p;
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * leftBuffer.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * rightBuffer.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	virtual void DrawLeft(GLuint shader) override {
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, leftBuffer.size());
+	}
+	virtual void DrawRight(GLuint shader) override {
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Apply shader
+		glUseProgram(shader);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, leftBuffer.size());
+	}
+
+public:
+	PointObject() {
+		vertices = Build::Circle(6, 1);
+	}
+	PointObject(const PointObject* copy) : LeafObject(copy) {
+		vertices = copy->vertices;
+	}
+	~PointObject() {}
+
+	virtual ObjectType GetType() const override {
+		return PointT;
+	}
+
+	SceneObject* Clone() const override {
+		return new PointObject(this);
+	}
 };
 
 class WhiteSquare
@@ -840,6 +910,8 @@ public:
 class Scene {
 	Log Logger = Log::For<Scene>();
 
+	StaticField(std::function<std::string()>, getRootLocalizedName)
+
 	static Event<>& deleteAll() {
 		static Event<> v;
 		return v;
@@ -875,7 +947,7 @@ class Scene {
 
 	static PON CreateRoot() {
 		auto r = new GroupObject();
-		r->Name = "Root";
+		r->Name = getRootLocalizedName()();
 		return PON(r);
 	}
 public:
@@ -893,7 +965,8 @@ public:
 		return deleteAll();
 	}
 
-	Scene() {
+	Scene(std::function<std::string()> getRootLocalizedName) {
+		this->getRootLocalizedName() = getRootLocalizedName;
 		root() = CreateRoot();
 	}
 

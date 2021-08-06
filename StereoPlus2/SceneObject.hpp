@@ -11,6 +11,7 @@ enum ObjectType {
 	CrossT,
 	TraceObjectT,
 	SineCurveT,
+	PointT,
 };
 
 enum InsertPosition {
