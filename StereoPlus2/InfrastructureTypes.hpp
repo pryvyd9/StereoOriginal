@@ -213,31 +213,24 @@ public:
 };
 
 class Log {
+public:
+	struct Context {
+		std::string contextName = "";
+		std::string logFileName = "";
+		std::string message = "";
+		std::string level = "";
+	};
+private:
 	template<typename T>
 	using isOstreamable = decltype(std::declval<std::ostringstream>() << std::declval<T>());
 
 	template<typename T>
 	static constexpr bool isOstreamableT = is_detected_v<isOstreamable, T>;
 
-	std::string contextName = "";
-	std::string logFileName = "";
 
-	static void Line(const std::string& message, const std::string& logFileName) {
-		static Path logDirectory("logs/");
-		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
-		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
-			fs::create_directory(logDirectory.get());
-
-		std::stringstream ss;
-		ss << Time::GetTimeFormatted() << message << std::endl;
-		auto log = ss.str();
-
-		std::ofstream f(logDirectory.joinPath(logFileName + startTime), std::ios_base::app);
-		f << log;
-		f.close();
-
-		AdditionalLogOutput()(log);
-	}
+	Context context;
+	std::function<void(const Context&)> sink = Sink();
+	
 	template<typename T, std::enable_if_t<isOstreamableT<T>> * = nullptr>
 	static std::string ToString(const T& message) {
 		std::ostringstream ss;
@@ -252,10 +245,11 @@ class Log {
 
 public:
 	template<typename T>
-	static const Log For(std::string logFileName = LogFileName()) {
+	static const Log For(std::string logFileName = LogFileName(), std::function<void(const Context&)> sink = Sink()) {
 		Log log;
-		log.contextName = typeid(T).name();
-		log.logFileName = logFileName;
+		log.context.contextName = typeid(T).name();
+		log.context.logFileName = logFileName;
+		log.sink = sink;
 		return log;
 	}
 
@@ -274,25 +268,51 @@ public:
 
 
 	void Error(const std::string& message) const {
-		Line("[Error](" + contextName + ") " + message, logFileName);
+		Context c = context;
+		c.level = "Error";
+		c.message = message;
+		sink(c);
 	}
 	void Warning(const std::string& message) const {
-		Line("[Warning](" + contextName + ") " + message, logFileName);
+		Context c = context;
+		c.level = "Warning";
+		c.message = message;
+		sink(c);
 	}
 	void Information(const std::string& message) const {
-		Line("[Information](" + contextName + ") " + message, logFileName);
+		Context c = context;
+		c.level = "Information";
+		c.message = message;
+		sink(c);
 	}
 
 	static std::string& LogFileName() {
 		static std::string v = "defaultLog";
 		return v;
 	}
-	static std::function<void(const std::string&)>& AdditionalLogOutput() {
-		static std::function<void(const std::string&)> v = [](const std::string&) {};
+	static std::function<void(const Context&)>& Sink() {
+		static std::function<void(const Context&)> v = [](const Context&) {};
 		return v;
 	}
-};
 
+	static void FileSink(const Context& v) {
+		static Path logDirectory("logs/");
+		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
+		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
+			fs::create_directory(logDirectory.get());
+
+		std::stringstream ss;
+		ss << Time::GetTimeFormatted() << "[" << v.level << "]" << "(" << v.contextName << ")" << v.message << std::endl;
+		auto log = ss.str();
+
+		std::ofstream f(logDirectory.joinPath(v.logFileName + startTime), std::ios_base::app);
+		f << log;
+		f.close();
+	}
+	static void ConsoleSink(const Context& v) {
+		std::cout << "[" << v.level << "]" << "(" << v.contextName << ")" << v.message << std::endl;
+	}
+};
 
 class Command {
 	static std::list<Command*>& GetQueue() {
@@ -326,9 +346,11 @@ public:
 };
 
 class FuncCommand : Command {
+	bool shouldAbort = false;
 protected:
 	virtual bool Execute() {
-		func();
+		if (!shouldAbort)
+			func();
 
 		return true;
 	};
@@ -337,275 +359,442 @@ public:
 		isReady = true;
 	}
 
+	void Abort() {
+		shouldAbort = true;
+	}
+
 	std::function<void()> func;
 };
 
 template<typename...T>
 class IEvent {
+	FuncCommand* modifyHandlersCommand = nullptr;
+	std::map<size_t, std::function<void(const T&...)>> handlersToBeAdded;
+	std::vector<size_t> handlersToBeRemoved;
+
+	void EnsureModifyHandlersCommand() {
+		if (!modifyHandlersCommand) {
+			modifyHandlersCommand = new FuncCommand();
+			modifyHandlersCommand->func = [&] {
+				handlers.insert(handlersToBeAdded.begin(), handlersToBeAdded.end());
+				for (auto h : handlersToBeRemoved)
+					handlers.erase(h);
+
+				modifyHandlersCommand = nullptr;
+				handlersToBeAdded.clear();
+				handlersToBeRemoved.clear();
+			};
+		}
+	}
 protected:
-	std::map<size_t, std::function<void(T...)>> handlers;
+	std::map<size_t, std::function<void(const T&...)>> handlers;
 public:
-	size_t AddHandler(std::function<void(T...)> func) {
+	size_t AddHandler(std::function<void(const T&...)> func) {
 		static size_t id = 0;
 
-		(new FuncCommand())->func = [&, id = id, f = func] {
-			handlers[id] = f;
-		};
+		handlersToBeAdded[id] = func;
+		EnsureModifyHandlersCommand();
 
 		return id++;
 	}
+
 	void RemoveHandler(size_t v) {
-		(new FuncCommand())->func = [&, v = v] {
-			handlers.erase(v);
-		};
+		handlersToBeRemoved.push_back(v);
+		EnsureModifyHandlersCommand();
 	}
 
-	size_t operator += (std::function<void(T...)> func) {
+	size_t operator += (std::function<void(const T&...)> func) {
 		return AddHandler(func);
 	}
 	void operator -= (size_t v) {
 		RemoveHandler(v);
 	}
 
-};
+	~IEvent() {
+		// Commands will be executed with skipping the assigned func 
+		// and then will be deleted so we only need to abort them.
+		if (modifyHandlersCommand)
+			modifyHandlersCommand->Abort();
+	}
 
+	void AddHandlersFrom(const IEvent<T...>& o) {
+		handlersToBeAdded.insert(o.handlers.begin(), o.handlers.end());
+		handlersToBeAdded.insert(o.handlersToBeAdded.begin(), o.handlersToBeAdded.end());
+		handlersToBeRemoved.insert(handlersToBeRemoved.end(), o.handlersToBeRemoved.begin(), o.handlersToBeRemoved.end());
+
+		EnsureModifyHandlersCommand();
+	}
+};
 template<typename...T>
 class Event : public IEvent<T...> {
 public:
-	void Invoke(T... vs) {
+	void Invoke(const T&... vs) {
 		for (auto h : IEvent<T...>::handlers)
 			h.second(vs...);
 	}
+	IEvent<T...>& Public() {
+		return *this;
+	}
 };
 
 
-//template<typename T>
-//class AbstractProperty {
-//protected:
-//	template<typename T>
-//	class Node {
-//		T value;
-//		Event<T> changed;
-//	public:
-//		const T& Get() const {
-//			return value;
-//		}
-//		T& Get() {
-//			return value;
-//		}
-//		void Set(const T& v) {
-//			auto& old = value;
-//			value = v;
-//			if (old != v)
-//				changed.Invoke(v);
-//		}
-//		IEvent<T>& OnChanged() const {
-//			return *(IEvent<T>*) & changed;
-//		}
-//	};
-//
-//	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
-//	T& Get() {
-//		return node->Get();
-//	}
-//	void Set(const T& v) {
-//		node->Set(v);
-//	}
-//	AbstractProperty<T>& operator=(const T& v) {
-//		Set(v);
-//		return *this;
-//	}
-//	void Bind(const AbstractProperty<T>& p) {
-//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
-//	}
-//	void BindAndApply(const AbstractProperty<T>& p) {
-//		Set(p.Get());
-//		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
-//	}
-//	void BindTwoWay(const AbstractProperty<T>& p) {
-//		node = p.node;
-//	}
-//public:
-//	IEvent<T>& OnChanged() const {
-//		return node->OnChanged();
-//	}
-//};
-//
-//template<typename T>
-//class Property : public AbstractProperty<T> {
-//public:
-//	T& Get() const {
-//		return AbstractProperty<T>::Get();
-//	}
-//	void Set(const T& v) {
-//		AbstractProperty<T>::Set(v);
-//	}
-//	Property<T>& operator=(const T& v) {
-//		Set(v);
-//		return *this;
-//	}
-//	void Bind(const Property<T>& p) {
-//		AbstractProperty<T>::Bind(p);
-//	}
-//	void BindAndApply(const Property<T>& p) {
-//		AbstractProperty<T>::BindAndApply(p);
-//	}
-//	void BindTwoWay(const Property<T>& p) {
-//		AbstractProperty<T>::BindTwoWay(p);
-//	}
-//};
-////template<typename T>
-////class AbstractReadonlyProperty : public AbstractProperty<T> {
-////protected:
-////	T& Get() const {
-////		return AbstractProperty<T>::Get();
-////	}
-////	void BindAndApply(const AbstractReadonlyProperty<T>& p) {
-////		// Since it's readonly it doesn't matter if it's the same node.
-////		AbstractProperty<T>::BindTwoWay(p);
-////	}
-////	T& operator->() const {
-////		return Get();
-////	}
-////};
-//
-//template<typename T>
-//class ReadonlyProperty : public AbstractProperty<T> {
-//public:
-//	ReadonlyProperty() {}
-//	ReadonlyProperty(const T& o) {
-//		AbstractProperty<T>::Set(o);
-//	}
-//	T& Get() const {
-//		return AbstractProperty<T>::Get();
-//	}
-//	void BindAndApply(const ReadonlyProperty<T>& p) {
-//		// Since it's readonly it doesn't matter if it's the same node.
-//		AbstractProperty<T>::BindTwoWay(p);
-//	}
-//	void BindAndApply(const Property<T>& p) {
-//		// Since it's readonly it doesn't matter if it's the same node.
-//		AbstractProperty<T>::BindTwoWay(p);
-//	}
-//	T& operator->() const {
-//		return Get();
-//	}
-//};
-//
-//template<typename T>
-//class ReadonlyProperty<T*> : public AbstractProperty<T*> {
-//public:
-//	ReadonlyProperty() {}
-//	ReadonlyProperty(const T* o) {
-//		AbstractProperty<T*>::node->Set(*o);
-//	}
-//	T* Get() const {
-//		return AbstractProperty<T*>::node->Get();
-//		//return &AbstractProperty<T*>::Get();
-//	}
-//	void BindAndApply(const ReadonlyProperty<T*>& p) {
-//		// Since it's readonly it doesn't matter if it's the same node.
-//		AbstractProperty<T*>::BindTwoWay(p);
-//	}
-//	void BindAndApply(const Property<T*>& p) {
-//		// Since it's readonly it doesn't matter if it's the same node.
-//		AbstractProperty<T*>::BindTwoWay(p);
-//	}
-//	T* operator->() const {
-//		return Get();
-//	}
-//};
+template<typename T>
+class PropertyNode {
+	T value;
+	Event<T> changed;
+public:
+	const T& Get() const {
+		return value;
+	}
+	T& Get() {
+		return value;
+	}
+	void Set(const T& v) {
+		value = v;
+		changed.Invoke(v);
+	}
+	IEvent<T>& OnChanged() {
+		return changed;
+	}
+	bool IsAssigned() {
+		return true;
+	}
+};
+template<typename T>
+class PropertyNode<T*> {
+	T* value = nullptr;
+	Event<T> changed;
+public:
+	const T& Get() const {
+		return *value;
+	}
+	T& Get() {
+		return *value;
+	}
+	void Set(T* v) {
+		value = v;
+		changed.Invoke(*v);
+	}
+	IEvent<T>& OnChanged() {
+		return changed;
+	}
+	bool IsAssigned() {
+		return value != nullptr;
+	}
+};
+template<typename R, typename ...T>
+class PropertyNode<std::function<R(T...)>> {
+	std::function<R(T...)> value;
+	Event<std::function<R(T...)>> changed;
+	bool isAssigned = false;
+public:
+	const std::function<R(T...)>& Get() const {
+		return value;
+	}
+	void Set(const std::function<R(T...)>& v) {
+		value = v;
+		isAssigned = true;
+		changed.Invoke(v);
+	}
+	IEvent<std::function<R(T...)>>& OnChanged() {
+		return changed;
+	}
+	bool IsAssigned() {
+		return isAssigned;
+	}
+	R operator()(T... vs) {
+		return value(vs...);
+	}
+};
+
 
 template<typename T>
-class Property {
-	template<typename T>
-	class Node {
-		T value;
-		Event<T> changed;
-	public:
-		const T& Get() const {
-			return value;
-		}
-		T& Get() {
-			return value;
-		}
-		void Set(const T& v) {
-			value = v;
-				changed.Invoke(v);
-		}
-		IEvent<T>& OnChanged() const {
-			return *(IEvent<T>*) & changed;
-		}
-	};
-
-	std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
+class ReadonlyProperty {
+protected:
+	std::shared_ptr<PropertyNode<T>> node = std::make_shared<PropertyNode<T>>();
+	ReadonlyProperty(const std::shared_ptr<PropertyNode<T>>& node) {
+		this->node = node;
+	}
+	void ReplaceNode(const std::shared_ptr<PropertyNode<T>>& node) {
+		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+		this->node = node;
+	}
 public:
-	Property() {}
-	Property(T o) {
-		Set(o);
+	ReadonlyProperty() {}
+	ReadonlyProperty(const T& o) {
+		node->Set(o);
+	}
+
+	bool IsAssigned() {
+		return node->IsAssigned();
 	}
 
 	const T& Get() const {
 		return node->Get();
 	}
-	T& Get() {
-		return node->Get();
-	}
-	void Set(const T& v) {
-		node->Set(v);
-	}
-	IEvent<T>& OnChanged() const {
-		return node->OnChanged();
-	}
-	void Bind(const Property<T>& p) {
-		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
-	}
-	void BindAndApply(const Property<T>& p) {
-		Set(p.Get());
-		p.OnChanged().AddHandler([&](const T& o) { this->Set(o); });
-	}
-	void BindTwoWay(const Property<T>& p) {
-		node = p.node;
+
+	ReadonlyProperty<T> CloneReadonly() {
+		return new ReadonlyProperty(node);
 	}
 
-	Property<T>& operator=(const T& v) {
-		Set(v);
-		return *this;
+	IEvent<T>& OnChanged() {
+		return node->OnChanged();
 	}
+
+	ReadonlyProperty<T>& operator=(const ReadonlyProperty<T>&) = delete;
 	const T* operator->() const {
 		return &Get();
 	}
+	void operator<<=(const ReadonlyProperty<T>& v) {
+		ReplaceNode(v.node);
+	}
+};
+template<typename T>
+class ReadonlyProperty<T*> {
+protected:
+	std::shared_ptr<PropertyNode<T*>> node = std::make_shared<PropertyNode<T*>>();
+	ReadonlyProperty(const std::shared_ptr<PropertyNode<T*>>& node) {
+		this->node = node;
+	}
+	void ReplaceNode(const std::shared_ptr<PropertyNode<T*>>& node) {
+		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+		this->node = node;
+	}
+public:
+	ReadonlyProperty() {}
+	ReadonlyProperty(T* o) {
+		node->Set(o);
+	}
+
+	bool IsAssigned() {
+		return node->IsAssigned();
+	}
+
+	const T& Get() const {
+		return node->Get();
+	}
+
+	ReadonlyProperty<T*> CloneReadonly() {
+		return new ReadonlyProperty(node);
+	}
+	
+	IEvent<T>& OnChanged() {
+		return node->OnChanged();
+	}
+
+	ReadonlyProperty<T*>& operator=(const ReadonlyProperty<T*>&) = delete;
+	const T* operator->() const {
+		return &Get();
+	}
+	void operator<<=(const ReadonlyProperty<T*>& v) {
+		ReplaceNode(v.node);
+	}
+};
+template<typename R, typename ...T>
+class ReadonlyProperty<std::function<R(T...)>> {
+protected:
+	std::shared_ptr<PropertyNode<std::function<R(T...)>>> node = std::make_shared<PropertyNode<std::function<R(T...)>>>();
+	ReadonlyProperty(const std::shared_ptr<PropertyNode<std::function<R(T...)>>>& node) {
+		this->node = node;
+	}
+	void ReplaceNode(const std::shared_ptr<PropertyNode<std::function<R(T...)>>>& node) {
+		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+		this->node = node;
+	}
+public:
+	ReadonlyProperty() {}
+	ReadonlyProperty(std::function<R(T...)> o) {
+		node->Set(o);
+	}
+
+	bool IsAssigned() {
+		return node->IsAssigned();
+	}
+
+	const std::function<R(T...)>& Get() const {
+		return node->Get();
+	}
+
+	ReadonlyProperty<std::function<R(T...)>> CloneReadonly() {
+		return new ReadonlyProperty(node);
+	}
+
+	IEvent<std::function<R(T...)>>& OnChanged() {
+		return node->OnChanged();
+	}
+
+	ReadonlyProperty<std::function<R(T...)>>& operator=(const ReadonlyProperty<std::function<R(T...)>>&) = delete;
+	R operator()(T... vs) const {
+		return Get()(vs...);
+	}
+	void operator<<=(const ReadonlyProperty<std::function<R(T...)>>& v) {
+		ReplaceNode(v.node);
+	}
 };
 
 template<typename T>
-class ReadonlyProperty : Property<T> {
+class NonAssignProperty : public ReadonlyProperty<T> {
+protected:
+	NonAssignProperty(const PropertyNode<T>& node) {
+		ReadonlyProperty<T>::node = node;
+	}
 public:
-	ReadonlyProperty() {}
-	ReadonlyProperty(T o) {
-		Property<T>::Set(o);
-	}
-	void BindAndApply(const Property<T>& p) {
-		Property<T>::BindAndApply(p);
-	}
-	void BindAndApply(const ReadonlyProperty<T>& p) {
-		Property<T>::BindAndApply(p);
-	}
-	void Bind(const Property<T>& p) {
-		Property<T>::Bind(p);
-	}
-	const T& Get() const {
-		return Property<T>::Get();
-	}
+	NonAssignProperty() {}
+	NonAssignProperty(const T& o) : ReadonlyProperty<T>(o) {}
+
 	T& Get() {
-		return Property<T>::Get();
+		return ReadonlyProperty<T>::node->Get();
 	}
-	T operator->() const {
-		return Get();
+
+	NonAssignProperty<T> CloneNonAssign() {
+		return new NonAssignProperty(ReadonlyProperty<T>::node);
+	}
+
+	NonAssignProperty<T>& operator=(const NonAssignProperty<T>&) = delete;
+	T* operator->() {
+		return &Get();
+	}
+	void operator<<=(const NonAssignProperty<T>& v) {
+		ReadonlyProperty<T>::ReplaceNode(v.node);
+	}
+};
+template<typename T>
+class NonAssignProperty<T*> : public ReadonlyProperty<T*> {
+protected:
+	NonAssignProperty(const PropertyNode<T*>& node) {
+		ReadonlyProperty<T>::node = node;
+	}
+public:
+	NonAssignProperty() {}
+	NonAssignProperty(T* o) : ReadonlyProperty<T*>(o) {}
+
+	T& Get() {
+		return ReadonlyProperty<T*>::node->Get();
+	}
+	
+	NonAssignProperty<T*> CloneNonAssign() {
+		return new NonAssignProperty(ReadonlyProperty<T*>::node);
+	}
+
+	NonAssignProperty<T*>& operator=(const NonAssignProperty<T*>&) = delete;
+	T* operator->() {
+		return &Get();
+	}
+	void operator<<=(const NonAssignProperty<T*>& v) {
+		ReadonlyProperty<T*>::ReplaceNode(v.node);
+	}
+};
+template<typename R, typename ...T>
+class NonAssignProperty<std::function<R(T...)>> : public ReadonlyProperty<std::function<R(T...)>> {
+protected:
+	NonAssignProperty(const PropertyNode<std::function<R(T...)>>& node) {
+		ReadonlyProperty<std::function<R(T...)>>::node = node;
+	}
+public:
+	NonAssignProperty() {}
+	NonAssignProperty(const std::function<R(T...)>& o) : ReadonlyProperty<std::function<R(T...)>>(o) {}
+
+	NonAssignProperty<std::function<R(T...)>> CloneNonAssign() {
+		return new NonAssignProperty(ReadonlyProperty<std::function<R(T...)>>::node);
+	}
+
+	NonAssignProperty<std::function<R(T...)>>& operator=(const NonAssignProperty<std::function<R(T...)>>&) = delete;
+	void operator<<=(const NonAssignProperty<std::function<R(T...)>>& v) {
+		ReadonlyProperty<std::function<R(T...)>>::ReplaceNode(v.node);
 	}
 };
 
-#define StaticProperty(type,name) \
+template<typename T>
+class Property : public NonAssignProperty<T> {
+public:
+	Property() {}
+	Property(const T& o) : NonAssignProperty<T>(o) {}
+	Property(const Property<T>&) = delete;
+
+	
+	Property<T>& operator=(const Property<T>&) = delete;
+	Property<T>& operator=(const T& v) {
+		ReadonlyProperty<T>::node->Set(v);
+		return *this;
+	}
+	void operator<<=(const Property<T>& v) {
+		ReadonlyProperty<T>::ReplaceNode(v.node);
+	}
+};
+template<typename T>
+class Property<T*> : public NonAssignProperty<T*> {
+public:
+	Property() {}
+	Property(T* o) : NonAssignProperty<T*>(o) {}
+
+	Property<T*>& operator=(const Property<T*>&) = delete;
+	Property<T*>& operator=(T* v) {
+		ReadonlyProperty<T*>::node->Set(v);
+		return *this;
+	}
+	void operator<<=(const Property<T*>& v) {
+		ReadonlyProperty<T*>::ReplaceNode(v.node);
+	}
+};
+template<typename R, typename ...T>
+class Property<std::function<R(T...)>> : public NonAssignProperty<std::function<R(T...)>> {
+public:
+	Property() {}
+	Property(const std::function<R(T...)>& o) : NonAssignProperty<std::function<R(T...)>>(o) {}
+	Property(const Property<std::function<R(T...)>>&) = delete;
+
+
+	Property<std::function<R(T...)>>& operator=(const Property<std::function<R(T...)>>&) = delete;
+	Property<std::function<R(T...)>>& operator=(const std::function<R(T...)>& v) {
+		ReadonlyProperty<std::function<R(T...)>>::node->Set(v);
+		return *this;
+	}
+	void operator<<=(const Property<std::function<R(T...)>>& v) {
+		ReadonlyProperty<std::function<R(T...)>>::ReplaceNode(v.node);
+	}
+};
+
+
+
+
+#define StaticProperty(type,name)\
 static Property<type>& name() {\
-	static Property<type> v;\
+	static Property<type> v = Property<type>();\
 	return v;\
 }
+
+#define StaticField(type,name)\
+static type& name() {\
+	static type v;\
+	return v;\
+}
+
+#define StaticFieldDefault(type,name,defaultValue)\
+static type& name() {\
+	static type v = defaultValue;\
+	return v;\
+}
+
+template<typename T>
+class ValueStability {
+	bool lastValueMatches = false;
+	bool currentValueMatches = false;
+	std::function<bool(const T&)> condition = [] { return false; };
+public:
+	void ApplyCondition(std::function<bool(const T&)> cond) {
+		condition = cond;
+	}
+	void ApplyValue(const T& v) {
+		currentValueMatches = condition(v);
+	}
+
+	void IsStable() {
+		return lastValueMatches && currentValueMatches;
+	}
+	void IsBroken() {
+		return lastValueMatches && !currentValueMatches;
+	}
+	void IsRepaired() {
+		return !lastValueMatches && currentValueMatches;
+	}
+};

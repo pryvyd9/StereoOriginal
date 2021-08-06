@@ -3,9 +3,14 @@
 #include "InfrastructureTypes.hpp"
 #include "Key.hpp"
 
-enum class PointPenEditingToolMode {
+enum class PolylinePenEditingToolMode {
 	Immediate,
 	Step,
+};
+
+enum class SinePenEditingToolMode {
+	Step123,
+	Step132,
 };
 
 enum class ExtrusionEditingToolMode {
@@ -13,14 +18,19 @@ enum class ExtrusionEditingToolMode {
 	Step,
 };
 
-enum class ObjectMode {
-	Object,
-	Vertex,
-};
+//enum class ObjectMode {
+//	Object,
+//	Vertex,
+//};
 
 enum class SpaceMode {
 	World,
 	Local,
+};
+
+enum class TargetMode {
+	Object,
+	Pivot,
 };
 
 enum class TransformToolMode {
@@ -37,10 +47,13 @@ enum class MoveCoordinateAction {
 
 class Settings {
 public:
-	StaticProperty(::ObjectMode, ObjectMode)
+	//StaticProperty(::ObjectMode, ObjectMode)
 	StaticProperty(::SpaceMode, SpaceMode)
+	StaticProperty(::TargetMode, TargetMode)
 	StaticProperty(::MoveCoordinateAction, MoveCoordinateAction)
 	StaticProperty(bool, ShouldDetectPosition)
+
+	StaticProperty(bool, ShouldRestrictTargetModeToPivot)
 
 	// Settings
 	StaticProperty(std::string, Language)
@@ -61,6 +74,8 @@ public:
 	StaticProperty(glm::vec4, DimmedColorRight)
 
 	StaticProperty(float, CustomRenderWindowAlpha)
+
+	StaticProperty(bool, ShouldMoveCrossOnSinePenModeChange)
 
 
 	static const std::string& Name(void* reference) {
@@ -84,6 +99,8 @@ public:
 			{&DimmedColorLeft,"dimmedColorLeft"},
 			{&DimmedColorRight,"dimmedColorRight"},
 			{&CustomRenderWindowAlpha,"customRenderWindowAlpha"},
+
+			{&ShouldMoveCrossOnSinePenModeChange,"shouldMoveCrossOnSinePenModeChange"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())
@@ -92,4 +109,8 @@ public:
 		throw new std::exception("Name for a reference was not found.");
 	}
 
+};
+
+struct ReadOnlyState {
+	StaticProperty(glm::vec2, ViewSize)
 };

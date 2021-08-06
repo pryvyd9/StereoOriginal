@@ -8,11 +8,13 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A6D15D7A-3616-4A59-B36B-7597DFDCBE44}"
 	ProjectSection(SolutionItems) = preProject
 		CHANGE_LOG.md = CHANGE_LOG.md
+		LICENSE.txt = LICENSE.txt
 		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{3D992B4F-348E-4D36-8A7A-CABDEF7A7F88}"
 	ProjectSection(SolutionItems) = preProject
+		docs\dev.doc.en.md = docs\dev.doc.en.md
 		docs\doc.en.md = docs\doc.en.md
 		docs\flower.png = docs\flower.png
 		docs\mainWindow.PNG = docs\mainWindow.PNG
@@ -22,24 +24,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{3D992B4F-3
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
 		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|Any CPU = Release|Any CPU
+		Publish|x64 = Publish|x64
 		Release|x64 = Release|x64
-		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Debug|x64.ActiveCfg = Debug|x64
 		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Debug|x64.Build.0 = Debug|x64
-		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Debug|x86.ActiveCfg = Debug|Win32
-		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Debug|x86.Build.0 = Debug|Win32
-		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Release|Any CPU.ActiveCfg = Release|Win32
+		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Publish|x64.ActiveCfg = Publish|x64
+		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Publish|x64.Build.0 = Publish|x64
 		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Release|x64.ActiveCfg = Release|x64
 		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Release|x64.Build.0 = Release|x64
-		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Release|x86.ActiveCfg = Release|Win32
-		{5FCDE876-B882-4401-88F4-A94B30DE2C35}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

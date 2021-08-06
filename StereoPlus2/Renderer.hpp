@@ -82,16 +82,16 @@ class Renderer {
 
 	void CreateShaders()
 	{
-		std::string vertexShaderSource1		   = GLLoader::ReadShader("shaders/.vert");
-		std::string fragmentShaderSourceLeft1  = GLLoader::ReadShader("shaders/Left.frag");
-		std::string fragmentShaderSourceRight1 = GLLoader::ReadShader("shaders/Right.frag");
+		std::string vertexShaderSource1	= GLLoader::ReadShader("shaders/.vert");
+		std::string fragmentShaderSource1 = GLLoader::ReadShader("shaders/.frag");
 
 		const char* vertexShaderSource = vertexShaderSource1.c_str();
-		const char* fragmentShaderSourceLeft = fragmentShaderSourceLeft1.c_str();
-		const char* fragmentShaderSourceRight = fragmentShaderSourceRight1.c_str();
-
-		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
+		const char* fragmentShaderSource = fragmentShaderSource1.c_str();
+		
+		// We need separate shaders to be able to set different colors.
+		// It's possible to change colors while switching between left and right but it's slow.
+		ShaderLeft  = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
 
 		UpdateShaderColor(Settings::ColorLeft().Get(), Settings::ColorRight().Get());
 
@@ -122,7 +122,7 @@ class Renderer {
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
 
-	void DrawBright(StereoCamera* camera, SceneObject* o) {
+	void DrawBright(Camera* camera, SceneObject* o) {
 		UpdateShaderColor(Settings::ColorLeft().Get(), Settings::ColorRight().Get());
 		o->Draw(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
@@ -132,7 +132,7 @@ class Renderer {
 			stencilBufferMaskBright1,
 			stencilBufferMaskBright2);
 	}
-	void DrawDim(StereoCamera* camera, SceneObject* o) {
+	void DrawDim(Camera* camera, SceneObject* o) {
 		UpdateShaderColor(Settings::DimmedColorLeft().Get(), Settings::DimmedColorRight().Get());
 		o->Draw(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
@@ -183,14 +183,14 @@ public:
 		}
 		
 		if (ObjectSelection::Selected().empty()) {
-			for (auto o : scene.Objects().Get())
+			for (auto& o : scene.Objects().Get())
 				DrawBright(scene.camera, o.Get());
-			DrawBright(scene.camera, scene.cross().Get());
+			DrawBright(scene.camera, &scene.cross().Get());
 			//DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 		else {
 			std::set<PON> objectsSorted;
-			for (auto o : scene.Objects().Get())
+			for (auto& o : scene.Objects().Get())
 				objectsSorted.emplace(o);
 
 			std::vector<PON> dimObjects;
@@ -202,14 +202,14 @@ public:
 				ObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));
 
-			for (auto o : dimObjects)
+			for (auto& o : dimObjects)
 				DrawDim(scene.camera, o.Get());
 			//DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
 
-			for (auto o : ObjectSelection::Selected())
+			for (auto& o : ObjectSelection::Selected())
 				if (o.HasValue())
 					DrawBright(scene.camera, o.Get());
-			DrawBright(scene.camera, scene.cross().Get());
+			DrawBright(scene.camera, &scene.cross().Get());
 			//DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
 		}
 

@@ -5,36 +5,28 @@
 #include <sstream>
 
 class ToolPool {
-	static void Init(PointPenEditingTool* tool) {
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+	static void Init(PenTool* tool) {
+		tool->cross <<= Scene::cross();
 	}
 
-	static void Init(ExtrusionEditingTool<StereoPolyLineT>* tool) {
-		tool->destination.BindAndApply(Scene()->root());
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+	static void Init(SinePenTool* tool) {
+		tool->cross <<= Scene::cross();
+	}
+
+	static void Init(PointPenTool* tool) {
+		tool->cross <<= Scene::cross();
+	}
+
+	static void Init(ExtrusionEditingTool<PolyLineT>* tool) {
+		tool->destination <<= Scene::root();
+		tool->cross <<= Scene::cross();
 	}
 
 	static void Init(TransformTool* tool) {
-		tool->cross.BindAndApply(Cross());
-		tool->keyBinding.BindAndApply(KeyBinding());
+		tool->cross <<= Scene::cross();
 	}
 
 public:
-	static ReadonlyProperty<::Scene*>& Scene() {
-		static ReadonlyProperty<::Scene*> v;
-		return v;
-	}
-	static ReadonlyProperty<::Cross*>& Cross() {
-		static ReadonlyProperty<::Cross*> v;
-		return v;
-	}
-	static ReadonlyProperty<::KeyBinding*>& KeyBinding() {
-		static ReadonlyProperty<::KeyBinding*> v;
-		return v;
-	}
-
 	template<typename T>
 	static T* GetTool() {
 		static T tool;
@@ -49,7 +41,7 @@ public:
 	}
 
 	static bool Init() {
-		if (KeyBinding().Get() && Scene().Get() && Cross().Get())
+		if (Scene::root().IsAssigned() && Scene::cross().IsAssigned())
 			return true;
 
 		std::cout << "ToolPool could not be initialized because some fields were null" << std::endl;

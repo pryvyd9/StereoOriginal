@@ -1,15 +1,17 @@
 #pragma once
 #include "GLLoader.hpp"
 #include "Settings.hpp"
+#include <stack>
 
 enum ObjectType {
 	Group,
-	StereoPolyLineT,
+	PolyLineT,
 	MeshT,
 	CameraT,
 	CrossT,
 	TraceObjectT,
-	//TraceObjectNodeT,
+	SineCurveT,
+	PointT,
 };
 
 enum InsertPosition {
@@ -22,6 +24,9 @@ enum InsertPosition {
 // Abstract scene object.
 // Parent to all scene objects.
 class SceneObject {
+	StaticField(size_t, freeId)
+
+	size_t id;
 	// Local position;
 	glm::vec3 position;
 	// Local rotation;
@@ -32,7 +37,7 @@ protected:
 	bool shouldTransformRotation = false;
 	GLuint VBOLeft, VBORight, VAO;
 
-	static bool& isAnyObjectUpdated() {
+	static bool& isAnyElementChanged() {
 		static bool v;
 		return v;
 	}
@@ -47,12 +52,16 @@ protected:
 	const float propertyIndent = -20;
 
 	virtual void HandleBeforeUpdate() {
-		if (!isAnyObjectUpdated()) {
-			isAnyObjectUpdated() = true;
+		static bool isTriggered = false;
+		
+		isAnyElementChanged() = true;
+
+		if (!isTriggered) {
+			isTriggered = true;
 			onBeforeAnyElementChanged().Invoke();
 
 			(new FuncCommand())->func = [&] {
-				isAnyObjectUpdated() = false;
+				isTriggered = false;
 			};
 		}
 	}
@@ -102,15 +111,31 @@ public:
 	std::vector<SceneObject*> children;
 	std::string Name = "noname";
 
+	const size_t& Id() const {
+		return id;
+	}
+
 	static IEvent<>& OnBeforeAnyElementChanged() {
 		return onBeforeAnyElementChanged();
 	}
+	static bool IsAnyElementChanged() {
+		return isAnyElementChanged();
+	}
+	static void ResetIsAnyElementChanged() {
+		isAnyElementChanged() = false;
+	}
+
+	StaticFieldDefault(std::stack<bool>, isDeletionExpected, std::stack<bool>(std::deque<bool>({ true })))
 
 	SceneObject() {
+		id = freeId()++;
+
 		glGenBuffers(2, &VBOLeft);
 		glGenVertexArrays(1, &VAO);
 	}
 	SceneObject(const SceneObject* copy) : SceneObject() {
+		id = freeId()++;
+
 		position = copy->position;
 		rotation = copy->rotation;
 		parent = copy->parent;
@@ -120,6 +145,9 @@ public:
 	~SceneObject() {
 		glDeleteBuffers(2, &VBOLeft);
 		glDeleteVertexArrays(1, &VAO);
+
+		if (!isDeletionExpected().empty() && !isDeletionExpected().top())
+			Log::For<SceneObject>().Warning("Deletion is not expected");
 	}
 
 	virtual void Draw(
@@ -129,17 +157,19 @@ public:
 		GLuint shaderRight,
 		GLuint stencilMaskLeft,
 		GLuint stencilMaskRight) {
-		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get())
+		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get()) {
 			UpdateOpenGLBuffer(toLeft, toRight);
+			shouldUpdateCache = false;
+		}
+
+		glEnable(GL_BLEND);
+		glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
+		glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
 
 		//glStencilMask(stencilMaskLeft);
 		//glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);
 		//glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		DrawLeft(shaderLeft);
-
-		glEnable(GL_BLEND);
-		glBlendEquation(GL_FUNC_ADD);
-		glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
 
 		//glStencilMask(stencilMaskRight);
 		//glStencilFunc(GL_ALWAYS, stencilMaskRight, stencilMaskLeft | stencilMaskRight);
@@ -365,7 +395,7 @@ public:
 			c->CallRecursive(t, f);
 	}
 
-	virtual SceneObject* Clone() const { return nullptr; }
+	virtual SceneObject* Clone() const { throw std::exception("not implemented"); }
 	SceneObject& operator=(const SceneObject& o) {
 		position = o.position;
 		rotation = o.rotation;
@@ -375,4 +405,123 @@ public:
 
 		return *this;
 	}
+};
+
+// Persistent object node
+class PON {
+	struct Node {
+		SceneObject* object = nullptr;
+		int referenceCount = 0;
+	};
+	Node* node = nullptr;
+
+	static std::map<size_t, Node*>& existingNodes() {
+		static std::map<size_t, Node*> v;
+		return v;
+	}
+	constexpr void Init(const PON& o) {
+		node = o.node;
+		if (node)
+			node->referenceCount++;
+	}
+	static const size_t* findNode(Node* o) {
+		for (auto& [k, v] : existingNodes())
+			if (v == o)
+				return &k;
+
+		return nullptr;
+	}
+public:
+	PON() {
+		node = nullptr;
+	}
+	PON(const PON& o) {
+		Init(o);
+	}
+	PON(SceneObject* o) {
+		if (auto n = existingNodes().find(o->Id()); n != existingNodes().end()) {
+			node = n->second;
+		}
+		else {
+			node = new Node();
+			existingNodes()[o->Id()] = node;
+			Set(o);
+		}
+
+		node->referenceCount++;
+	}
+	~PON() {
+		if (!node)
+			return;
+
+		node->referenceCount--;
+		if (node->referenceCount > 0)
+			return;
+
+		if (node->object)
+			existingNodes().erase(node->object->Id());
+		else if (auto n = findNode(node); n)
+			existingNodes().erase(*n);
+
+		Delete();
+		delete node;
+	}
+
+	bool HasValue() const {
+		return node && node->object;
+	}
+
+	SceneObject* Get() const {
+		if (!node)
+			throw new std::exception("PON doesn't have value");
+
+		return node->object;
+	}
+	void Set(SceneObject* o) {
+		if (node) {
+			if (node->object)
+				existingNodes().erase(node->object->Id());
+			Delete();
+		}
+		else
+			node = new Node();
+
+		node->object = o;
+		existingNodes()[o->Id()] = node;
+	}
+	void Delete() {
+		if (!node->object)
+			return;
+
+		delete node->object;
+		node->object = nullptr;
+	}
+
+	SceneObject* operator->() {
+		return Get();
+	}
+	const SceneObject* operator->() const {
+		return Get();
+	}
+
+
+	constexpr PON& operator=(const PON& o) {
+		Init(o);
+		return *this;
+	}
+	constexpr bool operator<(const PON& o) const {
+		return node < o.node;
+	}
+	constexpr bool operator!=(const PON& o) const {
+		return node != o.node;
+	}
+	constexpr bool operator==(const PON& o) const {
+		return node == o.node;
+	}
+
+	struct less {
+		bool operator()(const PON& o1, const PON& o2) {
+			return o1 < o2;
+		}
+	};
 };

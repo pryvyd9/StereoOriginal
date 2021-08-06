@@ -1,186 +1,11 @@
 #pragma once
-#include "DomainTypes.hpp"
+#include "SceneObject.hpp"
 #include <stack>
 #include <algorithm>
 
 enum SelectPosition {
 	Anchor = 0x01,
 	Rest = 0x10,
-};
-
-class StateBuffer {
-public:
-	// Buffer requires 1 additional state for saving current state.
-	StaticProperty(int, BufferSize)
-	StaticProperty(PON, RootObject)
-	StaticProperty(std::vector<PON>*, Objects)
-private:
-	struct State {
-		// Reference, Shallow copy
-		std::map<SceneObject*, SceneObject*> copies;
-
-		// Objects in their original order
-		std::vector<std::pair<SceneObject*, PON>> objects;
-
-		SceneObject* rootCopy;
-	};
-
-	static std::list<State>& states() {
-		static std::list<State> v;
-		return v;
-	}
-
-	static int& position() {
-		static int v = 0;
-		return v;
-	}
-
-	static Event<>& onStateChange() {
-		static Event<> v;
-		return v;
-	}
-
-	static void PushPast(std::vector<PON>& objects) {
-		states().push_back(State());
-
-		if (auto correctedBuffer = BufferSize().Get() + 1;
-			correctedBuffer < states().size())
-			Erase(0, states().size() - correctedBuffer);
-
-		position() = states().size();
-
-		auto current = &states().back();
-
-		current->rootCopy = RootObject().Get()->Clone();
-
-		for (auto o : objects) {
-			current->objects.push_back({ o.Get(), o });
-			current->copies[o.Get()] = o->Clone();
-		}
-	}
-
-	// Erase saved copies.
-	static void Erase(int from, int to) {
-		auto f = iterAt(from);
-		auto t = iterAt(to);
-		for (auto it = f; it != t; it++) {
-			delete it->rootCopy;
-			for (auto o : it->copies)
-				delete o.second;
-		}
-
-		states().erase(f, t);
-	}
-	static void ClearFuture() {
-		Erase(position(), states().size());
-	}
-
-	static std::list<State>::iterator iterAt(int pos) {
-		auto it = states().begin();
-		for (size_t i = 0; i < pos; i++, it++);
-		return it;
-	}
-	static State& at(int pos) {
-		return iterAt(pos)._Ptr->_Myval;
-	}
-
-	static void Apply(std::vector<PON>& objects, int pos) {
-		// Saved state at position pos.
-		auto saved = at(pos);
-
-		// Delete current objects.
-		for (auto& o : objects)
-			o.Delete();
-
-		std::map<SceneObject*, SceneObject*> newCopies;
-		for (auto [f,s] : saved.copies)
-			newCopies[f] = s->Clone();
-
-		objects.clear();
-		for (auto [a,b] : saved.objects) {
-			b.Set(newCopies[a]);
-			objects.push_back(b);
-		}
-
-		auto newRoot = saved.rootCopy->Clone();
-
-		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
-			if (p != nullptr) 
-				o->SetParent(p, false, true, false, false);
-			
-			for (size_t i = 0; i < o->children.size(); i++)
-				o->children[i] = newCopies[o->children[i]];
-
-			return o;
-			}));
-
-		RootObject().Set(newRoot);
-	}
-	static void ApplyPast(std::vector<PON>& objects) {
-		position()--;
-		Apply(objects, position());
-	}
-	static void ApplyFuture(std::vector<PON>& objects) {
-		position()++;
-		Apply(objects, position());
-	}
-
-public:
-	static IEvent<>& OnStateChange() {
-		return onStateChange();
-	}
-
-	static bool Init() {
-		if (!RootObject().Get().Get() ||
-			!Objects().Get()) {
-			Log::For<StateBuffer>().Error("Initialization failed.");
-			return false;
-		}
-
-		return true;
-	}
-
-	// Revert, Undo, Apply previous state
-	static void Rollback() {
-		if (position() < 1)
-			return;
-
-		if (position() == states().size() - 1) {
-			ClearFuture();
-			PushPast(*Objects().Get());
-			position()--;
-		}
-		else if (position() == states().size()) {
-			PushPast(*Objects().Get());
-			position()--;
-		}
-
-		ApplyPast(*Objects().Get());
-
-		onStateChange().Invoke();
-	}
-
-	// Do, Save current state
-	static void Commit() {
-		if (position() < states().size())
-			ClearFuture();
-
-		PushPast(*Objects().Get());
-	}
-
-	// Repeat, Redo, Apply next state
-	static void Repeat() {
-		if (states().empty() || position() >= states().size() - 1)
-			return;
-
-		ApplyFuture(*Objects().Get());
-
-		onStateChange().Invoke();
-	}
-
-	static void Clear() {
-		Erase(0, states().size());
-	}
 };
 
 class ObjectSelection {
@@ -213,6 +38,16 @@ public:
 		selected().emplace(o);
 		onChanged().Invoke(selected());
 	}
+	static void Set(const std::vector<SceneObject*>& os) {
+		selected().clear();
+		selected().insert(os.begin(), os.end());
+		onChanged().Invoke(selected());
+	}
+	static void Set(const std::vector<PON>& os) {
+		selected().clear();
+		selected().insert(os.begin(), os.end());
+		onChanged().Invoke(selected());
+	}
 	static void Add(SceneObject* o) {
 		selected().emplace(o);
 		onChanged().Invoke(selected());
@@ -226,6 +61,291 @@ public:
 		onChanged().Invoke(selected());
 	}
 };
+
+// State Buffer
+class Changes {
+public:
+	StaticProperty(PON, RootObject)
+	StaticProperty(std::vector<PON>, Objects)
+	StaticProperty(bool, ShouldIgnoreCommit)
+private:
+	struct State {
+		// Reference, Shallow copy
+		std::map<SceneObject*, SceneObject*> copies;
+
+		// Objects in their original order
+		std::vector<std::pair<SceneObject*, PON>> objects;
+
+		std::vector<SceneObject*> selection;
+
+		SceneObject* rootCopy;
+	};
+
+	StaticField(std::list<State*>, pastStates)
+	StaticField(std::list<State*>, futureStates)
+	StaticField(State*, presentBackup)
+	StaticFieldDefault(Log, logger, Log::For<State>())
+
+	StaticField(Event<>, onStateChange)
+
+	static State* CreateState(std::vector<PON>& objects) {
+		auto current = new State();
+
+		current->rootCopy = RootObject().Get()->Clone();
+
+		for (auto& o : objects) {
+			current->objects.push_back({ o.Get(), o });
+			current->copies[o.Get()] = o->Clone();
+		}
+
+		if (current->objects.size() != current->copies.size()) {
+			logger().Error("The number of objects and the number their copies don't match.");
+			throw new std::exception("The number of objects and the number their copies don't match.");
+		}
+
+		for (auto& o : ObjectSelection::Selected())
+			current->selection.push_back(o.Get());
+
+		return current;
+	}
+
+
+	static void PushPast(std::vector<PON>& objects) {
+		auto current = new State();
+		{
+			pastStates().push_back(current);
+
+			if (Settings::StateBufferLength().Get() < pastStates().size())
+				EraseOldestState();
+		}
+
+		current->rootCopy = RootObject().Get()->Clone();
+
+		for (auto& o : objects) {
+			current->objects.push_back({ o.Get(), o });
+			current->copies[o.Get()] = o->Clone();
+		}
+
+		for (auto& o : ObjectSelection::Selected())
+			current->selection.push_back(o.Get());
+	}
+
+	static void EraseOldestState() {
+		DeleteState(pastStates().front());
+
+		pastStates().pop_front();
+	}
+
+	static void DeleteState(State* state) {
+		delete state->rootCopy;
+		for (auto& o : state->copies)
+			delete o.second;
+
+		delete state;
+	}
+
+	static void ClearPresent() {
+		if (presentBackup()) {
+			DeleteState(presentBackup());
+			presentBackup() = nullptr;
+		}
+	}
+	static void ClearPast() {
+		for (auto& s : pastStates())
+			DeleteState(s);
+
+		pastStates().clear();
+
+		ClearPresent();
+	}
+	static void ClearFuture() {
+		for (auto& s : futureStates())
+			DeleteState(s);
+
+		futureStates().clear();
+
+		ClearPresent();
+	}
+
+	static void AbortApply(SceneObject* newRoot, std::map<SceneObject*, SceneObject*>& newCopies) {
+		SceneObject::isDeletionExpected().push(true);
+
+		for (auto& [f, s] : newCopies)
+			delete s;
+		delete newRoot;
+
+		SceneObject::isDeletionExpected().pop();
+	}
+
+	static void Apply(std::vector<PON>& objects, State* saved) {
+		std::map<SceneObject*, SceneObject*> newCopies;
+		for (auto& [f, s] : saved->copies)
+			newCopies[f] = s->Clone();
+
+		auto newRoot = saved->rootCopy->Clone();
+
+		SceneObject::isDeletionExpected().push(false);
+
+		newRoot->CallRecursive((SceneObject*)nullptr, std::function<SceneObject* (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* p) {
+			if (!o) {
+				logger().Error("Null object was found in attempted state. Returning to previous active state.");
+				AbortApply(newRoot, newCopies);
+				
+				SceneObject::isDeletionExpected().pop();
+				throw new std::exception("State change aborted.");
+			}
+
+			if (p != nullptr)
+				o->SetParent(p, false, true, false, false);
+
+			for (size_t i = 0; i < o->children.size(); i++)
+				if (auto pair = newCopies.find(o->children[i]); pair != newCopies.end())
+					o->children[i] = pair->second;
+				else {
+					logger().Error("Child was not found in copied state. Returning to previous active state.");
+					AbortApply(newRoot, newCopies);
+
+					SceneObject::isDeletionExpected().pop();
+					throw new std::exception("State change aborted.");
+				}
+
+			return o;
+			}));
+
+		SceneObject::isDeletionExpected().pop();
+
+		RootObject() = newRoot;
+
+		// Delete current objects.
+		for (auto& o : objects)
+			o.Delete();
+		objects.clear();
+
+		for (auto& [a, b] : saved->objects) {
+			b.Set(newCopies[a]);
+			objects.push_back(b);
+
+			//int count = 0;
+			//for (auto& v : objects)
+			//	if (v.Get() == b.Get())
+			//		count++;
+
+			//if (count > 1)
+			//	throw new std::exception("Found 2 nodes pointing to the same object. Each node must correspond to 1 object.");
+		}
+
+
+
+		std::vector<SceneObject*> newSelection;
+		for (auto o : saved->selection)
+			if (auto pair = newCopies.find(o); pair != newCopies.end())
+				newSelection.push_back(pair->second);
+			else
+				logger().Warning("Attempted to select unexistent object during state change.");
+
+		ObjectSelection::Set(newSelection);
+	}
+
+	static void ApplyPast(std::vector<PON>& objects) {
+		auto stateToApply = pastStates().back();
+		pastStates().pop_back();
+		
+		if (presentBackup())
+			futureStates().push_back(presentBackup());
+
+		presentBackup() = stateToApply;
+
+		Apply(objects, stateToApply);
+	}
+	static void ApplyFuture(std::vector<PON>& objects) {
+		auto stateToApply = futureStates().back();
+		futureStates().pop_back();
+
+		if (presentBackup())
+			pastStates().push_back(presentBackup());
+
+		presentBackup() = stateToApply;
+
+		Apply(objects, stateToApply);
+	}
+
+public:
+	static IEvent<>& OnStateChange() {
+		return onStateChange();
+	}
+
+	static bool Init() {
+		if (!RootObject().Get().Get() ||
+			!Objects().IsAssigned()) {
+			Log::For<Changes>().Error("Initialization failed.");
+			return false;
+		}
+
+		// Commit initial state
+		Commit();
+
+		return true;
+	}
+
+	// Revert, Undo, Apply previous state
+	static void Rollback() {
+		if (pastStates().empty())
+			return;
+
+		__try {
+			ApplyPast(Objects().Get());
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			logger().Error("Error occured in Rollback");
+			ClearPast();
+			return;
+		}
+
+		onStateChange().Invoke();
+	}
+
+	// Do, Save current state
+	static void Commit() {
+		if (ShouldIgnoreCommit().Get())
+			return;
+
+		if (!futureStates().empty())
+			ClearFuture();
+
+		if (presentBackup()) {
+			pastStates().push_back(presentBackup());
+			presentBackup() = nullptr;
+		}
+
+		if (Settings::StateBufferLength().Get() < pastStates().size())
+			EraseOldestState();
+
+		presentBackup() = CreateState(Objects().Get());
+	}
+
+	// Repeat, Redo, Apply next state
+	static void Repeat() {
+		if (futureStates().empty())
+			return;
+
+		__try {
+			ApplyFuture(Objects().Get());
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			logger().Error("Error occured in Repeat");
+			ClearFuture();
+			return;
+		}
+
+		onStateChange().Invoke();
+	}
+
+	static void Clear() {
+		ClearPast();
+		ClearFuture();
+	}
+};
+
 
 
 class DragDropBuffer {
@@ -260,217 +380,5 @@ public:
 
 	static void EmplaceDragDropSelected(const char* name) {
 		ImGui::SetDragDropPayload("SceneObjects", ObjectSelection::SelectedP(), sizeof(ObjectSelection::Selection*));
-	}
-};
-
-class Scene {
-public:
-
-	template<InsertPosition p>
-	static bool is(InsertPosition pos) {
-		return p == pos;
-	}
-	template<InsertPosition p>
-	static bool has(InsertPosition pos) {
-		return (p & pos) != 0;
-	}
-private:
-	Event<> deleteAll;
-	Log Logger = Log::For<Scene>();
-
-	static const SceneObject* FindRoot(const SceneObject* o) {
-		auto parent = o->GetParent();
-		if (parent == nullptr)
-			return o;
-
-		return FindRoot(parent);
-	}
-	static SceneObject* FindNewParent(SceneObject* oldParent, std::set<SceneObject*>* items) {
-		if (oldParent == nullptr) {
-			Log::For<Scene>().Error("Object doesn't have a parent");
-			return nullptr;
-		}
-
-		if (exists(*items, oldParent))
-			return FindNewParent(const_cast<SceneObject*>(oldParent->GetParent()), items);
-
-		return oldParent;
-	}
-	static SceneObject* FindConnectedParent(SceneObject* oldParent, std::list<SceneObject*>& disconnectedItemsToBeMoved) {
-		if (oldParent == nullptr)
-			return nullptr;
-
-		if (exists(disconnectedItemsToBeMoved, oldParent))
-			return oldParent;
-
-		return FindConnectedParent(const_cast<SceneObject*>(oldParent->GetParent()), disconnectedItemsToBeMoved);
-	}
-
-	static PON CreateRoot() {
-		auto r = new GroupObject();
-		r->Name = "Root";
-		return PON(r);
-	}
-public:
-	// Stores all objects.
-	StaticProperty(std::vector<PON>, Objects);
-	StaticProperty(PON, root);
-	StaticProperty(Cross*, cross);
-	StereoCamera* camera;
-
-	GLFWwindow* glWindow;
-
-	
-
-	IEvent<>& OnDeleteAll() {
-		return deleteAll;
-	}
-
-	Scene() {
-		root() = CreateRoot();
-	}
-	
-	static bool Insert(SceneObject* destination, SceneObject* obj) {
-		obj->SetParent(destination);
-		Objects().Get().push_back(obj);
-		return true;
-	}
-	static bool Insert(SceneObject* obj) {
-		obj->SetParent(root().Get().Get());
-		Objects().Get().push_back(obj);
-		return true;
-	}
-
-	static bool Delete(SceneObject* source, SceneObject* obj) {
-		if (!source) {
-			Log::For<Scene>().Warning("You cannot delete root object");
-			return true;
-		}
-
-		for (size_t i = 0; i < source->children.size(); i++)
-			if (source->children[i] == obj)
-				for (size_t j = 0; i < Objects()->size(); j++)
-					if (Objects().Get()[j].Get() == obj) {
-						source->children.erase(source->children.begin() + i);
-						Objects().Get().erase(Objects()->begin() + j);
-						return true;
-					}
-
-		Log::For<Scene>().Error("The object for deletion was not found");
-		return false;
-	}
-	void DeleteSelected() {
-		for (auto o : ObjectSelection::Selected()) {
-			o->Reset();
-			(new FuncCommand())->func = [this, o] {
-				Delete(const_cast<SceneObject*>(o.Get()->GetParent()), o.Get());
-			};
-		}
-	}
-	void DeleteAll() {
-		deleteAll.Invoke();
-		cross().Get()->SetParent(nullptr);
-
-		Objects().Get().clear();
-		root() = CreateRoot();
-	}
-
-	struct CategorizedObjects {
-		std::list<SceneObject*> parentObjects;
-		std::set<SceneObject*> childObjects;
-		// Items that will not be modified and their new parents in case current parents are removed.
-		// Item, NewParent
-		std::list<std::pair<SceneObject*, SceneObject*>> orphanedObjects;
-	};
-	struct CategorizedPON {
-		std::list<PON> parentObjects;
-		std::set<PON> childObjects;
-		// Items that will not be modified and their new parents in case current parents are removed.
-		// Item, NewParent
-		std::list<std::pair<PON, PON>> orphanedObjects;
-	};
-
-	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedObjects& categorizedObjects) {
-		root->CallRecursive(root, std::function<SceneObject * (SceneObject*, SceneObject*)>([&](SceneObject* o, SceneObject* parent) {
-			if (exists(*items, o)) {
-				if (exists(categorizedObjects.childObjects, parent) || exists(categorizedObjects.parentObjects, parent))
-					categorizedObjects.childObjects.emplace(o);
-				else if (auto newParent = FindConnectedParent(parent, categorizedObjects.parentObjects))
-					categorizedObjects.orphanedObjects.push_back({ o, newParent });
-				else
-					categorizedObjects.parentObjects.push_back(o);
-			}
-			else if (exists(*items, parent))
-				categorizedObjects.orphanedObjects.push_back({ o, FindNewParent(parent, items) });
-
-			return o;
-			}));
-	}
-	static void CategorizeObjects(SceneObject* root, std::set<SceneObject*>* items, CategorizedPON& categorizedObjects) {
-		CategorizedObjects co;
-		CategorizeObjects(root, items, co);
-		for (auto o : co.parentObjects)
-			categorizedObjects.parentObjects.push_back(o);
-		for (auto o : co.childObjects)
-			categorizedObjects.childObjects.emplace(o);
-		for (auto [o,np] : co.orphanedObjects)
-			categorizedObjects.orphanedObjects.push_back({ o, np });
-	}
-	static void CategorizeObjects(SceneObject* root, std::vector<PON>& items, CategorizedPON& categorizedObjects) {
-		std::set<SceneObject*> is;
-		for (auto o : items)
-			is.emplace(o.Get());
-
-		CategorizeObjects(root, &is, categorizedObjects);
-	}
-	static void CategorizeObjects(SceneObject* root, const std::set<PON>& items, CategorizedPON& categorizedObjects) {
-		std::set<SceneObject*> is;
-		for (auto o : items)
-			is.emplace(o.Get());
-
-		CategorizeObjects(root, &is, categorizedObjects);
-	}
-
-
-	// Tree structure is preserved even if there is an unselected link.
-	//-----------------------------------------------------------------
-	// * - selected
-	//
-	//   *a      b  *a
-	//    b   ->    *c
-	//   *c
-	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<SceneObject*>* items, InsertPosition pos) {
-		auto root = const_cast<SceneObject*>(FindRoot(destination));
-
-		// parentObjects will be moved to destination
-		// childObjects will be ignored during move but will be moved with their parents
-		// orphanedObjects will not be moved with their parents.
-		// New parents will be assigned.
-		CategorizedObjects categorizedObjects;
-
-		CategorizeObjects(root, items, categorizedObjects);
-
-		if ((pos & InsertPosition::Bottom) != 0)
-			for (auto o : categorizedObjects.parentObjects)
-				o->SetParent(destination, destinationPos, pos);
-		else
-			std::for_each(categorizedObjects.parentObjects.rbegin(), categorizedObjects.parentObjects.rend(), [&] (auto o){
-				o->SetParent(destination, destinationPos, pos); });
-
-		for (auto pair : categorizedObjects.orphanedObjects)
-			pair.first->SetParent(pair.second, true);
-
-		return true;
-	}
-	static bool MoveTo(SceneObject* destination, int destinationPos, std::set<PON>* items, InsertPosition pos) {
-		std::set<SceneObject*> nitems;
-		for (auto o : *items)
-			nitems.emplace(o.Get());
-
-		return MoveTo(destination, destinationPos, &nitems, pos);
-	}
-
-	~Scene() {
-		Objects().Get().clear();
 	}
 };
