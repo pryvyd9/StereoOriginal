@@ -1676,7 +1676,10 @@ public:
 			return false;
 		}
 
-		path.apply(".");
+		path.apply("./scenes");
+
+		// Create directory if not exists
+		fs::create_directory(path.get());
 
 		return true;
 	}
