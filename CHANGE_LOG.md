@@ -75,3 +75,7 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.18
 - implemented color sum;
 - implemented batch render (improved performance for mass rendering);
+# 0.18.1
+- fixed gitignore;
+- added point radius setting;
+- added shortcuts to tool tips;
