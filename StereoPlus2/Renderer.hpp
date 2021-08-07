@@ -152,6 +152,7 @@ public:
 
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		glLineWidth(LineThickness);
+		
 
 		// Anti aliasing
 		{
@@ -161,18 +162,17 @@ public:
 			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 		}
 		
+		glEnable(GL_BLEND);
+		glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_DST_ALPHA, GL_ONE, GL_ONE);
+
 		if (ObjectSelection::Selected().empty()) {
-			glEnable(GL_BLEND);
-			glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
-			glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
 
 			DrawWithShader(scene.camera, scene.Objects().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
 			DrawWithShader(scene.camera, scene.Objects().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
 			
 			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
 			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
-
-			glDisable(GL_BLEND);
 		}
 		else {
 			std::set<PON> objectsSorted;
@@ -192,10 +192,6 @@ public:
 				if (o.HasValue())
 					selectedExistent.push_back(o);
 
-			glEnable(GL_BLEND);
-			glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
-			glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
-
 			DrawWithShader(scene.camera, dimObjects, shaders[Shader::DimLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
 			DrawWithShader(scene.camera, dimObjects, shaders[Shader::DimRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
 			
@@ -204,12 +200,12 @@ public:
 
 			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
 			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
-
-			glDisable(GL_BLEND);
 		}
 
 		// Anti aliasing
 		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
+
+		glDisable(GL_BLEND);
 
 		glEnable(GL_DEPTH_TEST);
 	}
