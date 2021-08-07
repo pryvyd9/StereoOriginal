@@ -147,36 +147,6 @@ public:
 			Log::For<SceneObject>().Warning("Deletion is not expected");
 	}
 
-	virtual void Draw(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight,
-		GLuint shaderLeft,
-		GLuint shaderRight,
-		GLuint stencilMaskLeft,
-		GLuint stencilMaskRight) {
-		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get()) {
-			UpdateOpenGLBuffer(toLeft, toRight);
-			shouldUpdateCache = false;
-		}
-
-		glEnable(GL_BLEND);
-		glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
-		glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
-
-		//glStencilMask(stencilMaskLeft);
-		//glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);
-		//glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawLeft(shaderLeft);
-
-		//glStencilMask(stencilMaskRight);
-		//glStencilFunc(GL_ALWAYS, stencilMaskRight, stencilMaskLeft | stencilMaskRight);
-		//glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawRight(shaderRight);
-
-		glDisable(GL_BLEND);
-
-	}
-
 	void UdateBuffer(std::function<glm::vec3(glm::vec3)> toLeft,
 		std::function<glm::vec3(glm::vec3)> toRight) {
 		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get()) {

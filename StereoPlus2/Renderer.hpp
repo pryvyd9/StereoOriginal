@@ -150,15 +150,8 @@ public:
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 
-		// This is required before clearing Stencil buffer.
-		// Don't know why though.
-		// ~ is bitwise negation 
-		glStencilMask(~0);
-
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		glLineWidth(LineThickness);
-
-		//glEnable(GL_STENCIL_TEST);
 
 		// Anti aliasing
 		{
@@ -218,7 +211,6 @@ public:
 		// Anti aliasing
 		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
 
-		//glDisable(GL_STENCIL_TEST);
 		glEnable(GL_DEPTH_TEST);
 	}
 
