@@ -72,3 +72,6 @@ Added Publish configuration that cleans output before build and copies only nece
 - localized object names in inspector;
 - made ./scenes start directory for file management;
 - creates ./scenes directory if not exists;
+# 0.18
+- implemented color sum;
+- implemented batch render (improved performance for mass rendering);
