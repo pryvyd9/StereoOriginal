@@ -178,5 +178,6 @@
     <None Include="shaders\.frag">
       <Filter>shaders</Filter>
     </None>
+    <None Include="imgui.ini" />
   </ItemGroup>
 </Project>
