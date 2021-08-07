@@ -79,3 +79,5 @@ Added Publish configuration that cleans output before build and copies only nece
 - fixed gitignore;
 - added point radius setting;
 - added shortcuts to tool tips;
+# 0.18.2
+- fixed alpha blend;
