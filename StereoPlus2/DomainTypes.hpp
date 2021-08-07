@@ -153,28 +153,22 @@ public:
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 
@@ -348,28 +342,22 @@ public:
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 
@@ -429,24 +417,21 @@ class Mesh : public LeafObject {
 		if (vertexCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
 	}
 	virtual void DrawRight(GLuint shader) override {
 		if (vertexCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		// IBO is bind in DrawLeft already so we don't bind it here.
+		// Not sure why.
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -616,25 +601,19 @@ class PointObject : public LeafObject {
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_TRIANGLE_FAN, 0, leftBuffer.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_TRIANGLE_FAN, 0, leftBuffer.size());
 	}
 
@@ -775,25 +754,19 @@ public:
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINES, 0, vertices.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINES, 0, vertices.size());
 	}
 };

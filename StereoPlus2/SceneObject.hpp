@@ -26,6 +26,7 @@ enum InsertPosition {
 class SceneObject {
 	StaticField(size_t, freeId)
 
+	// Unique id. Needed for PON. Doesn't need to be saved to file.
 	size_t id;
 	// Local position;
 	glm::vec3 position;
@@ -35,7 +36,7 @@ class SceneObject {
 protected:
 	bool shouldTransformPosition = false;
 	bool shouldTransformRotation = false;
-	GLuint VBOLeft, VBORight, VAO;
+	GLuint VBOLeft, VBORight;
 
 	static bool& isAnyElementChanged() {
 		static bool v;
@@ -69,8 +70,6 @@ protected:
 		std::function<glm::vec3(glm::vec3)> toLeft,
 		std::function<glm::vec3(glm::vec3)> toRight) {}
 
-	virtual void DrawLeft(GLuint shader) {}
-	virtual void DrawRight(GLuint shader) {}
 
 	// Adds or substracts transformations.
 
@@ -131,7 +130,6 @@ public:
 		id = freeId()++;
 
 		glGenBuffers(2, &VBOLeft);
-		glGenVertexArrays(1, &VAO);
 	}
 	SceneObject(const SceneObject* copy) : SceneObject() {
 		id = freeId()++;
@@ -144,34 +142,20 @@ public:
 	}
 	~SceneObject() {
 		glDeleteBuffers(2, &VBOLeft);
-		glDeleteVertexArrays(1, &VAO);
 
 		if (!isDeletionExpected().empty() && !isDeletionExpected().top())
 			Log::For<SceneObject>().Warning("Deletion is not expected");
 	}
 
-	virtual void Draw(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight,
-		GLuint shaderLeft,
-		GLuint shaderRight,
-		GLuint stencilMaskLeft,
-		GLuint stencilMaskRight) {
+	void UdateBuffer(std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) {
 		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get()) {
 			UpdateOpenGLBuffer(toLeft, toRight);
 			shouldUpdateCache = false;
 		}
-
-		glStencilMask(stencilMaskLeft);
-		glStencilFunc(GL_ALWAYS, stencilMaskLeft, stencilMaskLeft | stencilMaskRight);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawLeft(shaderLeft);
-
-		glStencilMask(stencilMaskRight);
-		glStencilFunc(GL_ALWAYS, stencilMaskRight, stencilMaskLeft | stencilMaskRight);
-		glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		DrawRight(shaderRight);
 	}
+	virtual void DrawLeft(GLuint shader) {}
+	virtual void DrawRight(GLuint shader) {}
 
 
 	constexpr const glm::fquat unitQuat() const {
