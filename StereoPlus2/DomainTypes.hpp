@@ -573,7 +573,6 @@ public:
 
 // Hexagon that keeps 2 pixel radius.
 class PointObject : public LeafObject {
-	float sizePixels = 2.f;
 	std::vector<glm::vec3> vertices;
 	std::vector<glm::vec3> leftBuffer;
 	std::vector<glm::vec3> rightBuffer;
@@ -584,7 +583,7 @@ class PointObject : public LeafObject {
 
 		auto leftCenter = toLeft(GetWorldPosition());
 		auto rightCenter = toRight(GetWorldPosition());
-		auto millimeterSize = Convert::PixelsToMillimeters(sizePixels);
+		auto millimeterSize = Convert::PixelsToMillimeters(Settings::PointRadiusPixel().Get());
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
 		for (size_t i = 0; i < vertices.size(); i++) {
@@ -619,7 +618,8 @@ class PointObject : public LeafObject {
 
 public:
 	PointObject() {
-		vertices = Build::Circle(6, 1);
+		// OpenGL is really fast so 90 vertices is fine for a point. 
+		vertices = Build::Circle(90, 1);
 	}
 	PointObject(const PointObject* copy) : LeafObject(copy) {
 		vertices = copy->vertices;

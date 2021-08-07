@@ -77,6 +77,7 @@ public:
 
 	StaticProperty(bool, ShouldMoveCrossOnSinePenModeChange)
 
+	StaticProperty(int, PointRadiusPixel)
 
 	static const std::string& Name(void* reference) {
 		static std::map<void*, const std::string> v = {
@@ -101,6 +102,8 @@ public:
 			{&CustomRenderWindowAlpha,"customRenderWindowAlpha"},
 
 			{&ShouldMoveCrossOnSinePenModeChange,"shouldMoveCrossOnSinePenModeChange"},
+
+			{&PointRadiusPixel,"pointRadiusPixel"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())

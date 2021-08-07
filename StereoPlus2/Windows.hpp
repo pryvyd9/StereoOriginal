@@ -1824,6 +1824,10 @@ public:
 			ImGui::DragFloat(LocaleProvider::GetC(Settings::Name(&Settings::CustomRenderWindowAlpha)), &v, 0.01, 0, 1))
 			Settings::CustomRenderWindowAlpha() = v;
 
+		if (auto v = Settings::PointRadiusPixel().Get();
+			ImGui::DragInt(LocaleProvider::GetC(Settings::Name(&Settings::PointRadiusPixel)), &v, 1, 1, 100))
+			Settings::PointRadiusPixel() = v;
+
 		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 
 		ImGui::End();

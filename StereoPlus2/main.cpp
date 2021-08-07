@@ -201,6 +201,7 @@ int main() {
 	};
 	customRenderWindow.OnResize() += updateCacheForAllObjects;
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
+	Settings::PointRadiusPixel().OnChanged() += [updateCacheForAllObjects](int) { updateCacheForAllObjects(); };
 
 	ConfigureShortcuts(customRenderWindow);
 

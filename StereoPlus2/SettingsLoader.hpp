@@ -155,6 +155,8 @@ public:
 		Load(&Settings::CustomRenderWindowAlpha);
 
 		Load(&Settings::ShouldMoveCrossOnSinePenModeChange);
+
+		Load(&Settings::PointRadiusPixel);
 	}
 	static void Save() {
 		Js::Object json;
@@ -177,6 +179,8 @@ public:
 		Insert(json, &Settings::CustomRenderWindowAlpha);
 
 		Insert(json, &Settings::ShouldMoveCrossOnSinePenModeChange);
+
+		Insert(json, &Settings::PointRadiusPixel);
 
 		Json::Write("settings.json", &json);
 	}
