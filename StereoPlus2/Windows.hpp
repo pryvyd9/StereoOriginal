@@ -57,32 +57,25 @@ class CustomRenderWindow : Window {
 	Event<> onResize;
 
 
-	GLuint createFrameBuffer() {
-		GLuint fbo;
+	void createFrameBuffer() {
 		glGenFramebuffers(1, &fbo);
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glDrawBuffer(GL_COLOR_ATTACHMENT0);
-		int g = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		//int g = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
 		//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
 		//	int u = 0;
 		//}
-
-		return fbo;
 	}
-	GLuint createTextureAttachment(int width, int height) {
-		GLuint texture;
+	void createTextureAttachment(int width, int height) {
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
-
-		return texture;
 	}
-	GLuint createDepthBufferAttachment(int width, int height) {
-		GLuint depthBuffer;
+	void createDepthBufferAttachment(int width, int height) {
 		glGenRenderbuffers(1, &depthBuffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
@@ -92,8 +85,6 @@ class CustomRenderWindow : Window {
 		{
 			int j = 0;
 		}
-
-		return depthBuffer;
 	}
 
 
@@ -104,7 +95,6 @@ class CustomRenderWindow : Window {
 	}
 	void unbindCurrentFrameBuffer(int width, int height) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//glViewport(0, 0, width, height);
 	}
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
 		// resize color attachment
@@ -182,9 +172,9 @@ public:
 
 	virtual bool Init() {
 		Window::name = "renderWindow";
-		fbo = createFrameBuffer();
-		texture = createTextureAttachment(RenderSize->x, RenderSize->y);
-		depthBuffer = createDepthBufferAttachment(RenderSize->x, RenderSize->y);
+		createFrameBuffer();
+		createTextureAttachment(RenderSize->x, RenderSize->y);
+		createDepthBufferAttachment(RenderSize->x, RenderSize->y);
 		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 
 		Settings::CustomRenderWindowAlpha().OnChanged() += [&](const float& v) { windowBackgroundColor.a = v; };

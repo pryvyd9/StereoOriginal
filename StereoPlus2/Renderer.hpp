@@ -167,7 +167,6 @@ public:
 		glBlendFuncSeparate(GL_SRC_ALPHA, GL_DST_ALPHA, GL_ONE, GL_ONE);
 
 		if (ObjectSelection::Selected().empty()) {
-
 			DrawWithShader(scene.camera, scene.Objects().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
 			DrawWithShader(scene.camera, scene.Objects().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
 			
