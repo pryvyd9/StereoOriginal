@@ -497,8 +497,8 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 
 	Mode mode;
 
-	PON mesh = nullptr;
-	PON pen = nullptr;
+	PON mesh;
+	PON pen;
 
 	glm::vec3 crossStartPosition;
 	glm::vec3 crossOldPosition;

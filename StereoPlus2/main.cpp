@@ -206,7 +206,8 @@ int main() {
 
 	// Start the main loop and clean the memory when closed.
 	if (!gui.MainLoop() |
-		!gui.OnExit()) {
+		!gui.OnExit() |
+		!renderPipeline.OnExit()) {
 		positionDetector.StopPositionDetection();
 		return false;
 	}
