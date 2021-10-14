@@ -220,7 +220,7 @@ public:
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, glm::vec4());
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, glm::vec4());
 		
-		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1),0);
+		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1), 0, glm::vec4(), glm::vec4(1), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 
 		ImGui::PopStyleColor(3);
 
