@@ -913,7 +913,7 @@ public:
 		}
 
 		//target = tool->GetTarget();
-		Window::name = Attributes::name = "pen";
+		Window::name = Attributes::name = "sinepen";
 		Attributes::isInitialized = true;
 
 		return true;

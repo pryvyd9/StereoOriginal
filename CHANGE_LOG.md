@@ -81,3 +81,7 @@ Added Publish configuration that cleans output before build and copies only nece
 - added shortcuts to tool tips;
 # 0.18.2
 - fixed alpha blend;
+# 0.18.3
+- fixed LMB being required to activate Z mouse movement;
+# 0.18.4
+- fixed sinepen tool name in Attributes window;

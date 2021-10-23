@@ -58,6 +58,7 @@ For more details see Tools.
 - T - transformation tool;
 - P - pen tool;
 - E - extrusion tool;
+- S - sinepen tool;
 - F5 - save rendered scene to file;
 - F6 - render a scene in 4000x4000 resolution and save to file;
 ### Cross control
