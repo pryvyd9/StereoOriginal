@@ -58,7 +58,7 @@ For more details see Tools.
 - T - transformation tool;
 - P - pen tool;
 - E - extrusion tool;
-- S - sinepen tool;
+- S - cosinepen tool;
 - F5 - save rendered scene to file;
 - F6 - render a scene in 4000x4000 resolution and save to file;
 ### Cross control
@@ -95,9 +95,9 @@ Pressing Enter will unbind current polyline and enter OCM.
 #### Step mode
 SM requires pressing Enter to fix the point and create a new one.
 
-### SinePen
+### CosinePen
 Operates the same as Pen SM.
-ShouldMoveCrossOnSinePenModeChange option determines if the cross' position will be set to the relevant vertice on mode change.
+ShouldMoveCrossOnCosinePenModeChange option determines if the cross' position will be set to the relevant vertice on mode change.
 
 #### Step123
 Second point is (0,1) for cosine.

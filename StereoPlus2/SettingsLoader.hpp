@@ -154,9 +154,10 @@ public:
 		Load(&Settings::DimmedColorRight);
 		Load(&Settings::CustomRenderWindowAlpha);
 
-		Load(&Settings::ShouldMoveCrossOnSinePenModeChange);
+		Load(&Settings::ShouldMoveCrossOnCosinePenModeChange);
 
 		Load(&Settings::PointRadiusPixel);
+		Load(&Settings::CosinePointCount);
 	}
 	static void Save() {
 		Js::Object json;
@@ -178,9 +179,10 @@ public:
 		Insert(json, &Settings::DimmedColorRight);
 		Insert(json, &Settings::CustomRenderWindowAlpha);
 
-		Insert(json, &Settings::ShouldMoveCrossOnSinePenModeChange);
+		Insert(json, &Settings::ShouldMoveCrossOnCosinePenModeChange);
 
 		Insert(json, &Settings::PointRadiusPixel);
+		Insert(json, &Settings::CosinePointCount);
 
 		Json::Write("settings.json", &json);
 	}

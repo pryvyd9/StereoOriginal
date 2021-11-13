@@ -39,7 +39,7 @@
 # 0.13.1
 - introduced unique naming;
 - fixed sine curve disappearing when rotation is nan;
-- when switching between SinePen Step123 and Step132 the cross will move to the existant relevant point (optional);
+- when switching between cosinepen Step123 and Step132 the cross will move to the existant relevant point (optional);
 - fixed delete all (Close) command leaving selected objects alive and rendered;
 # 0.13.2
 - fixed quaternion not being normalized on rotation;
@@ -84,4 +84,7 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.18.3
 - fixed LMB being required to activate Z mouse movement;
 # 0.18.4
-- fixed sinepen tool name in Attributes window;
+- fixed cosinepen tool name in Attributes window;
+# 0.18.5
+- renamed sine to cosine;
+- reworked cosine point distribution;

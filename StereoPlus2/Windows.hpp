@@ -797,8 +797,8 @@ public:
 	}
 };
 
-class SinePenToolWindow : Window, Attributes {
-	const Log log = Log::For<SinePenToolWindow>();
+class CosinePenToolWindow : Window, Attributes {
+	const Log log = Log::For<CosinePenToolWindow>();
 
 
 	std::stack<bool>& GetIsActive() {
@@ -880,16 +880,16 @@ class SinePenToolWindow : Window, Attributes {
 		{
 			static int mode = 0;
 			if (ImGui::RadioButton("Step123", &mode, 0))
-				tool->SetMode(SinePenEditingToolMode::Step123);
+				tool->SetMode(CosinePenEditingToolMode::Step123);
 			if (ImGui::RadioButton("Step132", &mode, 1))
-				tool->SetMode(SinePenEditingToolMode::Step132);
+				tool->SetMode(CosinePenEditingToolMode::Step132);
 		}
 
 		ImGui::Separator();
 
-		if (auto v = Settings::ShouldMoveCrossOnSinePenModeChange().Get();
-			ImGui::Checkbox("shouldMoveCrossOnSinePenModeChange", &v))
-			Settings::ShouldMoveCrossOnSinePenModeChange() = v;
+		if (auto v = Settings::ShouldMoveCrossOnCosinePenModeChange().Get();
+			ImGui::Checkbox("shouldMoveCrossOnCosinePenModeChange", &v))
+			Settings::ShouldMoveCrossOnCosinePenModeChange() = v;
 
 		return true;
 	}
@@ -898,7 +898,7 @@ public:
 	// If this is null then the window probably wasn't initialized.
 	//SceneObject* target = nullptr;
 
-	SinePenTool* tool = nullptr;
+	CosinePenTool* tool = nullptr;
 
 	virtual SceneObject* GetTarget() {
 		if (tool == nullptr)
@@ -913,7 +913,7 @@ public:
 		}
 
 		//target = tool->GetTarget();
-		Window::name = Attributes::name = "sinepen";
+		Window::name = Attributes::name = "cosinepen";
 		Attributes::isInitialized = true;
 
 		return true;
@@ -1531,8 +1531,8 @@ public:
 				ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
 				ApplyTool<PenToolWindow, PenTool>();
-			if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
-				ApplyTool<SinePenToolWindow, SinePenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:cosinepen")))
+				ApplyTool<CosinePenToolWindow, CosinePenTool>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:pointpen")))
 				ApplyTool<PointPenToolWindow, PointPenTool>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
@@ -1817,6 +1817,10 @@ public:
 		if (auto v = Settings::PointRadiusPixel().Get();
 			ImGui::DragInt(LocaleProvider::GetC(Settings::Name(&Settings::PointRadiusPixel)), &v, 1, 1, 100))
 			Settings::PointRadiusPixel() = v;
+
+		if (auto v = Settings::CosinePointCount().Get();
+			ImGui::DragInt(LocaleProvider::GetC(Settings::Name(&Settings::CosinePointCount)), &v, 1, 1, 500))
+			Settings::CosinePointCount() = v;
 
 		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 

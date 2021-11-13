@@ -316,6 +316,12 @@ class Build {
 	}
 public:
 	
+	static const float GetDistanceToNextX(float x) {
+		const float minDistanceBetweenX = 0.01f;
+		auto d = pow(abs(sin(x)), Settings::CosinePointCount().Get()) / 2 + minDistanceBetweenX;
+		return d;
+	}
+
 	/// <summary>
 	///    B
 	///  / |  \
@@ -355,22 +361,22 @@ public:
 
 		static const auto hpi = glm::half_pi<float>();
 
-		int abNumber = abLength / 5 + 1;
-		int bcNumber = bcLength / 5 + 1;
-
 		std::vector<glm::vec3> points;
-
-		for (size_t j = 0; j < abNumber; j++) {
-			auto x = -hpi + hpi * j / (float)abNumber;
-			auto nx = j / (float)abNumber * adLength;
+		float x = -hpi;
+		for (; x < 0; x += GetDistanceToNextX(x)) {
+			auto nx = (hpi - abs(x)) / hpi * adLength;
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
 		}
-		for (size_t j = 0; j <= bcNumber; j++) {
-			auto x = hpi * j / (float)bcNumber;
-			auto nx = j / (float)bcNumber * dcLength + adLength;
+		x = 0;
+		for (; x < hpi; x += GetDistanceToNextX(x)) {
+			auto nx = x / hpi * dcLength + adLength;
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
+		}
+		//x = hpi
+		{
+			points.push_back(glm::vec3(acLength, 0, 0));
 		}
 
 		for (size_t j = 0; j < points.size(); j++)

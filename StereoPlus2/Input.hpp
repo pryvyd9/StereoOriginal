@@ -329,8 +329,9 @@ public:
 
 		// Make sure printable characters don't trigger combinations
 		// while keyboard is captured by text input
-		if (io()->AnyKeyPressed)
-			ExecuteFirstMatchingCombination(combinationTree(), io()->WantCaptureKeyboard);
+		auto* io = &ImGui::GetIO();
+		if (io->AnyKeyPressed)
+			ExecuteFirstMatchingCombination(combinationTree(), io->WantCaptureKeyboard);
 
 		// Handle OnInput actions
 		for (auto& [id,handler] : handlers())

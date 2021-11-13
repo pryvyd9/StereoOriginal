@@ -1081,10 +1081,10 @@ public:
 	}
 };
 
-class SinePenTool : public EditingTool {
-	using Mode = SinePenEditingToolMode;
+class CosinePenTool : public EditingTool {
+	using Mode = CosinePenEditingToolMode;
 
-	const Log Logger = Log::For<SinePenTool>();
+	const Log Logger = Log::For<CosinePenTool>();
 
 	size_t inputHandlerId;
 	size_t stateChangedHandlerId;
@@ -1292,7 +1292,7 @@ class SinePenTool : public EditingTool {
 		};
 		modeChangedHandlerId = mode.OnChanged() += [&](const Mode& v) {
 			currentVertice = getCurrentVertice();
-			if (Settings::ShouldMoveCrossOnSinePenModeChange().Get())
+			if (Settings::ShouldMoveCrossOnCosinePenModeChange().Get())
 				moveCrossToVertice(currentVertice);
 		};
 	}
@@ -1305,7 +1305,7 @@ public:
 			return false;
 
 		if (objs[0]->GetType() != SineCurveT) {
-			Logger.Warning("Invalid Object passed to SinePenTool");
+			Logger.Warning("Invalid Object passed to CosinePenTool");
 			return true;
 		}
 		target = objs[0];

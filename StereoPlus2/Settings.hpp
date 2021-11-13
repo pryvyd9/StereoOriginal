@@ -8,7 +8,7 @@ enum class PolylinePenEditingToolMode {
 	Step,
 };
 
-enum class SinePenEditingToolMode {
+enum class CosinePenEditingToolMode {
 	Step123,
 	Step132,
 };
@@ -75,9 +75,10 @@ public:
 
 	StaticProperty(float, CustomRenderWindowAlpha)
 
-	StaticProperty(bool, ShouldMoveCrossOnSinePenModeChange)
+	StaticProperty(bool, ShouldMoveCrossOnCosinePenModeChange)
 
 	StaticProperty(int, PointRadiusPixel)
+	StaticProperty(int, CosinePointCount)
 
 	static const std::string& Name(void* reference) {
 		static std::map<void*, const std::string> v = {
@@ -101,9 +102,10 @@ public:
 			{&DimmedColorRight,"dimmedColorRight"},
 			{&CustomRenderWindowAlpha,"customRenderWindowAlpha"},
 
-			{&ShouldMoveCrossOnSinePenModeChange,"shouldMoveCrossOnSinePenModeChange"},
+			{&ShouldMoveCrossOnCosinePenModeChange,"shouldMoveCrossOnCosinePenModeChange"},
 
 			{&PointRadiusPixel,"pointRadiusPixel"},
+			{&CosinePointCount,"cosinePointCount"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())
