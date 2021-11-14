@@ -1733,6 +1733,20 @@ class SettingsWindow : Window {
 	static const char* GetC(const char* path, void* settingReference) {
 		return LocaleProvider::GetC(path + Settings::Name(settingReference));
 	}
+
+	template<typename T>
+	static void SettingField(Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field) {
+		if (auto v = (&settingReference())->Get();
+			field(LocaleProvider::GetC(Settings::Name(settingReference)), v))
+			*(&settingReference()) = v;
+	}
+
+	template<typename T>
+	static void SettingField(const char* prefix, Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field) {
+		if (auto v = (&settingReference())->Get();
+			field(LocaleProvider::GetC(prefix + Settings::Name(settingReference)), v))
+			*(&settingReference()) = v;
+	}
 public:
 
 	Property<bool> IsOpen;
@@ -1753,9 +1767,9 @@ public:
 			return true;
 		}
 
-		if (auto v = Settings::StateBufferLength().Get();
-			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 1, 10, 4))
-			Settings::StateBufferLength() = v;
+		SettingField(&Settings::StateBufferLength, std::function([](const char* name, int& v)
+			{ return ImGui::InputInt(name, &v, 1, 10, 4); }));
+
 		if (auto v = Settings::Language().Get();
 			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {
 
@@ -1769,58 +1783,49 @@ public:
 
 		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
 
-			if (auto v = Settings::TranslationStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::TranslationStep), &v, 1, 10))
-				Settings::TranslationStep() = v;
-			if (auto v = Settings::RotationStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::RotationStep), &v, 1, 10))
-				Settings::RotationStep() = v;
-			if (auto v = Settings::ScalingStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::ScalingStep), &v, 0.01, 0.1))
-				Settings::ScalingStep() = v;
-			if (auto v = Settings::MouseSensivity().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::MouseSensivity), &v, 0.01, 0.1))
-				Settings::MouseSensivity() = v;
+			SettingField("step:", &Settings::TranslationStep, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 1, 10); }));
+
+			SettingField("step:", &Settings::RotationStep, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 1, 10); }));
+
+			SettingField("step:", &Settings::ScalingStep, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 0.01, 0.1); }));
+
+			SettingField("step:", &Settings::MouseSensivity, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 0.01, 0.1); }));
+			
 			ImGui::TreePop();
 		}
 
 		if (ImGui::TreeNode(LocaleProvider::GetC("color:color"))) {
 
-			if (auto v = Settings::ColorLeft().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::ColorLeft), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::ColorLeft() = v;
-			if (auto v = Settings::ColorRight().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::ColorRight), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::ColorRight() = v;
-			if (auto v = Settings::DimmedColorLeft().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::DimmedColorLeft), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::DimmedColorLeft() = v;
-			if (auto v = Settings::DimmedColorRight().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::DimmedColorRight), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::DimmedColorRight() = v;
+			std::function colorField = [](const char* name, glm::vec4& v)
+				{ return ImGui::ColorEdit4(name, (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview); };
+
+			SettingField("color:", &Settings::ColorLeft, colorField);
+			SettingField("color:", &Settings::ColorRight, colorField);
+			SettingField("color:", &Settings::DimmedColorLeft, colorField);
+			SettingField("color:", &Settings::DimmedColorRight, colorField);
 
 			ImGui::TreePop();
 		}
 
-		if (auto v = Settings::LogFileName().Get();
-			ImGui::InputText(LocaleProvider::GetC(Settings::Name(&Settings::LogFileName)), &v))
-			Settings::LogFileName() = v;
+	
+		SettingField(&Settings::LogFileName, std::function([](const char* name, std::string& v) 
+			{ return ImGui::InputText(name, &v); }));
 
-		if (auto v = Settings::PPI().Get();
-			ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::PPI)), &v))
-			Settings::PPI() = v;
+		SettingField(&Settings::PPI, std::function([](const char* name, float& v) 
+			{ return ImGui::InputFloat(name, &v); }));
 
-		if (auto v = Settings::CustomRenderWindowAlpha().Get();
-			ImGui::DragFloat(LocaleProvider::GetC(Settings::Name(&Settings::CustomRenderWindowAlpha)), &v, 0.01, 0, 1))
-			Settings::CustomRenderWindowAlpha() = v;
+		SettingField(&Settings::CustomRenderWindowAlpha, std::function([](const char* name, float& v) 
+			{ return ImGui::DragFloat(name, &v, 0.01, 0, 1); }));
 
-		if (auto v = Settings::PointRadiusPixel().Get();
-			ImGui::DragInt(LocaleProvider::GetC(Settings::Name(&Settings::PointRadiusPixel)), &v, 1, 1, 100))
-			Settings::PointRadiusPixel() = v;
+		SettingField(&Settings::PointRadiusPixel, std::function([](const char* name, int& v) 
+			{ return ImGui::DragInt(name, &v, 1, 1, 100); }));
 
-		if (auto v = Settings::CosinePointCount().Get();
-			ImGui::DragInt(LocaleProvider::GetC(Settings::Name(&Settings::CosinePointCount)), &v, 1, 1, 500))
-			Settings::CosinePointCount() = v;
+		SettingField(&Settings::CosinePointCount, std::function([](const char* name, int& v) 
+			{ return ImGui::DragInt(name, &v, 1, 1, 500); }));
 
 		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 
