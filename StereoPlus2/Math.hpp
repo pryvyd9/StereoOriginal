@@ -318,7 +318,8 @@ public:
 	
 	static const float GetDistanceToNextX(float x) {
 		const float minDistanceBetweenX = 0.01f;
-		auto d = pow(abs(sin(x)), Settings::CosinePointCount().Get()) / 2 + minDistanceBetweenX;
+		const float startCoefficient = 3.f;
+		auto d = pow(x, 2)/(startCoefficient + Settings::CosinePointCount().Get()) + minDistanceBetweenX;
 		return d;
 	}
 

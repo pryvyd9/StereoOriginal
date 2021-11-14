@@ -1735,17 +1735,23 @@ class SettingsWindow : Window {
 	}
 
 	template<typename T>
-	static void SettingField(Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field) {
+	static void SettingField(Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
 		if (auto v = (&settingReference())->Get();
-			field(LocaleProvider::GetC(Settings::Name(settingReference)), v))
+			field(LocaleProvider::GetC(Settings::Name(settingReference)), v)) {
 			*(&settingReference()) = v;
+			if (shouldForceUpdateCache)
+				Scene::root().Get()->ForceUpdateCache();
+		}
 	}
 
 	template<typename T>
-	static void SettingField(const char* prefix, Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field) {
+	static void SettingField(const char* prefix, Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
 		if (auto v = (&settingReference())->Get();
-			field(LocaleProvider::GetC(prefix + Settings::Name(settingReference)), v))
+			field(LocaleProvider::GetC(prefix + Settings::Name(settingReference)), v)) {
 			*(&settingReference()) = v;
+			if (shouldForceUpdateCache)
+				Scene::root().Get()->ForceUpdateCache();
+		}
 	}
 public:
 
@@ -1824,8 +1830,20 @@ public:
 		SettingField(&Settings::PointRadiusPixel, std::function([](const char* name, int& v) 
 			{ return ImGui::DragInt(name, &v, 1, 1, 100); }));
 
+
 		SettingField(&Settings::CosinePointCount, std::function([](const char* name, int& v) 
-			{ return ImGui::DragInt(name, &v, 1, 1, 500); }));
+			{ 
+				auto res = ImGui::InputInt(name, &v);
+				{
+					const char* explanation = " (k)\nd=x^2/(3+k), 0 <= k <= 1e6";
+					ImGui::SameLine(); 
+					ImGui::Extensions::HelpMarker((LocaleProvider::Get("cosinePointCountToolTip") + explanation).c_str());
+				}
+				if (v < 0) v = 0;
+				else if (v > 1e6) v = 1e6;
+				return res; 
+			}),
+			true);
 
 		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 
