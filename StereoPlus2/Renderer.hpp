@@ -153,6 +153,7 @@ public:
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		glLineWidth(LineThickness);
 		
+		glLineWidth(Settings::LineThickness().Get());
 
 		// Anti aliasing
 		{
@@ -212,6 +213,11 @@ public:
 	bool Init() {
 		if (!InitGL())
 			return false;
+
+		GLint lineWidthRange[2];
+		glGetIntegerv(GL_ALIASED_LINE_WIDTH_RANGE, lineWidthRange);
+		Settings::MinLineThickness() = lineWidthRange[0];
+		Settings::MaxLineThickness() = lineWidthRange[1];
 
 		CreateShaders();
 

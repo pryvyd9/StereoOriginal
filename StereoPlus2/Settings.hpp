@@ -78,7 +78,13 @@ public:
 	StaticProperty(bool, ShouldMoveCrossOnCosinePenModeChange)
 
 	StaticProperty(int, PointRadiusPixel)
+	StaticProperty(int, LineThickness)
+
 	StaticProperty(int, CosinePointCount)
+
+	// Readonly system fields
+	StaticField(int, MinLineThickness)
+	StaticField(int, MaxLineThickness)
 
 	static const std::string& Name(void* reference) {
 		static std::map<void*, const std::string> v = {
@@ -105,6 +111,8 @@ public:
 			{&ShouldMoveCrossOnCosinePenModeChange,"shouldMoveCrossOnCosinePenModeChange"},
 
 			{&PointRadiusPixel,"pointRadiusPixel"},
+			{&LineThickness,"lineThickness"},
+
 			{&CosinePointCount,"cosinePointCount"},
 		};
 

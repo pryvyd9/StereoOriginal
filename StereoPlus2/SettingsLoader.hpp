@@ -157,6 +157,8 @@ public:
 		Load(&Settings::ShouldMoveCrossOnCosinePenModeChange);
 
 		Load(&Settings::PointRadiusPixel);
+		Load(&Settings::LineThickness);
+
 		Load(&Settings::CosinePointCount);
 	}
 	static void Save() {
@@ -182,6 +184,8 @@ public:
 		Insert(json, &Settings::ShouldMoveCrossOnCosinePenModeChange);
 
 		Insert(json, &Settings::PointRadiusPixel);
+		Insert(json, &Settings::LineThickness);
+
 		Insert(json, &Settings::CosinePointCount);
 
 		Json::Write("settings.json", &json);

@@ -88,3 +88,5 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.18.5
 - renamed sine to cosine;
 - reworked cosine point distribution;
+# 0.18.6
+- added line thickness configuration;

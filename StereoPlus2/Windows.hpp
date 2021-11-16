@@ -1830,6 +1830,9 @@ public:
 		SettingField(&Settings::PointRadiusPixel, std::function([](const char* name, int& v) 
 			{ return ImGui::DragInt(name, &v, 1, 1, 100); }));
 
+		SettingField(&Settings::LineThickness, std::function([](const char* name, int& v)
+			{ return ImGui::DragInt(name, &v, 1, Settings::MinLineThickness(), Settings::MaxLineThickness()); }));
+
 
 		SettingField(&Settings::CosinePointCount, std::function([](const char* name, int& v) 
 			{ 
