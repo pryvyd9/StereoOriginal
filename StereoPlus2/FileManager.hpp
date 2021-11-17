@@ -451,6 +451,12 @@ public:
 		return j;
 	}
 	template<>
+	static Js::ObjectAbstract* serialize(const glm::vec2& o) {
+		auto j = new Js::Array();
+		j->objects = { serialize(o.x), serialize(o.y) };
+		return j;
+	}
+	template<>
 	static Js::ObjectAbstract* serialize(const glm::vec3& o) {
 		auto j = new Js::Array();
 		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z) };

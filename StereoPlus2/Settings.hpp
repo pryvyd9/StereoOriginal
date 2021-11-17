@@ -81,6 +81,14 @@ public:
 	StaticProperty(int, LineThickness)
 
 	StaticProperty(int, CosinePointCount)
+	
+	StaticProperty(glm::vec2, CameraResolution)
+	StaticProperty(glm::vec2, CameraViewAngles)
+	StaticProperty(glm::vec2, CameraAngle)
+
+	StaticProperty(float, FaceSizeYMillimeters)
+	StaticProperty(glm::vec3, ScreenCenterToCameraDistanceMillimeters)
+
 
 	// Readonly system fields
 	StaticField(int, MinLineThickness)
@@ -114,6 +122,12 @@ public:
 			{&LineThickness,"lineThickness"},
 
 			{&CosinePointCount,"cosinePointCount"},
+
+			{&CameraResolution,"cameraResolution"},
+			{&CameraViewAngles,"cameraViewAngles"},
+			{&CameraAngle,"cameraAngle"},
+			{&FaceSizeYMillimeters,"faceSizeYMillimeters"},
+			{&ScreenCenterToCameraDistanceMillimeters,"screenCenterToCameraDistanceMillimeters"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())

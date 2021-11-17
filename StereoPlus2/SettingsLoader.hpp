@@ -113,6 +113,60 @@ class SettingsLoader {
 		setter(v);
 	}
 
+	template<>
+	static void Load(const std::string& name, std::function<void(glm::vec3)> setter) {
+		static const int size = sizeof(glm::vec3) / sizeof(float);
+
+		std::string nodes[size];
+
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << i;
+			auto node = settings().find(name + ":" + ss.str());
+			if (node == settings().end()) {
+				Logger().Error("Failed to load setting: ", name, ":", i);
+				return;
+			}
+			nodes[i] = node._Ptr->_Myval.second;
+		}
+
+		glm::vec3 v;
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << nodes[i];
+			ss >> ((float*)&v)[i];
+		}
+
+		setter(v);
+	}
+
+	template<>
+	static void Load(const std::string& name, std::function<void(glm::vec2)> setter) {
+		static const int size = sizeof(glm::vec2) / sizeof(float);
+
+		std::string nodes[size];
+
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << i;
+			auto node = settings().find(name + ":" + ss.str());
+			if (node == settings().end()) {
+				Logger().Error("Failed to load setting: ", name, ":", i);
+				return;
+			}
+			nodes[i] = node._Ptr->_Myval.second;
+		}
+
+		glm::vec2 v;
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << nodes[i];
+			ss >> ((float*)&v)[i];
+		}
+
+		setter(v);
+	}
+
 	template<typename T>
 	static void Load(const std::string& name, Property<T>& (*selector)()) {
 		Load(name, std::function([&](T v) { selector() = v; }));
@@ -160,6 +214,12 @@ public:
 		Load(&Settings::LineThickness);
 
 		Load(&Settings::CosinePointCount);
+
+		Load(&Settings::CameraResolution);
+		Load(&Settings::CameraViewAngles);
+		Load(&Settings::CameraAngle);
+		Load(&Settings::FaceSizeYMillimeters);
+		Load(&Settings::ScreenCenterToCameraDistanceMillimeters);
 	}
 	static void Save() {
 		Js::Object json;
@@ -187,6 +247,12 @@ public:
 		Insert(json, &Settings::LineThickness);
 
 		Insert(json, &Settings::CosinePointCount);
+
+		Insert(json, &Settings::CameraResolution);
+		Insert(json, &Settings::CameraViewAngles);
+		Insert(json, &Settings::CameraAngle);
+		Insert(json, &Settings::FaceSizeYMillimeters);
+		Insert(json, &Settings::ScreenCenterToCameraDistanceMillimeters);
 
 		Json::Write("settings.json", &json);
 	}

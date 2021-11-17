@@ -1516,14 +1516,8 @@ public:
 		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
 		ImGui::Begin(windowName.c_str());
 		{
-			if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
-				polyLineTool.Create();
-			if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
-				sineCurveTool.Create();
 			if (ImGui::Button(LocaleProvider::GetC("object:group")))
 				groupObjectTool.Create();
-			if (ImGui::Button(LocaleProvider::GetC("object:point")))
-				pointTool.Create();
 		}
 		{
 			ImGui::Separator();
@@ -1565,12 +1559,12 @@ public:
 					Settings::TargetMode() = TargetMode::Pivot;
 			}
 		}
-
-		ImGui::Separator();
-		if (bool v = Settings::UseDiscreteMovement().Get();
-			ImGui::Checkbox(LocaleProvider::GetC(Settings::Name(&Settings::UseDiscreteMovement)), &v))
-			Settings::UseDiscreteMovement() = v;
-
+		{
+			ImGui::Separator();
+			if (bool v = Settings::UseDiscreteMovement().Get();
+				ImGui::Checkbox(LocaleProvider::GetC(Settings::Name(&Settings::UseDiscreteMovement)), &v))
+				Settings::UseDiscreteMovement() = v;
+		}
 		ImGui::End();
 
 		return true;
@@ -1813,6 +1807,29 @@ public:
 			SettingField("color:", &Settings::ColorRight, colorField);
 			SettingField("color:", &Settings::DimmedColorLeft, colorField);
 			SettingField("color:", &Settings::DimmedColorRight, colorField);
+
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode(LocaleProvider::GetC("webcam:webcam"))) {
+
+			std::function colorField = [](const char* name, glm::vec4& v)
+			{ return ImGui::ColorEdit4(name, (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview); };
+
+			SettingField("webcam:", &Settings::CameraResolution, std::function([](const char* name, glm::vec2& v)
+				{ return ImGui::InputFloat2(name, (float*)&v); }));
+
+			SettingField("webcam:", &Settings::CameraViewAngles, std::function([](const char* name, glm::vec2& v)
+				{ return ImGui::InputFloat2(name, (float*)&v); }));
+
+			SettingField("webcam:", &Settings::CameraAngle, std::function([](const char* name, glm::vec2& v)
+				{ return ImGui::InputFloat2(name, (float*)&v); }));
+
+			SettingField("webcam:", &Settings::FaceSizeYMillimeters, std::function([](const char* name, float& v)
+				{ return ImGui::InputFloat(name, &v); }));
+
+			SettingField("webcam:", &Settings::ScreenCenterToCameraDistanceMillimeters, std::function([](const char* name, glm::vec3& v)
+				{ return ImGui::InputFloat(name, (float*)&v); }));
 
 			ImGui::TreePop();
 		}

@@ -90,3 +90,5 @@ Added Publish configuration that cleans output before build and copies only nece
 - reworked cosine point distribution;
 # 0.18.6
 - added line thickness configuration;
+# 0.18.7
+- added position detection configuration to settings;
