@@ -1813,23 +1813,20 @@ public:
 
 		if (ImGui::TreeNode(LocaleProvider::GetC("webcam:webcam"))) {
 
-			std::function colorField = [](const char* name, glm::vec4& v)
-			{ return ImGui::ColorEdit4(name, (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview); };
-
 			SettingField("webcam:", &Settings::CameraResolution, std::function([](const char* name, glm::vec2& v)
-				{ return ImGui::InputFloat2(name, (float*)&v); }));
+				{ return ImGui::InputFloat2(name, (float*)&v, "%.0f"); }));
 
 			SettingField("webcam:", &Settings::CameraViewAngles, std::function([](const char* name, glm::vec2& v)
-				{ return ImGui::InputFloat2(name, (float*)&v); }));
+				{ return ImGui::InputFloat2(name, (float*)&v, "%.0f"); }));
 
 			SettingField("webcam:", &Settings::CameraAngle, std::function([](const char* name, glm::vec2& v)
-				{ return ImGui::InputFloat2(name, (float*)&v); }));
+				{ return ImGui::InputFloat2(name, (float*)&v, "%.0f"); }));
 
 			SettingField("webcam:", &Settings::FaceSizeYMillimeters, std::function([](const char* name, float& v)
-				{ return ImGui::InputFloat(name, &v); }));
+				{ return ImGui::InputFloat(name, &v, 1, 10, "%.0f"); }));
 
 			SettingField("webcam:", &Settings::ScreenCenterToCameraDistanceMillimeters, std::function([](const char* name, glm::vec3& v)
-				{ return ImGui::InputFloat(name, (float*)&v); }));
+				{ return ImGui::InputFloat3(name, (float*)&v, "%.0f"); }));
 
 			ImGui::TreePop();
 		}

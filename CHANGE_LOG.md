@@ -92,3 +92,5 @@ Added Publish configuration that cleans output before build and copies only nece
 - added line thickness configuration;
 # 0.18.7
 - added position detection configuration to settings;
+# 0.18.8
+- fixed webcam settigns ui;
