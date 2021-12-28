@@ -693,18 +693,17 @@ class Cross : public LeafObject {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-
 	void UpdateCache() {
-		vertices = std::vector<glm::vec3>(6);
+		vertices = {
+			glm::vec3(-size,0,0),
+			glm::vec3(+size,0,0),
 
-		vertices[0].x -= size;
-		vertices[1].x += size;
+			glm::vec3(0,-size,0),
+			glm::vec3(0,+size,0),
 
-		vertices[2].y -= size;
-		vertices[3].y += size;
-
-		vertices[4].z -= size;
-		vertices[5].z += size;
+			glm::vec3(0,0,-size),
+			glm::vec3(0,0,+size),
+		};
 
 		CascadeTransform(vertices);
 	}
@@ -713,12 +712,31 @@ class Cross : public LeafObject {
 	virtual void HandleBeforeUpdate() override {}
 public:
 	float size = 10;
-	std::function<void()> keyboardBindingHandler;
-	size_t keyboardBindingHandlerId;
+
+
+	// Keyboard Binding Flow:
+	// 1. GUIPositionEditHandler
+	// 	   Adds position changes in Cross properties window to movement
+	// 	   to save GUI changes.
+	// 	   It's a crutch that needs to be systematized somehow.
+	// 2. keyboardBindingHandler
+	// 	   Calls cross or camera Processor based on wether it's cross or camera mode.
+	// 3. keyboardBindingProcessor
+	//	   Modified Cursor position. Tools can override this for direct access
+	// 	   and control of cross movement.
 
 	std::function<void()> GUIPositionEditHandler;
 	size_t GUIPositionEditHandlerId;
 	glm::vec3 GUIPositionEditDifference;
+
+	std::function<void()> keyboardBindingHandler;
+	size_t keyboardBindingHandlerId;
+
+	// Function to be called from keyboardBindingHandler.
+	// It exists to make switching between default and Tool processors.
+	std::function<void()> keyboardBindingProcessor;
+	std::function<void()> keyboardBindingProcessorDefault;
+
 
 	Cross() {
 		shouldTransformPosition = true;
@@ -743,8 +761,9 @@ public:
 
 		SceneObject::DesignProperties();
 
-		// Hask to enable cross movement via GUI editing count as input movement.
+		// Hack to enable cross movement via GUI editing count as input movement.
 		// It enables tools to react to it properly and work correctly.
+		// It's a crutch that should be reworked properly.
 		GUIPositionEditDifference = GetLocalPosition() - oldPos;
 
 		if (GUIPositionEditDifference != glm::vec3())
@@ -793,7 +812,8 @@ public:
 	float viewSizeZ = 100;
 	Property<float> EyeToCenterDistance = 34;
 	Property<glm::vec3> PositionModifier = glm::vec3(0, 50, 600);
-	
+
+	std::function<void()> keyboardBindingProcessor;
 
 	Camera() {
 		Name = "camera";

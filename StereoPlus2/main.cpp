@@ -34,6 +34,10 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 void ConfigureShortcuts(CustomRenderWindow& crw) {
+	// Shortcuts related to cursor movement can be found in KeyBinding.
+	// Shortcuts in KeyBinding are complex and you should be careful about them.
+	// The shortcuts in this method can be reconfigured freely.
+	
 	// Internal shortcuts.
 	Input::AddShortcut(Key::Combination(Key::Escape),
 		ToolWindow::ApplyDefaultTool().Get());
@@ -70,6 +74,8 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 		[] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 	Input::AddShortcut(Key::Combination(Key::C),
 		[] { Settings::TargetMode() = Settings::TargetMode().Get() == TargetMode::Object ? TargetMode::Pivot : TargetMode::Object; });
+	Input::AddShortcut(Key::Combination(Key::Z),
+		[] { Settings::NavigationMode() = Settings::NavigationMode().Get() == NavigationMode::Cross ? NavigationMode::Camera : NavigationMode::Cross; });
 }
 
 int main() {
@@ -145,7 +151,7 @@ int main() {
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [] { Input::movement() += Scene::cross()->GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = Input::AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingHandler = [] {
+	cross.keyboardBindingProcessorDefault = cross.keyboardBindingProcessor = [] {
 		auto relativeRotation = Input::GetRelativeRotation(glm::vec3());
 		auto relativeMovement = Input::GetRelativeMovement(Scene::cross()->GUIPositionEditDifference);
 
@@ -154,7 +160,18 @@ int main() {
 		if (relativeMovement != glm::vec3())
 			Transform::Translate(relativeMovement, &Scene::cross().Get());
 	};
+	cross.keyboardBindingHandler = [&cross, &camera] { 
+		if (Settings::NavigationMode().Get() == NavigationMode::Cross)
+			cross.keyboardBindingProcessor();
+		else
+			camera.keyboardBindingProcessor();
+	};
 	cross.keyboardBindingHandlerId = Input::AddHandler(cross.keyboardBindingHandler);
+
+	camera.keyboardBindingProcessor = [&camera] { 
+		camera.PositionModifier = camera.PositionModifier.Get() + Input::GetRelativeMovement(glm::vec3());
+		camera.ForceUpdateCache();
+	};
 
 	if (!ToolPool::Init())
 		return false;
@@ -206,6 +223,8 @@ int main() {
 	ConfigureShortcuts(customRenderWindow);
 
 	// Start the main loop and clean the memory when closed.
+	// Bitwise OR is intended. 
+	// We must go through all of them even if we get 1 false.
 	if (!gui.MainLoop() |
 		!gui.OnExit() |
 		!renderPipeline.OnExit()) {

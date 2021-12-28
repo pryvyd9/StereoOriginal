@@ -1,6 +1,9 @@
 #pragma once
 #include <imgui/imgui_impl_glfw.h>
 
+// Consider switching to enum based keys
+// with future key binding ui configuration.
+// https://github.com/Neargye/magic_enum
 namespace Key {
 	enum class Type {
 		Mouse,

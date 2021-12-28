@@ -94,3 +94,8 @@ Added Publish configuration that cleans output before build and copies only nece
 - added position detection configuration to settings;
 # 0.18.8
 - fixed webcam settigns ui;
+# 0.19
+- introcuded navigation mode. Toggled by Z. 
+Switches between cross and camera movement.
+When in camera mode cross doesn't react to mouse+keyboard control;
+- starts maximized;

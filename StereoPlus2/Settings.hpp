@@ -45,6 +45,11 @@ enum class MoveCoordinateAction {
 	None,
 };
 
+enum class NavigationMode {
+	Cross,
+	Camera,
+};
+
 class Settings {
 public:
 	//StaticProperty(::ObjectMode, ObjectMode)
@@ -54,6 +59,7 @@ public:
 	StaticProperty(bool, ShouldDetectPosition)
 
 	StaticProperty(bool, ShouldRestrictTargetModeToPivot)
+	StaticProperty(::NavigationMode, NavigationMode)
 
 	// Settings
 	StaticProperty(std::string, Language)
