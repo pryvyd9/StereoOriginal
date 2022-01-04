@@ -18,6 +18,18 @@
 #include "include/stb/stb_image_write.h"
 
 
+namespace ImGui::Extensions {
+	static bool RadioButton(const std::string& localizationPath, int* v, int v_button, const std::string& toolTipLocalizationPath) {
+		auto res = ImGui::RadioButton(LocaleProvider::GetC(localizationPath), v, v_button);
+		ImGui::SameLine();
+		ImGui::Extensions::HelpMarker(LocaleProvider::GetC(toolTipLocalizationPath));
+		return res;
+	}
+	static bool RadioButton(const std::string& localizationPath, int* v, int v_button) {
+		return ImGui::RadioButton(LocaleProvider::GetC(localizationPath), v, v_button);
+	}
+}
+
 //class TemplateWindow : Window {
 //	const Log log = Log::For<TemplateWindow>();
 //public:
@@ -45,32 +57,25 @@ class CustomRenderWindow : Window {
 	Event<> onResize;
 
 
-	GLuint createFrameBuffer() {
-		GLuint fbo;
+	void createFrameBuffer() {
 		glGenFramebuffers(1, &fbo);
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glDrawBuffer(GL_COLOR_ATTACHMENT0);
-		int g = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		//int g = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
 		//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
 		//	int u = 0;
 		//}
-
-		return fbo;
 	}
-	GLuint createTextureAttachment(int width, int height) {
-		GLuint texture;
+	void createTextureAttachment(int width, int height) {
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
-
-		return texture;
 	}
-	GLuint createDepthBufferAttachment(int width, int height) {
-		GLuint depthBuffer;
+	void createDepthBufferAttachment(int width, int height) {
 		glGenRenderbuffers(1, &depthBuffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
@@ -80,8 +85,6 @@ class CustomRenderWindow : Window {
 		{
 			int j = 0;
 		}
-
-		return depthBuffer;
 	}
 
 
@@ -92,7 +95,6 @@ class CustomRenderWindow : Window {
 	}
 	void unbindCurrentFrameBuffer(int width, int height) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//glViewport(0, 0, width, height);
 	}
 	void ResizeCustomRenderCanvas(glm::vec2 newSize) {
 		// resize color attachment
@@ -170,9 +172,9 @@ public:
 
 	virtual bool Init() {
 		Window::name = "renderWindow";
-		fbo = createFrameBuffer();
-		texture = createTextureAttachment(RenderSize->x, RenderSize->y);
-		depthBuffer = createDepthBufferAttachment(RenderSize->x, RenderSize->y);
+		createFrameBuffer();
+		createTextureAttachment(RenderSize->x, RenderSize->y);
+		createDepthBufferAttachment(RenderSize->x, RenderSize->y);
 		unbindCurrentFrameBuffer(RenderSize->x, RenderSize->y);
 
 		Settings::CustomRenderWindowAlpha().OnChanged() += [&](const float& v) { windowBackgroundColor.a = v; };
@@ -218,10 +220,11 @@ public:
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, glm::vec4());
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, glm::vec4());
 		
-		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1),0);
+		ImGui::ImageButton((void*)(intptr_t)texture, RenderSize.Get(), glm::vec2(), glm::vec2(1), 0, glm::vec4(), glm::vec4(1), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 
 		ImGui::PopStyleColor(3);
-	
+
+		// true when mouse is pressed in rectangle of the item.
 		Input::IsCustomRenderImageActive() = ImGui::IsItemActive();
 
 		HandleResize();
@@ -318,14 +321,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 	const glm::vec4 selectedActiveColor = glm::vec4(0, 0, 0.8, 1);
 	const glm::vec4 unselectedColor = glm::vec4(0, 0, 0, 0);
 
-	bool hasMovementOccured;
-
+	bool hasMovementOccured = false;
+	StaticField(int, GetID)
+	
 	MoveCommand* moveCommand;
 
-	static int& GetID() {
-		static int val = 0;
-		return val;
-	}
 
 	bool IsMovedToItself(const SceneObject* target, std::set<PON>& buffer) {
 		for (auto o : buffer) {
@@ -339,62 +339,28 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		return false;
 	}
 
-	void Select(SceneObject* t, bool isSelected = false, bool ignoreCtrl = false) {
-		auto isCtrlPressed = ignoreCtrl
-			? false
-			: input->IsPressed(Key::Modifier::Control);
-		auto isShiftPressed = input->IsPressed(Key::Modifier::Shift);
+	void Select(SceneObject* t, bool isSelected = false, bool forceRecursive = false, bool selectChildren = false) {
+		auto isCtrlPressed = input->IsPressed(Key::Modifier::Control);
+		bool isRecursive = forceRecursive || input->IsPressed(Key::Modifier::Alt);
 
 		std::function<void(SceneObject*)> func = isSelected && isCtrlPressed
 			? ObjectSelection::Remove
 			: ObjectSelection::Add;
-		bool isRecursive = isShiftPressed;
 		bool mustRemoveAllBeforeSelect = !isCtrlPressed;
 
 
 		if (mustRemoveAllBeforeSelect)
 			ObjectSelection::RemoveAll();
 
-		if (isRecursive)
+		if (selectChildren)
+			for (auto c : t->children)
+				func(c);
+		else if (isRecursive)
 			t->CallRecursive([func](SceneObject* o) { func(o); });
 		else
 			func(t);
 	}
 
-	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false) {
-		static SceneObject* clickedItem;
-		
-		if (hasMovementOccured)
-			clickedItem = nullptr;
-		else if (ImGui::IsItemClicked())
-			clickedItem = t;
-
-		if (!input->IsUp(Key::MouseLeft) || !ImGui::IsItemHovered() || clickedItem != t)
-			return false;
-
-		if (!isFullySelectable && GetSelectPosition() != Rest)
-			return false;
-
-		Select(t, isSelected);
-
-		return true;
-	}
-	bool TryDragDropSource(SceneObject* o, bool isSelected, ImGuiDragDropFlags flags = 0) {
-		if (!ImGui::BeginDragDropSource(flags))
-			return false;
-
-		if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
-			ImGui::Text("Moving \"%s\"", o->Name.c_str());
-
-		if (!isSelected)
-			Select(o);
-
-		EmplaceDragDropSelected();
-
-		ImGui::EndDragDropSource();
-
-		return true;
-	}
 	bool TryDragDropTarget(SceneObject* o, int pos, int positionMask, ImGuiDragDropFlags flags = 0) {
 		if (!ImGui::BeginDragDropTarget())
 			return false;
@@ -419,8 +385,90 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		return true;
 	}
+	bool TryDragDropSource(SceneObject* o, bool isSelected, ImGuiDragDropFlags flags = 0) {
+		if (!ImGui::BeginDragDropSource(flags))
+			return false;
 
-	bool TreeNode(SceneObject* t, bool& isSelected, int flags = 0) {
+		if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
+			ImGui::Text("Moving \"%s\"", o->Name.c_str());
+
+		if (!isSelected)
+			Select(o);
+
+		EmplaceDragDropSelected();
+
+		ImGui::EndDragDropSource();
+
+		return true;
+	}
+	bool TryContextWindow(SceneObject* t, bool isSelected, int flags) {
+		static int clickedItemIDRightMouse = -1;
+
+		if (Input::IsDown(Key::MouseRight))
+			clickedItemIDRightMouse = ImGui::GetHoveredID();
+
+		if (ImGui::GetItemID() == clickedItemIDRightMouse && ImGui::BeginPopupContextWindow()) {
+
+			auto treeSelectionSupported = (!(flags & ImGuiTreeNodeFlags_Leaf) || (flags & ImGuiTreeNodeFlags_DefaultOpen));
+			if (treeSelectionSupported && ImGui::Selectable("Select Tree")) {
+
+				ImGui::EndPopup();
+
+				TrySelect(t, isSelected, false, true);
+
+				// Close popup
+				clickedItemIDRightMouse = -1;
+
+				return true;
+			}
+			if (treeSelectionSupported && ImGui::Selectable("Select Children")) {
+
+				ImGui::EndPopup();
+
+				TrySelect(t, isSelected, false, false, true);
+
+				// Close popup
+				clickedItemIDRightMouse = -1;
+
+				return true;
+			}
+			ImGui::EndPopup();
+		}
+
+		return false;
+	}
+	bool TrySelect(SceneObject* t, bool isSelected, bool isFullySelectable = false, bool forceTreeSelection = false, bool forceChildrenSelection = false) {
+		static SceneObject* clickedItemLeftMouse;
+
+		if (hasMovementOccured)
+			clickedItemLeftMouse = nullptr;
+		else if (ImGui::IsItemClicked(Key::MouseLeft.code))
+			clickedItemLeftMouse = t;
+
+		if (forceTreeSelection) {
+			Select(t, isSelected, true);
+			return true;
+		}
+		else if (forceChildrenSelection) {
+			Select(t, isSelected, false, true);
+			return true;
+		}
+
+
+		if (!input->IsUp(Key::MouseLeft) || !ImGui::IsItemHovered() || clickedItemLeftMouse != t)
+			return false;
+
+		if (!isFullySelectable && GetSelectPosition() != Rest)
+			return false;
+
+		Select(t, isSelected);
+
+		return true;
+	}
+
+
+
+	bool TreeNode(SceneObject* t, bool& isSelected, int& flags) {
 		isSelected = exists(ObjectSelection::Selected(), t, std::function([](const PON& o) { return o.Get(); }));
 		if (isSelected) {
 			ImGui::PushStyleColor(ImGuiCol_Header, selectedColor);
@@ -456,11 +504,11 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 		ImGui::PushID(GetID()++);
 
 		ImGui::PushStyleColor(ImGuiCol_Header, unselectedColor);
-		ImGuiDragDropFlags target_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
+		ImGuiDragDropFlags node_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 		bool isSelected;
-		bool open = TreeNode(t, isSelected, target_flags);
+		bool open = TreeNode(t, isSelected, node_flags);
 
-		!TryDragDropTarget(t, 0, Center) && !TryDragDropSource(t, isSelected) && TrySelect(t, isSelected);
+		!TryDragDropTarget(t, 0, Center) && !TryDragDropSource(t, isSelected) && !TryContextWindow(t, isSelected, node_flags) && TrySelect(t, isSelected);
 
 		for (int i = 0; i < t->children.size(); i++)
 			if (!DesignTreeNode(t->children[i], t->children, i)) {
@@ -481,15 +529,16 @@ class SceneObjectInspectorWindow : Window, MoveCommand::IHolder {
 
 		ImGui::Indent(indent);
 
+		ImGuiDragDropFlags node_flags = 0;
 		bool isSelected;
-		bool open = TreeNode(t, isSelected);
+		bool open = TreeNode(t, isSelected, node_flags);
 
-		ImGuiDragDropFlags src_flags = 0;
-		src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
-		src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
+		ImGuiDragDropFlags dragdrop_flags = 0;
+		dragdrop_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
+		dragdrop_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
 		//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
 
-		!TryDragDropTarget(t, pos, Any) && !TryDragDropSource(t, isSelected, src_flags) && TrySelect(t, isSelected);
+		!TryDragDropTarget(t, pos, Any) && !TryDragDropSource(t, isSelected, dragdrop_flags) && !TryContextWindow(t, isSelected, node_flags) && TrySelect(t, isSelected);
 
 		if (open) {
 			for (int i = 0; i < t->children.size(); i++)
@@ -684,9 +733,9 @@ class PenToolWindow : Window, Attributes {
 		{
 			static int mode = 0;
 			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
-				tool->SetMode(PointPenEditingToolMode::Immediate);
+				tool->SetMode(PolylinePenEditingToolMode::Immediate);
 			if (ImGui::RadioButton("StepMode", &mode, 1))
-				tool->SetMode(PointPenEditingToolMode::Step);
+				tool->SetMode(PolylinePenEditingToolMode::Step);
 		}
 
 		return true;
@@ -748,8 +797,8 @@ public:
 	}
 };
 
-class SinePenToolWindow : Window, Attributes {
-	const Log log = Log::For<SinePenToolWindow>();
+class CosinePenToolWindow : Window, Attributes {
+	const Log log = Log::For<CosinePenToolWindow>();
 
 
 	std::stack<bool>& GetIsActive() {
@@ -831,16 +880,16 @@ class SinePenToolWindow : Window, Attributes {
 		{
 			static int mode = 0;
 			if (ImGui::RadioButton("Step123", &mode, 0))
-				tool->SetMode(SinePenEditingToolMode::Step123);
+				tool->SetMode(CosinePenEditingToolMode::Step123);
 			if (ImGui::RadioButton("Step132", &mode, 1))
-				tool->SetMode(SinePenEditingToolMode::Step132);
+				tool->SetMode(CosinePenEditingToolMode::Step132);
 		}
 
 		ImGui::Separator();
 
-		if (auto v = Settings::ShouldMoveCrossOnSinePenModeChange().Get();
-			ImGui::Checkbox("shouldMoveCrossOnSinePenModeChange", &v))
-			Settings::ShouldMoveCrossOnSinePenModeChange() = v;
+		if (auto v = Settings::ShouldMoveCrossOnCosinePenModeChange().Get();
+			ImGui::Checkbox("shouldMoveCrossOnCosinePenModeChange", &v))
+			Settings::ShouldMoveCrossOnCosinePenModeChange() = v;
 
 		return true;
 	}
@@ -849,7 +898,7 @@ public:
 	// If this is null then the window probably wasn't initialized.
 	//SceneObject* target = nullptr;
 
-	SinePenTool* tool = nullptr;
+	CosinePenTool* tool = nullptr;
 
 	virtual SceneObject* GetTarget() {
 		if (tool == nullptr)
@@ -864,7 +913,144 @@ public:
 		}
 
 		//target = tool->GetTarget();
-		Window::name = Attributes::name = "pen";
+		Window::name = Attributes::name = "cosinepen";
+		Attributes::isInitialized = true;
+
+		return true;
+	}
+	virtual bool Window::Design() {
+		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
+		ImGui::Begin(name.c_str());
+
+		if (!DesignInternal())
+			return false;
+
+		ImGui::End();
+
+		return true;
+	}
+	virtual bool Attributes::Design() {
+		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
+		if (ImGui::BeginTabItem(name.c_str()))
+		{
+			if (!DesignInternal())
+				return false;
+
+			ImGui::EndTabItem();
+		}
+
+		return true;
+	}
+	virtual bool OnExit() {
+		UnbindTargets();
+		return true;
+	}
+	virtual void UnbindTargets() {
+		//target = nullptr;
+	}
+};
+class PointPenToolWindow : Window, Attributes {
+	const Log log = Log::For<PointPenToolWindow>();
+
+
+	std::stack<bool>& GetIsActive() {
+		static std::stack<bool> val;
+		return val;
+	}
+	bool IsActive(bool isActive) {
+		GetIsActive().push(isActive);
+		if (!isActive)
+		{
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+		}
+
+		return true;
+	}
+	void PopIsActive() {
+		auto isActive = GetIsActive().top();
+		GetIsActive().pop();
+
+		if (!isActive)
+		{
+			ImGui::PopItemFlag();
+			ImGui::PopStyleVar();
+		}
+	}
+
+	std::string GetName(ObjectType type) {
+		switch (type)
+		{
+		case PointT:
+			return "Point";
+		default:
+			return "noname";
+		}
+	}
+	std::string GetName(ObjectType type, SceneObject* obj) {
+		return
+			(obj) != nullptr && type == (obj)->GetType()
+			? (obj)->Name
+			: "Empty";
+	}
+
+	bool DesignInternal() {
+		//ImGui::Text(GetName(type, GetTarget()).c_str());
+		//if (ImGui::BeginDragDropTarget())
+		//{
+		//	ImGuiDragDropFlags target_flags = 0;
+		//	//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+		//	//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+		//	std::vector<PON> objects;
+		//	if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects))
+		//	{
+		//		if (objects.size() > 1) {
+		//			log.Warning("Drawing instrument can't accept multiple scene objects");
+		//		}
+		//		else {
+		//			if (!tool->BindSceneObjects(objects))
+		//				return false;
+		//		}
+		//	}
+
+		//	ImGui::EndDragDropTarget();
+		//}
+
+		{
+			bool isActive = (GetTarget()) != nullptr;
+			if (IsActive(isActive))
+			{
+				if (ImGui::Button(isActive ? "Release" : "No objects bind"))
+				{
+					tool->UnbindSceneObjects();
+				}
+				PopIsActive();
+			}
+		}
+
+		return true;
+	}
+
+public:
+	// If this is null then the window probably wasn't initialized.
+	//SceneObject* target = nullptr;
+
+	PointPenTool* tool = nullptr;
+
+	virtual SceneObject* GetTarget() {
+		if (tool == nullptr)
+			return nullptr;
+
+		return tool->GetTarget();
+	}
+	virtual bool Init() {
+		if (tool == nullptr) {
+			log.Error("Tool wasn't assigned");
+			return false;
+		}
+
+		//target = tool->GetTarget();
+		Window::name = Attributes::name = "pointpen";
 		Attributes::isInitialized = true;
 
 		return true;
@@ -1258,6 +1444,7 @@ class ToolWindow : Window {
 	CreatingTool<PolyLine> polyLineTool;
 	CreatingTool<GroupObject> groupObjectTool;
 	CreatingTool<SineCurve> sineCurveTool;
+	CreatingTool<PointObject> pointTool;
 
 
 
@@ -1279,13 +1466,13 @@ public:
 
 	template<typename TWindow, typename TTool, std::enable_if_t<hasUnbindTool<TTool>>* = nullptr>
 	static void ApplyTool() {
+		AttributesWindow()->UnbindTarget();
+		AttributesWindow()->UnbindTool();
+
+		auto targetWindow = new SceneObjectPropertiesWindow();
 		auto tool = new TWindow();
 		tool->tool = ToolPool::GetTool<TTool>();
 		tool->tool->Activate();
-
-		auto targetWindow = new SceneObjectPropertiesWindow();
-		AttributesWindow()->UnbindTarget();
-		AttributesWindow()->UnbindTool();
 		AttributesWindow()->BindTool((Attributes*)tool);
 		AttributesWindow()->BindTarget((Attributes*)targetWindow);
 
@@ -1309,14 +1496,17 @@ public:
 		}
 
 		ConfigureCreationTool(polyLineTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "PolyLine");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:polyline"));
 		});
 		ConfigureCreationTool(sineCurveTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "SineCurve");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:sinecurve"));
 			});
 		ConfigureCreationTool(groupObjectTool, [](SceneObject* o) {
-			Scene::AssignUniqueName(o, "Group");
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:group"));
 		});
+		ConfigureCreationTool(pointTool, [](SceneObject* o) {
+			Scene::AssignUniqueName(o, LocaleProvider::Get("object:point"));
+			});
 
 		Window::name = "toolWindow";
 
@@ -1326,10 +1516,6 @@ public:
 		auto windowName = LocaleProvider::Get(Window::name) + "###" + Window::name;
 		ImGui::Begin(windowName.c_str());
 		{
-			if (ImGui::Button(LocaleProvider::GetC("object:polyline")))
-				polyLineTool.Create();
-			if (ImGui::Button(LocaleProvider::GetC("object:sinecurve")))
-				sineCurveTool.Create();
 			if (ImGui::Button(LocaleProvider::GetC("object:group")))
 				groupObjectTool.Create();
 		}
@@ -1339,17 +1525,19 @@ public:
 				ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
 				ApplyTool<PenToolWindow, PenTool>();
-			if (ImGui::Button(LocaleProvider::GetC("tool:sinepen")))
-				ApplyTool<SinePenToolWindow, SinePenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:cosinepen")))
+				ApplyTool<CosinePenToolWindow, CosinePenTool>();
+			if (ImGui::Button(LocaleProvider::GetC("tool:pointpen")))
+				ApplyTool<PointPenToolWindow, PointPenTool>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:transformation")))
 				ApplyTool<TransformToolWindow, TransformTool>();
 		}
 		{
 			ImGui::Separator();
 			auto v = (int)Settings::SpaceMode().Get();
-			if (ImGui::RadioButton(LocaleProvider::GetC("world"), &v, (int)SpaceMode::World))
+			if (ImGui::Extensions::RadioButton("spaceMode:world", &v, (int)SpaceMode::World, "spaceMode:worldTip"))
 				Settings::SpaceMode() = SpaceMode::World;
-			if (ImGui::RadioButton(LocaleProvider::GetC("local"), &v, (int)SpaceMode::Local))
+			if (ImGui::Extensions::RadioButton("spaceMode:local", &v, (int)SpaceMode::Local, "spaceMode:localTip"))
 				Settings::SpaceMode() = SpaceMode::Local;
 		}
 		{
@@ -1357,26 +1545,26 @@ public:
 			if (Settings::ShouldRestrictTargetModeToPivot().Get()) {
 				auto v = (int)TargetMode::Pivot;
 				ImGui::Extensions::PushActive(false);
-				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+				if (ImGui::Extensions::RadioButton("targetMode:object", &v, (int)TargetMode::Object, "targetMode:objectTip"))
 					Settings::TargetMode() = TargetMode::Object;
-				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+				if (ImGui::Extensions::RadioButton("targetMode:cross", &v, (int)TargetMode::Pivot, "targetMode:crossTip"))
 					Settings::TargetMode() = TargetMode::Pivot;
 				ImGui::Extensions::PopActive();
 			}
 			else {
 				auto v = (int)Settings::TargetMode().Get();
-				if (ImGui::RadioButton(LocaleProvider::GetC("object"), &v, (int)TargetMode::Object))
+				if (ImGui::Extensions::RadioButton("targetMode:object", &v, (int)TargetMode::Object, "targetMode:objectTip"))
 					Settings::TargetMode() = TargetMode::Object;
-				if (ImGui::RadioButton(LocaleProvider::GetC("pivot"), &v, (int)TargetMode::Pivot))
+				if (ImGui::Extensions::RadioButton("targetMode:cross", &v, (int)TargetMode::Pivot, "targetMode:crossTip"))
 					Settings::TargetMode() = TargetMode::Pivot;
 			}
 		}
-
-		ImGui::Separator();
-		if (bool v = Settings::UseDiscreteMovement().Get();
-			ImGui::Checkbox(LocaleProvider::GetC(Settings::Name(&Settings::UseDiscreteMovement)), &v))
-			Settings::UseDiscreteMovement() = v;
-
+		{
+			ImGui::Separator();
+			if (bool v = Settings::UseDiscreteMovement().Get();
+				ImGui::Checkbox(LocaleProvider::GetC(Settings::Name(&Settings::UseDiscreteMovement)), &v))
+				Settings::UseDiscreteMovement() = v;
+		}
 		ImGui::End();
 
 		return true;
@@ -1472,7 +1660,10 @@ public:
 			return false;
 		}
 
-		path.apply(".");
+		path.apply("./scenes");
+
+		// Create directory if not exists
+		fs::create_directory(path.get());
 
 		return true;
 	}
@@ -1497,12 +1688,13 @@ public:
 						? FileManager::Load 
 						: FileManager::Save;
 
-					if (mode == FileWindow::Load) {
-						StateBuffer::Commit();
+					if (mode == FileWindow::Load)
 						scene->DeleteAll();
-					}
 
 					action(fileName, scene);
+
+					if (mode == FileWindow::Load)
+						Changes::Commit();
 
 					shouldClose = true;
 				}
@@ -1535,6 +1727,48 @@ class SettingsWindow : Window {
 	static const char* GetC(const char* path, void* settingReference) {
 		return LocaleProvider::GetC(path + Settings::Name(settingReference));
 	}
+
+	// Usage example:
+	// If (SettingField(&Settings::SomeProperty, std::function([](const char* name, bool& v)
+	// {
+	//		auto res = ImGui::InputBool(name, &v); 
+	//		Put here validation logic, tooltips, etc.
+	// 	    return res;
+	// })) {
+	//		Put here OnChange logic.
+	// }
+	template<typename T>
+	static bool SettingField(Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
+		if (auto v = (&settingReference())->Get();
+			field(LocaleProvider::GetC(Settings::Name(settingReference)), v)) {
+			*(&settingReference()) = v;
+			if (shouldForceUpdateCache)
+				Scene::root().Get()->ForceUpdateCache();
+
+			return true;
+		}
+		return false;
+	}
+
+	// prefix is LocaleProvider prefix.
+	// Basically, it's json path before the last item
+	// that can be found in locales files.
+	// Example: 
+	// tool:transformation
+	// tool: - prefix
+	// transformation - item name
+	template<typename T>
+	static bool SettingField(const char* prefix, Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
+		if (auto v = (&settingReference())->Get();
+			field(LocaleProvider::GetC(prefix + Settings::Name(settingReference)), v)) {
+			*(&settingReference()) = v;
+			if (shouldForceUpdateCache)
+				Scene::root().Get()->ForceUpdateCache();
+
+			return true;
+		}
+		return false;
+	}
 public:
 
 	Property<bool> IsOpen;
@@ -1555,9 +1789,135 @@ public:
 			return true;
 		}
 
-		if (auto v = Settings::StateBufferLength().Get();
-			ImGui::InputInt(LocaleProvider::GetC(Settings::Name(&Settings::StateBufferLength)), &v, 1, 10, 4))
-			Settings::StateBufferLength() = v;
+		SettingField(&Settings::CustomRenderWindowAlpha, std::function([](const char* name, float& v) 
+			{ return ImGui::DragFloat(name, &v, 0.01, 0, 1); }));
+
+
+		SettingField(&Settings::PointRadiusPixel, std::function([](const char* name, int& v)
+			{ return ImGui::DragInt(name, &v, 1, 1, 100); }));
+
+		SettingField(&Settings::LineThickness, std::function([](const char* name, int& v)
+			{ return ImGui::DragInt(name, &v, 1, Settings::MinLineThickness(), Settings::MaxLineThickness()); }));
+
+		SettingField(&Settings::CosinePointCount, std::function([](const char* name, int& v)
+			{
+				auto res = ImGui::InputInt(name, &v);
+				{
+					const char* explanation = " (k)\nd=x^2/(3+k), 0 <= k <= 1e6";
+					ImGui::SameLine();
+					ImGui::Extensions::HelpMarker((LocaleProvider::Get("cosinePointCountToolTip") + explanation).c_str());
+				}
+				if (v < 0) v = 0;
+				else if (v > 1e6) v = 1e6;
+				return res;
+			}),
+			true);
+
+		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
+
+			SettingField("step:", &Settings::TranslationStep, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 1, 10); }));
+
+			SettingField("step:", &Settings::RotationStep, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 1, 10); }));
+
+			SettingField("step:", &Settings::ScalingStep, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 0.01, 0.1); }));
+
+			SettingField("step:", &Settings::MouseSensivity, std::function([](const char* name, float& v) 
+				{ return ImGui::InputFloat(name, &v, 0.01, 0.1); }));
+			
+			ImGui::TreePop();
+		}
+		
+		ImGui::Separator();
+
+		// Settings that are supposed to not be changed often.
+
+		if (SettingField(&Settings::IsAutosaveEnabled, std::function([](const char* name, bool& v)
+			{ return ImGui::Checkbox(name, &v); }))) {
+
+			if (Settings::IsAutosaveEnabled().Get()) {
+				auto autosaveCommand = new AutosaveCommand();
+				autosaveCommand->SetFunc([filename = AutosaveCommand::GetFileName()] {
+					FileManager::Save(filename, Scene::scene());
+					});
+				autosaveCommand->StartNew(Settings::AutosavePeriodMinutes().Get());
+			}
+			else
+				AutosaveCommand::Abort();
+		}
+
+		if (Settings::IsAutosaveEnabled().Get()) {
+			if (SettingField(&Settings::AutosavePeriodMinutes, std::function([](const char* name, int& v)
+				{
+					auto oldV = v;
+					auto res = ImGui::InputInt(name, &v);
+
+					// Autosave shouldn't be more frequent than 
+					// once per minute.
+					if (v < 1)
+						v = 1;
+
+					// If it was 1 and user attempted to set 
+					// value < 1 then don't create a new command.
+					if (oldV == v)
+						return false;
+
+					return res;
+				}))) {
+
+				auto autosaveCommand = new AutosaveCommand();
+				autosaveCommand->SetFunc([filename = AutosaveCommand::GetFileName()] {
+					FileManager::Save(filename, Scene::scene());
+					});
+				autosaveCommand->StartNew(Settings::AutosavePeriodMinutes().Get());
+			}
+		}
+
+		SettingField(&Settings::StateBufferLength, std::function([](const char* name, int& v)
+			{ return ImGui::InputInt(name, &v, 1, 10, 4); }));
+
+
+		SettingField(&Settings::LogFileName, std::function([](const char* name, std::string& v) 
+			{ return ImGui::InputText(name, &v); }));
+
+		SettingField(&Settings::PPI, std::function([](const char* name, float& v) 
+			{ return ImGui::InputFloat(name, &v); }));
+
+		if (ImGui::TreeNode(LocaleProvider::GetC("color:color"))) {
+
+			std::function colorField = [](const char* name, glm::vec4& v)
+			{ return ImGui::ColorEdit4(name, (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview); };
+
+			SettingField("color:", &Settings::ColorLeft, colorField);
+			SettingField("color:", &Settings::ColorRight, colorField);
+			SettingField("color:", &Settings::DimmedColorLeft, colorField);
+			SettingField("color:", &Settings::DimmedColorRight, colorField);
+
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode(LocaleProvider::GetC("webcam:webcam"))) {
+
+			SettingField("webcam:", &Settings::CameraResolution, std::function([](const char* name, glm::vec2& v)
+				{ return ImGui::InputFloat2(name, (float*)&v, "%.0f"); }));
+
+			SettingField("webcam:", &Settings::CameraViewAngles, std::function([](const char* name, glm::vec2& v)
+				{ return ImGui::InputFloat2(name, (float*)&v, "%.0f"); }));
+
+			SettingField("webcam:", &Settings::CameraAngle, std::function([](const char* name, glm::vec2& v)
+				{ return ImGui::InputFloat2(name, (float*)&v, "%.0f"); }));
+
+			SettingField("webcam:", &Settings::FaceSizeYMillimeters, std::function([](const char* name, float& v)
+				{ return ImGui::InputFloat(name, &v, 1, 10, "%.0f"); }));
+
+			SettingField("webcam:", &Settings::ScreenCenterToCameraDistanceMillimeters, std::function([](const char* name, glm::vec3& v)
+				{ return ImGui::InputFloat3(name, (float*)&v, "%.0f"); }));
+
+			ImGui::TreePop();
+		}
+
 		if (auto v = Settings::Language().Get();
 			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {
 
@@ -1569,52 +1929,6 @@ public:
 			ImGui::TreePop();
 		}
 
-		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
-
-			if (auto v = Settings::TranslationStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::TranslationStep), &v, 1, 10))
-				Settings::TranslationStep() = v;
-			if (auto v = Settings::RotationStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::RotationStep), &v, 1, 10))
-				Settings::RotationStep() = v;
-			if (auto v = Settings::ScalingStep().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::ScalingStep), &v, 0.01, 0.1))
-				Settings::ScalingStep() = v;
-			if (auto v = Settings::MouseSensivity().Get();
-				ImGui::InputFloat(GetC("step:", &Settings::MouseSensivity), &v, 0.01, 0.1))
-				Settings::MouseSensivity() = v;
-			ImGui::TreePop();
-		}
-
-		if (ImGui::TreeNode(LocaleProvider::GetC("color:color"))) {
-
-			if (auto v = Settings::ColorLeft().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::ColorLeft), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::ColorLeft() = v;
-			if (auto v = Settings::ColorRight().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::ColorRight), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::ColorRight() = v;
-			if (auto v = Settings::DimmedColorLeft().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::DimmedColorLeft), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::DimmedColorLeft() = v;
-			if (auto v = Settings::DimmedColorRight().Get();
-				ImGui::ColorEdit4(GetC("color:", &Settings::DimmedColorRight), (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview))
-				Settings::DimmedColorRight() = v;
-
-			ImGui::TreePop();
-		}
-
-		if (auto v = Settings::LogFileName().Get();
-			ImGui::InputText(LocaleProvider::GetC(Settings::Name(&Settings::LogFileName)), &v))
-			Settings::LogFileName() = v;
-
-		if (auto v = Settings::PPI().Get();
-			ImGui::InputFloat(LocaleProvider::GetC(Settings::Name(&Settings::PPI)), &v))
-			Settings::PPI() = v;
-
-		if (auto v = Settings::CustomRenderWindowAlpha().Get();
-			ImGui::DragFloat(LocaleProvider::GetC(Settings::Name(&Settings::CustomRenderWindowAlpha)), &v, 0.01, 0, 1))
-			Settings::CustomRenderWindowAlpha() = v;
 
 		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 

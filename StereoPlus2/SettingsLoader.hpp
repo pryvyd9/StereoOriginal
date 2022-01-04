@@ -113,6 +113,60 @@ class SettingsLoader {
 		setter(v);
 	}
 
+	template<>
+	static void Load(const std::string& name, std::function<void(glm::vec3)> setter) {
+		static const int size = sizeof(glm::vec3) / sizeof(float);
+
+		std::string nodes[size];
+
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << i;
+			auto node = settings().find(name + ":" + ss.str());
+			if (node == settings().end()) {
+				Logger().Error("Failed to load setting: ", name, ":", i);
+				return;
+			}
+			nodes[i] = node._Ptr->_Myval.second;
+		}
+
+		glm::vec3 v;
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << nodes[i];
+			ss >> ((float*)&v)[i];
+		}
+
+		setter(v);
+	}
+
+	template<>
+	static void Load(const std::string& name, std::function<void(glm::vec2)> setter) {
+		static const int size = sizeof(glm::vec2) / sizeof(float);
+
+		std::string nodes[size];
+
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << i;
+			auto node = settings().find(name + ":" + ss.str());
+			if (node == settings().end()) {
+				Logger().Error("Failed to load setting: ", name, ":", i);
+				return;
+			}
+			nodes[i] = node._Ptr->_Myval.second;
+		}
+
+		glm::vec2 v;
+		for (size_t i = 0; i < size; i++) {
+			std::stringstream ss;
+			ss << nodes[i];
+			ss >> ((float*)&v)[i];
+		}
+
+		setter(v);
+	}
+
 	template<typename T>
 	static void Load(const std::string& name, Property<T>& (*selector)()) {
 		Load(name, std::function([&](T v) { selector() = v; }));
@@ -132,15 +186,22 @@ class SettingsLoader {
 		jso.objects.insert({ Settings::Name(selector), JsonConvert::serialize(selector().Get()) });
 	}
 
+	static void VerifySettings() {
+		// Cannot be less than 1.
+		if (Settings::AutosavePeriodMinutes().Get() < 1)
+			Settings::AutosavePeriodMinutes() = 1;
+	}
 public:
 	
 	static void Load() {
 		LoadSettings("settings.json");
-		
+
 		Load(&Settings::Language);
 		Load(&Settings::StateBufferLength);
 		Load(&Settings::LogFileName);
 		Load(&Settings::PPI);
+		Load(&Settings::IsAutosaveEnabled);
+		Load(&Settings::AutosavePeriodMinutes);
 
 		Load(&Settings::UseDiscreteMovement);
 		Load(&Settings::TranslationStep);
@@ -154,7 +215,20 @@ public:
 		Load(&Settings::DimmedColorRight);
 		Load(&Settings::CustomRenderWindowAlpha);
 
-		Load(&Settings::ShouldMoveCrossOnSinePenModeChange);
+		Load(&Settings::ShouldMoveCrossOnCosinePenModeChange);
+
+		Load(&Settings::PointRadiusPixel);
+		Load(&Settings::LineThickness);
+
+		Load(&Settings::CosinePointCount);
+
+		Load(&Settings::CameraResolution);
+		Load(&Settings::CameraViewAngles);
+		Load(&Settings::CameraAngle);
+		Load(&Settings::FaceSizeYMillimeters);
+		Load(&Settings::ScreenCenterToCameraDistanceMillimeters);
+
+		VerifySettings();
 	}
 	static void Save() {
 		Js::Object json;
@@ -163,6 +237,8 @@ public:
 		Insert(json, &Settings::StateBufferLength);
 		Insert(json, &Settings::LogFileName);
 		Insert(json, &Settings::PPI);
+		Insert(json, &Settings::IsAutosaveEnabled);
+		Insert(json, &Settings::AutosavePeriodMinutes);
 
 		Insert(json, &Settings::UseDiscreteMovement);
 		Insert(json, &Settings::TranslationStep);
@@ -176,7 +252,18 @@ public:
 		Insert(json, &Settings::DimmedColorRight);
 		Insert(json, &Settings::CustomRenderWindowAlpha);
 
-		Insert(json, &Settings::ShouldMoveCrossOnSinePenModeChange);
+		Insert(json, &Settings::ShouldMoveCrossOnCosinePenModeChange);
+
+		Insert(json, &Settings::PointRadiusPixel);
+		Insert(json, &Settings::LineThickness);
+
+		Insert(json, &Settings::CosinePointCount);
+
+		Insert(json, &Settings::CameraResolution);
+		Insert(json, &Settings::CameraViewAngles);
+		Insert(json, &Settings::CameraAngle);
+		Insert(json, &Settings::FaceSizeYMillimeters);
+		Insert(json, &Settings::ScreenCenterToCameraDistanceMillimeters);
 
 		Json::Write("settings.json", &json);
 	}

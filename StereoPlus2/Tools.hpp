@@ -11,6 +11,7 @@
 #include "TemplateExtensions.hpp"
 #include "Settings.hpp"
 #include "Math.hpp"
+#include "Localization.hpp"
 
 class Tool {
 protected:
@@ -34,10 +35,6 @@ protected:
 
 template<typename T>
 class CreatingTool : Tool {
-	//static std::stack<SceneObject*>& GetCreatedObjects() {
-	//	static std::stack<SceneObject*> val;
-	//	return val;
-	//}
 public:
 	std::function<void(T*)> init;
 	std::function<void(SceneObject*)> onCreated = [](SceneObject*) {};
@@ -45,8 +42,6 @@ public:
 	Property<PON> destination;
 
 	T* Create() {
-		StateBuffer::Commit();
-
 		T* obj = new T();
 
 		auto command = new CreateCommand();
@@ -68,10 +63,9 @@ public:
 	PON target;
 
 	std::function<void(SceneObject*)> init;
+	std::function<void(SceneObject*)> onCreated = [](SceneObject*) {};
 
 	SceneObject* Create() {
-		StateBuffer::Commit();
-
 		// Clone the object before it's modified
 		// and initialize later.
 		auto clone = target->Clone();
@@ -85,29 +79,13 @@ public:
 			init(clone);
 			return clone;
 		};
+		command->onCreated = onCreated;
 
 		return clone;
 	}
 };
 
 class EditingTool : Tool {
-	//static size_t& isBeingModifiedHandler() {
-	//	static size_t v;
-	//	return v;
-	//}
-	//static bool& isAnyActive() {
-	//	static bool v;
-	//	return v;
-	//}
-	//static size_t& selectionChangedhandlerId() {
-	//	static size_t v;
-	//	return v;
-	//}
-	//static EditingTool*& activeTool() {
-	//	static EditingTool* v = nullptr;
-	//	return v;
-	//}
-
 protected:
 	static bool& isBeingModified() {
 		static bool v;
@@ -115,15 +93,7 @@ protected:
 	}
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) {}
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) { OnSelectionChanged(v); }
-	//virtual void OnBeforeDeactivate() {}
-
 public:
-	enum Type {
-		PointPen,
-		Extrusion,
-		Transform,
-	};
-
 	EditingTool() {
 		if (isBeingModifiedHandler() != 0)
 			return;
@@ -145,16 +115,12 @@ public:
 		};
 
 		isAnyActive() = true;
-		//activeTool() = this;
 
 		OnToolActivated(ObjectSelection::Selected());
 	}
 	static void Deactivate() {
 		if (!isAnyActive())
 			return;
-
-		//if (activeTool())
-		//	static_cast<EditingTool*>(activeTool())->UnbindSceneObjects();
 
 		ObjectSelection::OnChanged() -= selectionChangedhandlerId();
 		selectionChangedhandlerId() = 0;
@@ -186,13 +152,12 @@ protected:
 };
 
 class PenTool : public EditingTool {
-	using Mode = PointPenEditingToolMode;
+	using Mode = PolylinePenEditingToolMode;
 
 	const Log Logger = Log::For<PenTool>();
 
 	size_t inputHandlerId;
 	size_t stateChangedHandlerId;
-	size_t anyObjectChangedHandlerId;
 
 	// Create new object by pressing Enter.
 	size_t createNewObjectHandlerId;
@@ -200,9 +165,6 @@ class PenTool : public EditingTool {
 
 	Mode mode;
 	PON target;
-
-	SceneObject* crossOriginalParent;
-	bool wasCommitDone = false;
 
 	bool createdAdditionalPoints;
 	bool createdNewObject;
@@ -219,15 +181,17 @@ class PenTool : public EditingTool {
 	void Immediate() {
 		createdNewObject = false;
 
-		if (!Input::IsContinuousInputOneSecondDelay()) {
-			isBeingModified() = false;
-			wasCommitDone = false;
-		}
-
 		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
+			Changes::Commit();
+			SceneObject::ResetIsAnyElementChanged();
+
 			UnbindSceneObjects();
 			TryCreateNewObject();
 			return;
+		}
+		else if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+			Changes::Commit();
+			SceneObject::ResetIsAnyElementChanged();
 		}
 
 		auto& points = target->GetVertices();
@@ -239,12 +203,9 @@ class PenTool : public EditingTool {
 			return;
 		}
 
-		// If cross is located at distance less than Precision then don't create a new point
-		// but move the last one to cross position.
-		if (glm::length(cross->GetWorldPosition() - points[pointsCount - 2]) < Precision) {
-			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
+		// If cross is located at distance less than Precision then don't do anything.
+		if (glm::length(cross->GetWorldPosition() - points[pointsCount - 2]) < Precision)
 			return;
-		}
 
 		// Create the third point to be able to measure the angle between the last 3 points.
 		if (pointsCount < 3) {
@@ -276,8 +237,7 @@ class PenTool : public EditingTool {
 		}
 
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
+			Changes::Commit();
 			createdNewObject = false;
 			target->AddVertice(cross->GetWorldPosition());
 			return;
@@ -339,7 +299,7 @@ class PenTool : public EditingTool {
 					auto o = new PolyLine();
 					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
-					Scene::AssignUniqueName(o, "PolyLine");
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:polyline"));
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
@@ -347,6 +307,7 @@ class PenTool : public EditingTool {
 					ObjectSelection::Set(o);
 					Input::RemoveHandler(createNewObjectHandlerId);
 					lockCreateNewObjectHandlerId = false;
+					Changes::Commit();
 				};
 			}
 			});
@@ -368,6 +329,7 @@ class PenTool : public EditingTool {
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
 		// Don't work with deleted objects even if they stay selected.
 		auto targets = GetExistingObjects(v);
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		if (targets.empty())
 			return TryCreateNewObject();
@@ -397,7 +359,7 @@ class PenTool : public EditingTool {
 			if (inputHandlerId)
 				ProcessInput();
 			});
-		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
 				return;
@@ -413,15 +375,6 @@ class PenTool : public EditingTool {
 
 			cross->SetWorldPosition(target->GetVertices().back());
 		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
-		};
-		Settings::ShouldRestrictTargetModeToPivot() = true;
-
 	}
 
 public:
@@ -450,7 +403,7 @@ public:
 			if (inputHandlerId)
 				ProcessInput();
 			});
-		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
 				return;
@@ -463,13 +416,6 @@ public:
 				return;
 
 			cross->SetWorldPosition(target->GetVertices().back());
-		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
 		};
 		Settings::ShouldRestrictTargetModeToPivot() = true;
 
@@ -490,8 +436,7 @@ public:
 		}
 	
 		Input::RemoveHandler(inputHandlerId);
-		StateBuffer::OnStateChange() -= stateChangedHandlerId;
-		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
+		Changes::OnStateChange() -= stateChangedHandlerId;
 
 		target = PON();
 		
@@ -549,14 +494,11 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
 	size_t stateChangedHandlerId;
-	size_t anyObjectChangedHandlerId;
 
 	Mode mode;
 
-	PON mesh = nullptr;
-	PON pen = nullptr;
-
-	bool wasCommitDone = false;
+	PON mesh;
+	PON pen;
 
 	glm::vec3 crossStartPosition;
 	glm::vec3 crossOldPosition;
@@ -583,13 +525,13 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 #pragma region ProcessInput
 	template<ObjectType type, Mode mode>
 	void ProcessInput() {
-		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PointPenEditingToolMode" << std::endl;
+		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PolylinePenEditingToolMode" << std::endl;
 	}
 	template<>
 	void ProcessInput<PolyLineT, Mode::Immediate>() {
-		if (!Input::IsContinuousInputOneSecondDelay()) {
-			isBeingModified() = false;
-			wasCommitDone = false;
+		if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+			Changes::Commit();
+			SceneObject::ResetIsAnyElementChanged();
 		}
 
 		if (!mesh.HasValue() || crossOldPosition == GetPos())
@@ -708,9 +650,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		}
 
 		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
-
 			auto s = meshPoints.size();
 			mesh->AddVertice(penPoints[0] + transformVector);
 			mesh->Connect(s - penPoints.size(), s);
@@ -721,6 +660,8 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 				mesh->Connect(s - penPoints.size(), s);
 				mesh->Connect(s - 1, s);
 			}
+
+			Changes::Commit();
 			return;
 		}
 
@@ -749,8 +690,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	void UnbindSceneObjects<PolyLineT, Mode::Immediate>() {
 		if (!pen.HasValue())
 			return;
-
-		//this->pen = nullptr;
 	}
 	template<>
 	void UnbindSceneObjects<PolyLineT, Mode::Step>() {
@@ -784,8 +723,6 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 				mesh->RemoveVertice();
 			}
 		}
-
-		//this->pen = nullptr;
 	}
 
 	void ResetTool() {
@@ -794,8 +731,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
 		Input::RemoveHandler(inputHandlerId);
-		StateBuffer::OnStateChange().RemoveHandler(stateChangedHandlerId);
-		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
+		Changes::OnStateChange().RemoveHandler(stateChangedHandlerId);
 
 		DeleteConfig();
 	}
@@ -806,6 +742,9 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 		return i++;
 	}
 
+	virtual void OnToolActivated(const ObjectSelection::Selection& v) override { 
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+	}
 
 public:
 	NonAssignProperty<Cross*> cross;
@@ -830,6 +769,8 @@ public:
 	}
 
 	virtual bool BindSceneObjects(std::vector<PON> objs) {
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
 		if (pen.HasValue() && !UnbindSceneObjects())
 			return false;
 
@@ -841,17 +782,9 @@ public:
 
 		crossOriginalPosition = cross->GetLocalPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
-		stateChangedHandlerId = StateBuffer::OnStateChange().AddHandler([&] {
+		stateChangedHandlerId = Changes::OnStateChange().AddHandler([&] {
 			cross->SetParent(mesh.Get(), false, true, true, false);
 			cross->SetLocalPosition(glm::vec3());
-			});
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
-			//Logger.Information("commit");
 			});
 
 		
@@ -870,12 +803,11 @@ public:
 
 			cross->SetWorldPosition(pos);
 			};
-		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		Settings::ShouldRestrictTargetModeToPivot() = true;
+		Settings::ShouldRestrictTargetModeToPivot() = false;
 
 		switch (mode)
 		{
@@ -924,9 +856,7 @@ class TransformTool : public EditingTool {
 
 	const Log Logger = Log::For<TransformTool>();
 
-	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
-	size_t anyObjectChangedHandlerId;
 
 	Mode mode;
 	ObjectType type;
@@ -945,13 +875,10 @@ class TransformTool : public EditingTool {
 
 
 	void ProcessInput(const ObjectType& type, const Mode& mode) {
-		if (!Input::IsContinuousInputNoDelay()) {
-			isBeingModified() = false;
-			wasCommitDone = false;
-		}
+		if (!shouldTrace && Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
+			Changes::Commit();
+			SceneObject::ResetIsAnyElementChanged();
 
-		// We can move cross without having any objects bind.
-		if (!Input::IsContinuousInputNoDelay()) {
 			transformPos = transformOldPos = glm::vec3();
 			angle = oldAngle = glm::vec3();
 			scale = oldScale = 1;
@@ -964,12 +891,10 @@ class TransformTool : public EditingTool {
 		// Check if we need to process tool.
 		if (targets.empty() || !targets.front().HasValue()) {
 			TransformCross(relativeMovement, newScale, relativeRotation);
-			//TranslateCross(relativeMovement);
 			return;
 		}
 		if (Input::IsDown(Key::Escape, true)) {
 			TransformCross(relativeMovement, newScale, relativeRotation);
-			//TranslateCross(relativeMovement);
 			UnbindSceneObjects();
 			return;
 		}
@@ -1002,38 +927,48 @@ class TransformTool : public EditingTool {
 
 	void Trace(std::vector<PON>& targets) {
 		static int id = 0;
+		
+		std::vector<PON> nonTraceObjects;
+		for (auto& o : targets)
+			if (o->GetType() != TraceObjectT)
+				nonTraceObjects.push_back(o);
 
-		for (auto& o : targets) {
-			if (o->GetType() == TraceObjectT)
-				continue;
-
-			auto pos = findBack(o->children, std::function([](SceneObject* so) {
+		for (size_t i = 0; i < nonTraceObjects.size(); i++)
+		{
+			auto pos = findBack(nonTraceObjects[i]->children, std::function([](SceneObject* so) {
 				return so->GetType() == TraceObjectT;
 				}));
 
 			if (pos < 0) {
-				traceObjectTool.destination = o;
+				traceObjectTool.destination = nonTraceObjects[i];
 				traceObjectTool.init = [&, id = id](SceneObject* o) {
-					std::stringstream ss;
-					ss << "TraceObject" << id;
-					o->Name = ss.str();
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:trace"));
 				};
 
 				cloneTool.destination = traceObjectTool.Create();
-				cloneTool.target = o.Get();
+				cloneTool.target = nonTraceObjects[i].Get();
 				cloneTool.init = [](SceneObject* obj) {
+					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
+				};
+				cloneTool.onCreated = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1](SceneObject*) {
+					if (isTheLastObjectInCloneGroup)
+						Changes::Commit();
 				};
 				cloneTool.Create();
 
 				id++;
 			}
-
 			else {
-				cloneTool.destination = o->children[pos];
-				cloneTool.target = o;
-				cloneTool.init = [p = o->GetWorldPosition(), r = o->GetWorldRotation()](SceneObject* obj) {
+				cloneTool.destination = nonTraceObjects[i]->children[pos];
+				cloneTool.target = nonTraceObjects[i];
+				cloneTool.init = [p = nonTraceObjects[i]->GetWorldPosition(), r = nonTraceObjects[i]->GetWorldRotation()](SceneObject* obj) {
+					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
+				};
+				cloneTool.onCreated = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1](SceneObject*) {
+					if (isTheLastObjectInCloneGroup)
+						Changes::Commit();
 				};
 				cloneTool.Create();
 			}
@@ -1088,21 +1023,13 @@ class TransformTool : public EditingTool {
 		targets.clear();
 		targets.insert(targets.end(), v.begin(), v.end());
 		
-		Input::RemoveHandler(cross->keyboardBindingHandlerId);
-		inputHandlerId = Input::AddHandler([this]{ ProcessInput(type, mode); });
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged().AddHandler([&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
-			//Logger.Information("commit");
-			});
+		//Input::RemoveHandler(cross->keyboardBindingHandlerId);
+		//inputHandlerId = Input::AddHandler([this]{ ProcessInput(type, mode); });
+		cross->keyboardBindingProcessor = [this] { ProcessInput(type, mode); };
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
 		};
-
 	}
 
 public:
@@ -1133,13 +1060,9 @@ public:
 		oldAngle = glm::vec3();
 		transformPos = glm::vec3();
 
-		Input::RemoveHandler(inputHandlerId);
-		// Remove if exists and add a new one.
-		Input::RemoveHandler(cross->keyboardBindingHandlerId);
-		cross->keyboardBindingHandlerId = Input::AddHandler(cross->keyboardBindingHandler);
+		cross->keyboardBindingProcessor = cross->keyboardBindingProcessorDefault;
 
 		Settings::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
-		SceneObject::OnBeforeAnyElementChanged().RemoveHandler(anyObjectChangedHandlerId);
 	}
 	SceneObject* GetTarget() {
 		if (targets.empty() || !targets.front().HasValue())
@@ -1155,14 +1078,13 @@ public:
 	}
 };
 
-class SinePenTool : public EditingTool {
-	using Mode = SinePenEditingToolMode;
+class CosinePenTool : public EditingTool {
+	using Mode = CosinePenEditingToolMode;
 
-	const Log Logger = Log::For<SinePenTool>();
+	const Log Logger = Log::For<CosinePenTool>();
 
 	size_t inputHandlerId;
 	size_t stateChangedHandlerId;
-	size_t anyObjectChangedHandlerId;
 	size_t modeChangedHandlerId;
 
 	// Create new object by pressing Enter.
@@ -1171,9 +1093,6 @@ class SinePenTool : public EditingTool {
 
 	Property<Mode> mode;
 	PON target;
-
-	SceneObject* crossOriginalParent;
-	bool wasCommitDone = false;
 
 	bool createdAdditionalPoints;
 	bool createdNewObject;
@@ -1190,10 +1109,10 @@ class SinePenTool : public EditingTool {
 		}
 
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
 			createdNewObject = false;
 			target->AddVertice(cross->GetWorldPosition());
+
+			Changes::Commit();
 			return;
 		}
 
@@ -1212,12 +1131,10 @@ class SinePenTool : public EditingTool {
 		}
 
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			isBeingModified() = false;
-			wasCommitDone = false;
 			createdNewObject = false;
-
 			createVertice132();
 
+			Changes::Commit();
 			return;
 		}
 
@@ -1293,7 +1210,7 @@ class SinePenTool : public EditingTool {
 					auto o = new SineCurve();
 					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
 					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
-					Scene::AssignUniqueName(o, "SineCurve");
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:sinecurve"));
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
@@ -1301,6 +1218,7 @@ class SinePenTool : public EditingTool {
 					ObjectSelection::Set(o);
 					Input::RemoveHandler(createNewObjectHandlerId);
 					lockCreateNewObjectHandlerId = false;
+					Changes::Commit();
 				};
 			}
 			});
@@ -1322,6 +1240,7 @@ class SinePenTool : public EditingTool {
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
 		// Don't work with deleted objects even if they stay selected.
 		auto targets = GetExistingObjects(v);
+		Settings::ShouldRestrictTargetModeToPivot() = true;
 
 		if (targets.empty())
 			return TryCreateNewObject();
@@ -1331,7 +1250,7 @@ class SinePenTool : public EditingTool {
 			return;
 		}
 
-		auto t = targets.begin()._Ptr->_Myval;
+		auto& t = targets.begin()._Ptr->_Myval;
 
 		if (t->GetType() != SineCurveT)
 			return TryCreateNewObject();
@@ -1349,7 +1268,7 @@ class SinePenTool : public EditingTool {
 			if (inputHandlerId)
 				ProcessInput();
 			});
-		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
 				return;
@@ -1368,19 +1287,11 @@ class SinePenTool : public EditingTool {
 
 			cross->SetWorldPosition(target->GetVertices().back());
 		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
-		};
 		modeChangedHandlerId = mode.OnChanged() += [&](const Mode& v) {
 			currentVertice = getCurrentVertice();
-			if (Settings::ShouldMoveCrossOnSinePenModeChange().Get())
+			if (Settings::ShouldMoveCrossOnCosinePenModeChange().Get())
 				moveCrossToVertice(currentVertice);
 		};
-		Settings::ShouldRestrictTargetModeToPivot() = true;
 	}
 
 public:
@@ -1391,7 +1302,7 @@ public:
 			return false;
 
 		if (objs[0]->GetType() != SineCurveT) {
-			Logger.Warning("Invalid Object passed to SinePenTool");
+			Logger.Warning("Invalid Object passed to CosinePenTool");
 			return true;
 		}
 		target = objs[0];
@@ -1409,7 +1320,7 @@ public:
 			if (inputHandlerId)
 				ProcessInput();
 			});
-		stateChangedHandlerId = StateBuffer::OnStateChange() += [&] {
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
 				cross->SetWorldRotation(glm::quat());
 				return;
@@ -1422,13 +1333,6 @@ public:
 				return;
 
 			cross->SetWorldPosition(target->GetVertices().back());
-		};
-		anyObjectChangedHandlerId = SceneObject::OnBeforeAnyElementChanged() += [&] {
-			if (wasCommitDone)
-				return;
-
-			StateBuffer::Commit();
-			wasCommitDone = true;
 		};
 		Settings::ShouldRestrictTargetModeToPivot() = true;
 
@@ -1450,8 +1354,7 @@ public:
 		createdAdditionalPoints = false;
 
 		Input::RemoveHandler(inputHandlerId);
-		StateBuffer::OnStateChange() -= stateChangedHandlerId;
-		SceneObject::OnBeforeAnyElementChanged() -= anyObjectChangedHandlerId;
+		Changes::OnStateChange() -= stateChangedHandlerId;
 		mode.OnChanged() -= modeChangedHandlerId;
 
 		target = PON();
@@ -1473,5 +1376,189 @@ public:
 
 	void SetMode(Mode mode) {
 		this->mode = mode;
+	}
+};
+
+class PointPenTool : public EditingTool {
+	const Log Logger = Log::For<PointPenTool>();
+
+	size_t inputHandlerId;
+	size_t stateChangedHandlerId;
+
+	// Create new object by pressing Enter.
+	size_t createNewObjectHandlerId;
+	bool lockCreateNewObjectHandlerId;
+
+	PON target;
+
+	bool createdNewObject;
+
+	void TryCreateNewObject() {
+		if (createNewObjectHandlerId)
+			return;
+
+		createNewObjectHandlerId = Input::AddHandler([&] {
+			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
+				lockCreateNewObjectHandlerId = true;
+
+				auto cmd = new CreateCommand();
+
+				if (ObjectSelection::Selected().size() == 1) {
+					auto d = ObjectSelection::Selected().begin()._Ptr->_Myval.Get();
+					cmd->destination = d->GetParent() ? const_cast<SceneObject*>(d->GetParent()) : d;
+				}
+
+				cmd->init = [] {
+					auto o = new PointObject();
+					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
+					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
+					Scene::AssignUniqueName(o, LocaleProvider::Get("object:point"));
+					return o;
+				};
+				cmd->onCreated = [&](SceneObject* o) {
+					createdNewObject = true;
+					ObjectSelection::Set(o);
+					Input::RemoveHandler(createNewObjectHandlerId);
+					lockCreateNewObjectHandlerId = false;
+					Changes::Commit();
+				};
+			}
+			});
+	}
+
+	ObjectSelection::Selection GetExistingObjects(const ObjectSelection::Selection& v) {
+		ObjectSelection::Selection ns;
+		for (auto& o : Scene::Objects().Get())
+			if (v.find(o) != v.end())
+				ns.insert(o);
+
+		return ns;
+	}
+
+	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) override {
+		UnbindTool();
+		OnToolActivated(v);
+	}
+	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
+		// Don't work with deleted objects even if they stay selected.
+		auto targets = GetExistingObjects(v);
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
+		if (targets.empty())
+			return TryCreateNewObject();
+
+		if (targets.size() > 1) {
+			Logger.Warning("Cannot work with multiple objects");
+			return;
+		}
+
+		auto t = targets.begin()._Ptr->_Myval;
+
+		if (t->GetType() != PointT)
+			return TryCreateNewObject();
+
+		target = t;
+
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+		if (!target->GetVertices().empty())
+			cross->SetWorldPosition(target->GetVertices().back());
+
+		inputHandlerId = Input::AddHandler([&] {
+			TryCreateNewObject();
+			});
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
+			if (!target.HasValue()) {
+				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (!exists(Scene::Objects().Get(), target)) {
+				target = PON();
+				return;
+			}
+
+			if (target->GetVertices().empty())
+				return;
+
+			cross->SetWorldPosition(target->GetVertices().back());
+		};
+	}
+
+public:
+	NonAssignProperty<Cross*> cross;
+
+	virtual bool BindSceneObjects(std::vector<PON> objs) {
+		if (target.HasValue() && !UnbindSceneObjects())
+			return false;
+
+		if (objs[0]->GetType() != PolyLineT) {
+			Logger.Warning("Invalid Object passed to PointPenEditingTool");
+			return true;
+		}
+		target = objs[0];
+
+		if (Settings::SpaceMode().Get() == SpaceMode::Local)
+			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+		if (!target->GetVertices().empty())
+			cross->SetWorldPosition(target->GetVertices().back());
+
+		inputHandlerId = Input::AddHandler([&] {
+			// If handler was removed via shortcuts then don't execute it.
+			TryCreateNewObject();
+			});
+		stateChangedHandlerId = Changes::OnStateChange() += [&] {
+			if (!target.HasValue()) {
+				cross->SetWorldRotation(glm::quat());
+				return;
+			}
+
+			if (Settings::SpaceMode().Get() == SpaceMode::Local)
+				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+
+			if (target->GetVertices().empty())
+				return;
+
+			cross->SetWorldPosition(target->GetVertices().back());
+		};
+		Settings::ShouldRestrictTargetModeToPivot() = true;
+
+		return true;
+	}
+	virtual bool UnbindSceneObjects() {
+		if (!lockCreateNewObjectHandlerId)
+			Input::RemoveHandler(createNewObjectHandlerId);
+
+		Settings::ShouldRestrictTargetModeToPivot() = false;
+
+		if (!target.HasValue())
+			return true;
+
+		Input::RemoveHandler(inputHandlerId);
+		Changes::OnStateChange() -= stateChangedHandlerId;
+
+		target = PON();
+
+		// Go to creating mode after unbinding target;
+		TryCreateNewObject();
+
+		return true;
+	}
+	virtual void UnbindTool() override {
+		UnbindSceneObjects();
+
+		// On unbinding objects the tool goes to 
+		// creating new object awaiting state.
+		// But if the tool is unbind then it should be cancelled.
+		if (!lockCreateNewObjectHandlerId)
+			Input::RemoveHandler(createNewObjectHandlerId);
+	}
+
+	SceneObject* GetTarget() {
+		return target.HasValue()
+			? target.Get()
+			: nullptr;
 	}
 };

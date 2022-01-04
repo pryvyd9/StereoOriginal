@@ -18,7 +18,10 @@ An exception is Rool object.
 It has a point but it's just to forbid it's minimizing.
 
 Several objects can be selected by modifying LMB with Ctrl. 
-A tree of objects can be selected by modifying LMB with Shift.
+A tree of objects can be selected by modifying LMB with Alt.
+
+Click RMB on an item to open a context menu.
+Context menu has 2 items: Select tree, Select children.
 ### Properties window
 ### Settings window
 - Buffer size;
@@ -47,13 +50,16 @@ For more details see Tools.
 - Esc - exit text inputting mode. Remove focus from all widgets. When no widget is active - deactivates tools;
 - Ctrl+Z - undo;
 - Ctrl+Y - redo;
+- Ctrl+A - select all scene objects;
 - Ctrl+D - deselect all scene objects;
 - Q - toggle discrete movement mode;
 - W - switch space mode (Local/World);
 - C - switch target mode (Object/Pivot);
+- Z switch navigation mode (cross/camera);
 - T - transformation tool;
 - P - pen tool;
 - E - extrusion tool;
+- S - cosinepen tool;
 - F5 - save rendered scene to file;
 - F6 - render a scene in 4000x4000 resolution and save to file;
 ### Cross control
@@ -67,6 +73,10 @@ Movement from keyboard is scaled by a set step in settings. Movement from mouse 
 - Numpad7/Numpad3 to resize cross;
 - Alt+LMB on scene+Mouse movement to move in XY plane;
 - Alt+LMB on scene+RMB+Mouse movement to move in Z axe;
+- Alt+Numpad5 moves cross to the selected object;
+- Alt+Numpad0 moves cross to (0;0;0);
+- Ctrl+Numpad5 set rotation to the selected object's rotation;
+- Ctrl+Numpad0 set rotation to (0;0;0;0);
 ### File
 ## Render
 Rendering is implemented with OpenGL 4.1+
@@ -86,9 +96,9 @@ Pressing Enter will unbind current polyline and enter OCM.
 #### Step mode
 SM requires pressing Enter to fix the point and create a new one.
 
-### SinePen
+### CosinePen
 Operates the same as Pen SM.
-ShouldMoveCrossOnSinePenModeChange option determines if the cross' position will be set to the relevant vertice on mode change.
+ShouldMoveCrossOnCosinePenModeChange option determines if the cross' position will be set to the relevant vertice on mode change.
 
 #### Step123
 Second point is (0,1) for cosine.

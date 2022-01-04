@@ -69,7 +69,6 @@ class PolyLine : public LeafObject {
 	void UpdateCache() {
 		verticesCache = vertices;
 		CascadeTransform(verticesCache);
-		shouldUpdateCache = false;
 	}
 
 public:
@@ -154,29 +153,23 @@ public:
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
-		glDrawArrays(GL_LINE_STRIP, 0, GetVertices().size());
+		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 
 	SceneObject* Clone() const override {
@@ -221,7 +214,6 @@ class SineCurve : public LeafObject {
 	void updateCacheAsPolyLine() {
 		verticesCache = vertices;
 		CascadeTransform(verticesCache);
-		shouldUpdateCache = false;
 	}
 
 	void updateCacheAsPolyLine(int from, int to) {
@@ -249,10 +241,6 @@ void UpdateCache() {
 	if (vertices.size() < 3) {
 		updateCacheAsPolyLine(0, vertices.size());
 		CascadeTransform(verticesCache);
-
-		// Remove all cache update requests.
-		shouldUpdateCache = false;
-
 		return;
 	}
 
@@ -269,10 +257,6 @@ void UpdateCache() {
 	}
 
 	CascadeTransform(verticesCache);
-
-	// Remove all cache update requests.
-	shouldUpdateCache = false;
-	return;
 }
 
 public:
@@ -358,28 +342,22 @@ public:
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
 		if (verticesCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINE_STRIP, 0, verticesCache.size());
 	}
 
@@ -393,8 +371,7 @@ public:
 	}
 };
 
-struct Mesh : LeafObject {
-private:
+class Mesh : public LeafObject {
 	std::vector<glm::vec3> vertices;
 	std::vector<std::array<GLuint, 2>> connections;
 
@@ -434,30 +411,27 @@ private:
 	void UpdateCache() {
 		vertexCache = vertices;
 		CascadeTransform(vertexCache);
-		shouldUpdateCache = false;
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
 		if (vertexCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawElements(GL_LINES, GetLinearConnections().size() * 2, GL_UNSIGNED_INT, nullptr);
 	}
 	virtual void DrawRight(GLuint shader) override {
 		if (vertexCache.size() < 2)
 			return;
 
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		// IBO is bind in DrawLeft already so we don't bind it here.
+		// Not sure why.
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -597,6 +571,70 @@ public:
 
 };
 
+// Hexagon that keeps 2 pixel radius.
+class PointObject : public LeafObject {
+	std::vector<glm::vec3> vertices;
+	std::vector<glm::vec3> leftBuffer;
+	std::vector<glm::vec3> rightBuffer;
+
+	virtual void UpdateOpenGLBuffer(
+		std::function<glm::vec3(glm::vec3)> toLeft,
+		std::function<glm::vec3(glm::vec3)> toRight) override {
+
+		auto leftCenter = toLeft(GetWorldPosition());
+		auto rightCenter = toRight(GetWorldPosition());
+		auto millimeterSize = Convert::PixelsToMillimeters(Settings::PointRadiusPixel().Get());
+
+		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
+		for (size_t i = 0; i < vertices.size(); i++) {
+			auto p = Convert::MillimetersToViewCoordinates(vertices[i] * millimeterSize, ReadOnlyState::ViewSize().Get());
+			leftBuffer[i] = leftCenter + p;
+			rightBuffer[i] = rightCenter + p;
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * leftBuffer.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * rightBuffer.size(), rightBuffer.data(), GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	virtual void DrawLeft(GLuint shader) override {
+		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glDrawArrays(GL_TRIANGLE_FAN, 0, leftBuffer.size());
+	}
+	virtual void DrawRight(GLuint shader) override {
+		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
+		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+		glEnableVertexAttribArray(GL_POINTS);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glDrawArrays(GL_TRIANGLE_FAN, 0, leftBuffer.size());
+	}
+
+public:
+	PointObject() {
+		// OpenGL is really fast so 90 vertices is fine for a point. 
+		vertices = Build::Circle(90, 1);
+	}
+	PointObject(const PointObject* copy) : LeafObject(copy) {
+		vertices = copy->vertices;
+	}
+	~PointObject() {}
+
+	virtual ObjectType GetType() const override {
+		return PointT;
+	}
+
+	SceneObject* Clone() const override {
+		return new PointObject(this);
+	}
+};
+
 class WhiteSquare
 {
 public:
@@ -618,7 +656,7 @@ public:
 	{
 
 		auto vertexShaderSource = GLLoader::ReadShader("shaders/.vert");
-		auto fragmentShaderSource = GLLoader::ReadShader("shaders/WhiteSquare.frag");
+		auto fragmentShaderSource = GLLoader::ReadShader("shaders/.frag");
 
 		ShaderProgram = GLLoader::CreateShaderProgram(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
 
@@ -655,33 +693,50 @@ class Cross : public LeafObject {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-
 	void UpdateCache() {
-		vertices = std::vector<glm::vec3>(6);
+		vertices = {
+			glm::vec3(-size,0,0),
+			glm::vec3(+size,0,0),
 
-		vertices[0].x -= size;
-		vertices[1].x += size;
+			glm::vec3(0,-size,0),
+			glm::vec3(0,+size,0),
 
-		vertices[2].y -= size;
-		vertices[3].y += size;
-
-		vertices[4].z -= size;
-		vertices[5].z += size;
+			glm::vec3(0,0,-size),
+			glm::vec3(0,0,+size),
+		};
 
 		CascadeTransform(vertices);
-		shouldUpdateCache = false;
 	}
 
 	// Cross is being continuously modified so don't notify it's updates.
 	virtual void HandleBeforeUpdate() override {}
 public:
 	float size = 10;
-	std::function<void()> keyboardBindingHandler;
-	size_t keyboardBindingHandlerId;
+
+
+	// Keyboard Binding Flow:
+	// 1. GUIPositionEditHandler
+	// 	   Adds position changes in Cross properties window to movement
+	// 	   to save GUI changes.
+	// 	   It's a crutch that needs to be systematized somehow.
+	// 2. keyboardBindingHandler
+	// 	   Calls cross or camera Processor based on wether it's cross or camera mode.
+	// 3. keyboardBindingProcessor
+	//	   Modified Cursor position. Tools can override this for direct access
+	// 	   and control of cross movement.
 
 	std::function<void()> GUIPositionEditHandler;
 	size_t GUIPositionEditHandlerId;
 	glm::vec3 GUIPositionEditDifference;
+
+	std::function<void()> keyboardBindingHandler;
+	size_t keyboardBindingHandlerId;
+
+	// Function to be called from keyboardBindingHandler.
+	// It exists to make switching between default and Tool processors.
+	std::function<void()> keyboardBindingProcessor;
+	std::function<void()> keyboardBindingProcessorDefault;
+
 
 	Cross() {
 		shouldTransformPosition = true;
@@ -706,32 +761,31 @@ public:
 
 		SceneObject::DesignProperties();
 
-		// Hask to enable cross movement via GUI editing count as input movement.
+		// Hack to enable cross movement via GUI editing count as input movement.
 		// It enables tools to react to it properly and work correctly.
+		// It's a crutch that should be reworked properly.
 		GUIPositionEditDifference = GetLocalPosition() - oldPos;
-		SetLocalPosition(oldPos);
+
+		if (GUIPositionEditDifference != glm::vec3())
+			SetLocalPosition(oldPos);
+
+		//shouldUpdateCache = true;
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINES, 0, vertices.size());
 	}
 	virtual void DrawRight(GLuint shader) override {
-		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBORight);
 		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
 		glEnableVertexAttribArray(GL_POINTS);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(shader);
 		glDrawArrays(GL_LINES, 0, vertices.size());
 	}
 };
@@ -758,7 +812,8 @@ public:
 	float viewSizeZ = 100;
 	Property<float> EyeToCenterDistance = 34;
 	Property<glm::vec3> PositionModifier = glm::vec3(0, 50, 600);
-	
+
+	std::function<void()> keyboardBindingProcessor;
 
 	Camera() {
 		Name = "camera";
@@ -826,6 +881,9 @@ class TraceObject : public GroupObject {
 	}
 
 public:
+	TraceObject() {}
+	TraceObject(const TraceObject* copy) : GroupObject(copy) {}
+
 	void IgnoreParentOnce() {
 		shouldIgnoreParent = true;
 	}
@@ -837,11 +895,15 @@ public:
 			? nullptr
 			: GroupObject::GetParent();
 	}
-	
+	virtual SceneObject* Clone() const override {
+		return new TraceObject(this);
+	}
 };
 
 class Scene {
 	Log Logger = Log::For<Scene>();
+
+	StaticField(std::function<std::string()>, getRootLocalizedName)
 
 	static Event<>& deleteAll() {
 		static Event<> v;
@@ -878,7 +940,7 @@ class Scene {
 
 	static PON CreateRoot() {
 		auto r = new GroupObject();
-		r->Name = "Root";
+		r->Name = getRootLocalizedName()();
 		return PON(r);
 	}
 public:
@@ -890,14 +952,16 @@ public:
 
 	GLFWwindow* glWindow;
 
-
+	StaticField(Scene*, scene);
 
 	static IEvent<>& OnDeleteAll() {
 		return deleteAll();
 	}
 
-	Scene() {
+	Scene(std::function<std::string()> getRootLocalizedName) {
+		this->getRootLocalizedName() = getRootLocalizedName;
 		root() = CreateRoot();
+		scene() = this;
 	}
 
 	static bool Insert(SceneObject* destination, SceneObject* obj) {

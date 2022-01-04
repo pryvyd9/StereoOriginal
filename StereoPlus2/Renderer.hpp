@@ -13,16 +13,16 @@ using namespace std;
 
 // GL4.1 required
 class Renderer {
-	const int stencilBufferMaskBright1 = 0x1;
-	const int stencilBufferMaskBright2 = 0x2;
-	const int stencilBufferMaskDim1 = 0x4;
-	const int stencilBufferMaskDim2 = 0x8;
+	enum class Shader {
+		BrightLeft,
+		BrightRight,
+		DimLeft,
+		DimRight,
+	};
 
-	glm::vec4 whiteColorBright = glm::vec4(1, 1, 1, 1);
-	glm::vec4 whiteColorDim = glm::vec4(1, 1, 1, 0.5);
+	std::map<Shader, GLuint> shaders;
 
-
-	GLuint ShaderLeft, ShaderRight;
+	GLuint VAO;
 
 	static void glfw_error_callback(int error, const char* description)
 	{
@@ -50,6 +50,7 @@ class Renderer {
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 		glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, true);
+		//glfwWindowHint(GLFW_MAXIMIZED, GL_TRUE);
 		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
 		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
@@ -82,73 +83,62 @@ class Renderer {
 
 	void CreateShaders()
 	{
-		std::string vertexShaderSource1		   = GLLoader::ReadShader("shaders/.vert");
-		std::string fragmentShaderSourceLeft1  = GLLoader::ReadShader("shaders/Left.frag");
-		std::string fragmentShaderSourceRight1 = GLLoader::ReadShader("shaders/Right.frag");
+		std::string vertexShaderSource1	= GLLoader::ReadShader("shaders/.vert");
+		std::string fragmentShaderSource1 = GLLoader::ReadShader("shaders/.frag");
 
 		const char* vertexShaderSource = vertexShaderSource1.c_str();
-		const char* fragmentShaderSourceLeft = fragmentShaderSourceLeft1.c_str();
-		const char* fragmentShaderSourceRight = fragmentShaderSourceRight1.c_str();
+		const char* fragmentShaderSource = fragmentShaderSource1.c_str();
+		
+		// We need separate shaders to be able to set different colors.
+		// It's possible to change colors while switching between left and right but it's slow.
+		shaders[Shader::BrightLeft] = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+		shaders[Shader::BrightRight] = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+		shaders[Shader::DimLeft] = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
+		shaders[Shader::DimRight] = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
 
-		ShaderLeft = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceLeft);
-		ShaderRight = GLLoader::CreateShaderProgram(vertexShaderSource, fragmentShaderSourceRight);
-
-		UpdateShaderColor(Settings::ColorLeft().Get(), Settings::ColorRight().Get());
-
-		UpdateShaderColor(whiteSquare.ShaderProgram, whiteColorBright, "myColor");
-		UpdateShaderColor(whiteSquareDim.ShaderProgram, whiteColorDim, "myColor");
+		UpdateShaderColor(shaders[Shader::BrightLeft], Settings::ColorLeft().Get(), "myColor");
+		UpdateShaderColor(shaders[Shader::BrightRight], Settings::ColorRight().Get(), "myColor");
+		UpdateShaderColor(shaders[Shader::DimLeft], Settings::DimmedColorLeft().Get(), "myColor");
+		UpdateShaderColor(shaders[Shader::DimRight], Settings::DimmedColorRight().Get(), "myColor");
 	}
-	void UpdateShaderColor(glm::vec4 colorLeft, glm::vec4 colorRight) {
-		// Available since GL4.1
-		UpdateShaderColor(ShaderLeft, colorLeft, "myColor");
-		UpdateShaderColor(ShaderRight, colorRight, "myColor");
-	}
+
 	void UpdateShaderColor(GLuint shader, glm::vec4 color, const char* name) {
 		// Available since GL4.1
 		glProgramUniform4f(shader, glGetUniformLocation(shader, name), color.r, color.g, color.b, color.a);
 	}
 
-	void DrawSquare(const WhiteSquare& square) {
-		glBindVertexArray(square.VAOLeftTop);
-		glBindBuffer(GL_ARRAY_BUFFER, square.VBOLeftTop);
-		glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.vertices, GL_STREAM_DRAW);
+	//void DrawSquare(const WhiteSquare& square) {
+	//	glBindVertexArray(square.VAOLeftTop);
+	//	glBindBuffer(GL_ARRAY_BUFFER, square.VBOLeftTop);
+	//	glBufferData(GL_ARRAY_BUFFER, WhiteSquare::VerticesSize, square.vertices, GL_STREAM_DRAW);
 
-		glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(GL_POINTS);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//	glVertexAttribPointer(GL_POINTS, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	//	glEnableVertexAttribArray(GL_POINTS);
+	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		// Apply shader
-		glUseProgram(square.ShaderProgram);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	//	// Apply shader
+	//	glUseProgram(square.ShaderProgram);
+	//	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	//}
+
+	void DrawWithShader(Camera* camera, std::vector<PON>& os, GLuint shader, std::function<void(SceneObject*, GLuint)> drawFunc) {
+		glUseProgram(shader);
+		for (auto& o : os) {
+			o->UdateBuffer(
+				[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
+				[&camera](const glm::vec3& p) { return camera->GetRight(p); });
+
+			drawFunc(o.Get(), shader);
+		}
 	}
+	void DrawWithShader(Camera* camera, SceneObject* o, GLuint shader, std::function<void(SceneObject*, GLuint)> drawFunc) {
+		glUseProgram(shader);
 
-	void DrawBright(Camera* camera, SceneObject* o) {
-		UpdateShaderColor(Settings::ColorLeft().Get(), Settings::ColorRight().Get());
-		o->Draw(
+		o->UdateBuffer(
 			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
-			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
-			ShaderLeft,
-			ShaderRight,
-			stencilBufferMaskBright1,
-			stencilBufferMaskBright2);
-	}
-	void DrawDim(Camera* camera, SceneObject* o) {
-		UpdateShaderColor(Settings::DimmedColorLeft().Get(), Settings::DimmedColorRight().Get());
-		o->Draw(
-			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
-			[&camera](const glm::vec3& p) { return camera->GetRight(p); },
-			ShaderLeft,
-			ShaderRight,
-			stencilBufferMaskDim1,
-			stencilBufferMaskDim2);
-	}
+			[&camera](const glm::vec3& p) { return camera->GetRight(p); });
 
-	void DrawIntersection(const WhiteSquare& square, GLuint stencilMask) {
-		glStencilMask(0x00);
-
-		glStencilFunc(GL_EQUAL, stencilMask, stencilMask);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-		DrawSquare(square);
+		drawFunc(o, shader);
 	}
 
 public:
@@ -157,22 +147,14 @@ public:
 	float LineThickness = 1;
 	glm::vec4 backgroundColor = glm::vec4(0, 0, 0, 0);
 
-	WhiteSquare whiteSquare;
-	WhiteSquare whiteSquareDim;
-
 	void Pipeline(Scene& scene) {
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
 
-		// This is required before clearing Stencil buffer.
-		// Don't know why though.
-		// ~ is bitwise negation 
-		glStencilMask(~0);
-
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		glLineWidth(LineThickness);
-
-		glEnable(GL_STENCIL_TEST);
+		
+		glLineWidth(Settings::LineThickness().Get());
 
 		// Anti aliasing
 		{
@@ -182,19 +164,23 @@ public:
 			//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 		}
 		
+		glEnable(GL_BLEND);
+		glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_DST_ALPHA, GL_ONE, GL_ONE);
+
 		if (ObjectSelection::Selected().empty()) {
-			for (auto o : scene.Objects().Get())
-				DrawBright(scene.camera, o.Get());
-			DrawBright(scene.camera, &scene.cross().Get());
-			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
+			DrawWithShader(scene.camera, scene.Objects().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
+			DrawWithShader(scene.camera, scene.Objects().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
+			
+			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
+			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
 		}
 		else {
 			std::set<PON> objectsSorted;
-			for (auto o : scene.Objects().Get())
+			for (auto& o : scene.Objects().Get())
 				objectsSorted.emplace(o);
 
 			std::vector<PON> dimObjects;
-
 			std::set_difference(
 				objectsSorted.begin(),
 				objectsSorted.end(),
@@ -202,32 +188,57 @@ public:
 				ObjectSelection::Selected().end(),
 				std::inserter(dimObjects, dimObjects.begin()));
 
-			for (auto o : dimObjects)
-				DrawDim(scene.camera, o.Get());
-			DrawIntersection(whiteSquareDim, stencilBufferMaskDim1 | stencilBufferMaskDim2);
-
-			for (auto o : ObjectSelection::Selected())
+			std::vector<PON> selectedExistent;
+			for (auto& o : ObjectSelection::Selected())
 				if (o.HasValue())
-					DrawBright(scene.camera, o.Get());
-			DrawBright(scene.camera, &scene.cross().Get());
-			DrawIntersection(whiteSquare, stencilBufferMaskBright1 | stencilBufferMaskBright2);
+					selectedExistent.push_back(o);
+
+			DrawWithShader(scene.camera, dimObjects, shaders[Shader::DimLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
+			DrawWithShader(scene.camera, dimObjects, shaders[Shader::DimRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
+			
+			DrawWithShader(scene.camera, selectedExistent, shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
+			DrawWithShader(scene.camera, selectedExistent, shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
+
+			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightLeft], [](SceneObject* o, GLuint shader) { o->DrawLeft(shader); });
+			DrawWithShader(scene.camera, &scene.cross().Get(), shaders[Shader::BrightRight], [](SceneObject* o, GLuint shader) { o->DrawRight(shader); });
 		}
 
 		// Anti aliasing
 		//glDisable(GL_LINE_SMOOTH | GL_BLEND);
 
-		glDisable(GL_STENCIL_TEST);
+		glDisable(GL_BLEND);
+
 		glEnable(GL_DEPTH_TEST);
 	}
 
 	bool Init() {
-		if (!InitGL()
-			|| !whiteSquare.Init()
-			|| !whiteSquareDim.Init())
+		if (!InitGL())
 			return false;
+
+		GLint lineWidthRange[2];
+		glGetIntegerv(GL_ALIASED_LINE_WIDTH_RANGE, lineWidthRange);
+		Settings::MinLineThickness() = lineWidthRange[0];
+		Settings::MaxLineThickness() = lineWidthRange[1];
 
 		CreateShaders();
 
+		// Not sure what exactly Vertex Array Object is.
+		// From what I understand it's related to index order in objects.
+		// The main thing is if we draw all objects the same way 
+		// 1 VAO should be enough for the whole scene.
+		glGenVertexArrays(1, &VAO);
+		glBindVertexArray(VAO);
+
+		Settings::ColorLeft().OnChanged() += [&](glm::vec4 color) { UpdateShaderColor(shaders[Shader::BrightLeft], color, "myColor"); };
+		Settings::ColorRight().OnChanged() += [&](glm::vec4 color) { UpdateShaderColor(shaders[Shader::BrightRight], color, "myColor"); };
+		Settings::DimmedColorLeft().OnChanged() += [&](glm::vec4 color) { UpdateShaderColor(shaders[Shader::DimLeft], color, "myColor"); };
+		Settings::DimmedColorRight().OnChanged() += [&](glm::vec4 color) { UpdateShaderColor(shaders[Shader::DimRight], color, "myColor"); };
+
+		return true;
+	}
+
+	bool OnExit() {
+		glDeleteVertexArrays(1, &VAO);
 		return true;
 	}
 };

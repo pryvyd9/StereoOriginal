@@ -46,6 +46,7 @@ public:
 		{
 		case Group:
 		case TraceObjectT:
+		case PointT:
 			break;
 		case PolyLineT:
 		{
@@ -170,6 +171,15 @@ public:
 		case Group:
 		{
 			auto o = start<GroupObject>();
+			read(&o->Name);
+			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			readChildren(o);
+			return o;
+		}
+		case PointT:
+		{
+			auto o = start<PointObject>();
 			read(&o->Name);
 			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
 			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
@@ -370,6 +380,15 @@ public:
 			getChildren(j, "children", o);
 			return o;
 		}
+		case PointT:
+		{
+			auto o = start<PointObject>();
+			get(j, "name", o->Name);
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			getChildren(j, "children", o);
+			return o;
+		}
 		case TraceObjectT:
 		{
 			auto o = start<TraceObject>();
@@ -432,6 +451,12 @@ public:
 		return j;
 	}
 	template<>
+	static Js::ObjectAbstract* serialize(const glm::vec2& o) {
+		auto j = new Js::Array();
+		j->objects = { serialize(o.x), serialize(o.y) };
+		return j;
+	}
+	template<>
 	static Js::ObjectAbstract* serialize(const glm::vec3& o) {
 		auto j = new Js::Array();
 		j->objects = { serialize(o.x), serialize(o.y), serialize(o.z) };
@@ -486,6 +511,7 @@ public:
 		switch (so.GetType()) {
 		case Group:
 		case TraceObjectT:
+		case PointT:
 			break;
 		case PolyLineT:
 		{

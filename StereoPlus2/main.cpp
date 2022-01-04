@@ -34,15 +34,22 @@ bool CustomRenderFunc(Scene& scene, Renderer& renderPipeline, PositionDetector& 
 }
 
 void ConfigureShortcuts(CustomRenderWindow& crw) {
+	// Shortcuts related to cursor movement can be found in KeyBinding.
+	// Shortcuts in KeyBinding are complex and you should be careful about them.
+	// The shortcuts in this method can be reconfigured freely.
+	
 	// Internal shortcuts.
 	Input::AddShortcut(Key::Combination(Key::Escape),
 		ToolWindow::ApplyDefaultTool().Get());
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Z),
-		StateBuffer::Rollback);
+		Changes::Rollback);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::Y),
-		StateBuffer::Repeat);
+		Changes::Repeat);
 	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::D),
-		ObjectSelection::RemoveAll);
+		ObjectSelection::RemoveAll);	
+	Input::AddShortcut(Key::Combination({ Key::Modifier::Control }, Key::A),
+		[] { ObjectSelection::Set(Scene::Objects().Get()); });
+
 
 	// Tools
 	Input::AddShortcut(Key::Combination(Key::T),
@@ -50,7 +57,7 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 	Input::AddShortcut(Key::Combination(Key::P),
 		ToolWindow::ApplyTool<PenToolWindow, PenTool>);
 	Input::AddShortcut(Key::Combination(Key::S),
-		ToolWindow::ApplyTool<SinePenToolWindow, SinePenTool>);
+		ToolWindow::ApplyTool<CosinePenToolWindow, CosinePenTool>);
 	Input::AddShortcut(Key::Combination(Key::E),
 		ToolWindow::ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>);
 
@@ -67,11 +74,18 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 		[] { Settings::SpaceMode() = Settings::SpaceMode().Get() == SpaceMode::Local ? SpaceMode::World : SpaceMode::Local; });
 	Input::AddShortcut(Key::Combination(Key::C),
 		[] { Settings::TargetMode() = Settings::TargetMode().Get() == TargetMode::Object ? TargetMode::Pivot : TargetMode::Object; });
+	Input::AddShortcut(Key::Combination(Key::Z),
+		[] { Settings::NavigationMode() = Settings::NavigationMode().Get() == NavigationMode::Cross ? NavigationMode::Camera : NavigationMode::Cross; });
 }
 
 int main() {
+	//Time::Init();
+
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
+
+	if (!LocaleProvider::Init())
+		return false;
 
 	//LogWindow logWindow;
 	//Log::AdditionalLogOutput() = [&](const std::string& v) { logWindow.Logs += v; };
@@ -96,7 +110,7 @@ int main() {
 	if (!renderPipeline.Init())
 		return false;
 
-	Scene scene;
+	Scene scene([] { return LocaleProvider::Get("object:root"); });
 	Camera camera;
 	Cross cross;
 
@@ -106,6 +120,7 @@ int main() {
 
 	cameraPropertiesWindow.Object = &camera;
 	crossPropertiesWindow.Object = &cross;
+	ReadOnlyState::ViewSize() <<= customRenderWindow.RenderSize;
 
 	ToolWindow::ApplyDefaultTool() = ToolWindow::ApplyTool<TransformToolWindow, TransformTool>;
 	ToolWindow::AttributesWindow() = &attributesWindow;
@@ -138,7 +153,7 @@ int main() {
 	cross.Name = "Cross";
 	cross.GUIPositionEditHandler = [] { Input::movement() += Scene::cross()->GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = Input::AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingHandler = [] {
+	cross.keyboardBindingProcessorDefault = cross.keyboardBindingProcessor = [] {
 		auto relativeRotation = Input::GetRelativeRotation(glm::vec3());
 		auto relativeMovement = Input::GetRelativeMovement(Scene::cross()->GUIPositionEditDifference);
 
@@ -147,25 +162,32 @@ int main() {
 		if (relativeMovement != glm::vec3())
 			Transform::Translate(relativeMovement, &Scene::cross().Get());
 	};
+	cross.keyboardBindingHandler = [&cross, &camera] { 
+		if (Settings::NavigationMode().Get() == NavigationMode::Cross)
+			cross.keyboardBindingProcessor();
+		else
+			camera.keyboardBindingProcessor();
+	};
 	cross.keyboardBindingHandlerId = Input::AddHandler(cross.keyboardBindingHandler);
+
+	camera.keyboardBindingProcessor = [&camera] { 
+		camera.PositionModifier = camera.PositionModifier.Get() + Input::GetRelativeMovement(glm::vec3());
+		camera.ForceUpdateCache();
+	};
 
 	if (!ToolPool::Init())
 		return false;
 
 
-	StateBuffer::BufferSize() <<= Settings::StateBufferLength();
-	StateBuffer::RootObject() <<= scene.root();
-	StateBuffer::Objects() <<= scene.Objects();
+	Changes::RootObject() <<= scene.root();
+	Changes::Objects() <<= scene.Objects();
 	Input::AddHandler([s = &scene]{
 		if (Input::IsDown(Key::Delete, true)) {
-			StateBuffer::Commit();
+			Changes::Commit();
 			s->DeleteSelected();
 			}
 		});
-	if (!StateBuffer::Init())
-		return false;
-
-	if (!LocaleProvider::Init())
+	if (!Changes::Init())
 		return false;
 
 	scene.OnDeleteAll() += [] {
@@ -191,25 +213,45 @@ int main() {
 		return CustomRenderFunc(scene, renderPipeline, positionDetector);
 	};
 	auto updateCacheForAllObjects = [&scene] {
-		for (auto& o : scene.Objects().Get())
+		Scene::cross()->ForceUpdateCache();
+
+		for (auto& o : Scene::Objects().Get())
 			o->ForceUpdateCache();
 	};
 	customRenderWindow.OnResize() += updateCacheForAllObjects;
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
+	Settings::PointRadiusPixel().OnChanged() += [updateCacheForAllObjects](int) { updateCacheForAllObjects(); };
+
+	if (Settings::IsAutosaveEnabled().Get()) {
+		auto autosaveCommand = new AutosaveCommand();
+		autosaveCommand->SetFunc([filename = AutosaveCommand::GetFileName()] {
+			FileManager::Save(filename, Scene::scene());
+			});
+		autosaveCommand->StartNew(Settings::AutosavePeriodMinutes().Get());
+	}
 
 	ConfigureShortcuts(customRenderWindow);
 
 	// Start the main loop and clean the memory when closed.
+	// Bitwise OR is intended. 
+	// We must go through all of them even if we get 1 false.
 	if (!gui.MainLoop() |
-		!gui.OnExit()) {
+		!gui.OnExit() |
+		!renderPipeline.OnExit()) {
 		positionDetector.StopPositionDetection();
+
+		// Save temp file on exit
+		FileManager::Save(AutosaveCommand::GetBackupFileName(), Scene::scene());
 		return false;
 	}
 
 	// Stop Position detection thread.
 	positionDetector.StopPositionDetection();
-	StateBuffer::Clear();
+	Changes::Clear();
 	SettingsLoader::Save();
+
+	// Save temp file on exit
+	FileManager::Save(AutosaveCommand::GetFileName(), Scene::scene());
     return true;
 }
 

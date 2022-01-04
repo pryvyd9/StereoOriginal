@@ -195,7 +195,20 @@ struct Convert {
 		);
 		return vView;
 	}
-
+	// Millimeters to [-1;1]
+	// World center-centered
+	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
+	static glm::vec3 MillimetersToViewCoordinates(const glm::vec3& vMillimeters, const glm::vec2& viewSizePixels) {
+		static float inchToMillimeter = 0.0393701;
+		auto vsph = viewSizePixels / 2.f;
+		
+		auto vView = glm::vec3(
+			vMillimeters.x * Settings::PPI().Get() * inchToMillimeter / vsph.x,
+			vMillimeters.y * Settings::PPI().Get() * inchToMillimeter / vsph.y,
+			0
+		);
+		return vView;
+	}
 	// Millimeters to [-1;1]
 	// World center-centered
 	// (0;0;0) in view coordinates corresponds to (0;0;0) in world coordinates
@@ -218,6 +231,15 @@ struct Convert {
 		return vMillimiters;
 	}
 	static glm::vec2 PixelsToMillimeters(const glm::vec2& vPixels) {
+		static float inchToMillimeter = 0.0393701;
+		// vPixels[pixel]
+		// inchToMillimeter[inch/millimeter]
+		// PPI[pixel/inch]
+		// vPixels/(PPI*inchToMillimeter)[pixel/((pixel/inch)*(inch/millimeter)) = pixel/(pixel/millimeter) = (pixel/pixel)*(millimeter) = millimiter]
+		auto vMillimiters = vPixels / Settings::PPI().Get() / inchToMillimeter;
+		return vMillimiters;
+	}
+	static float PixelsToMillimeters(const float& vPixels) {
 		static float inchToMillimeter = 0.0393701;
 		// vPixels[pixel]
 		// inchToMillimeter[inch/millimeter]
@@ -294,6 +316,13 @@ class Build {
 	}
 public:
 	
+	static const float GetDistanceToNextX(float x) {
+		const float minDistanceBetweenX = 0.01f;
+		const float startCoefficient = 3.f;
+		auto d = pow(x, 2)/(startCoefficient + Settings::CosinePointCount().Get()) + minDistanceBetweenX;
+		return d;
+	}
+
 	/// <summary>
 	///    B
 	///  / |  \
@@ -333,22 +362,22 @@ public:
 
 		static const auto hpi = glm::half_pi<float>();
 
-		int abNumber = abLength / 5 + 1;
-		int bcNumber = bcLength / 5 + 1;
-
 		std::vector<glm::vec3> points;
-
-		for (size_t j = 0; j < abNumber; j++) {
-			auto x = -hpi + hpi * j / (float)abNumber;
-			auto nx = j / (float)abNumber * adLength;
+		float x = -hpi;
+		for (; x < 0; x += GetDistanceToNextX(x)) {
+			auto nx = (hpi - abs(x)) / hpi * adLength;
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
 		}
-		for (size_t j = 0; j <= bcNumber; j++) {
-			auto x = hpi * j / (float)bcNumber;
-			auto nx = j / (float)bcNumber * dcLength + adLength;
+		x = 0;
+		for (; x < hpi; x += GetDistanceToNextX(x)) {
+			auto nx = x / hpi * dcLength + adLength;
 			auto ny = cos(x) * bdLength;
 			points.push_back(glm::vec3(nx, ny, 0));
+		}
+		//x = hpi
+		{
+			points.push_back(glm::vec3(acLength, 0, 0));
 		}
 
 		for (size_t j = 0; j < points.size(); j++)
@@ -356,4 +385,26 @@ public:
 
 		return points;
 	}
+
+	static const std::vector<glm::vec3> Circle(size_t verticeCount, float radius) {
+		std::vector<glm::vec3> vertices;
+		vertices.push_back(glm::vec3());
+
+		for (float i = 0; i <= glm::two_pi<float>(); i += glm::two_pi<float>() / verticeCount)
+		{
+			vertices.push_back(glm::vec3(
+				radius * cos(i),
+				radius * sin(i),
+				0
+			));
+		}
+		vertices.push_back(glm::vec3(
+			radius,
+			0,
+			0
+		));
+
+		return vertices;
+	}
+
 };

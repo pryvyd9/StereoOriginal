@@ -9,7 +9,11 @@ class ToolPool {
 		tool->cross <<= Scene::cross();
 	}
 
-	static void Init(SinePenTool* tool) {
+	static void Init(CosinePenTool* tool) {
+		tool->cross <<= Scene::cross();
+	}
+
+	static void Init(PointPenTool* tool) {
 		tool->cross <<= Scene::cross();
 	}
 

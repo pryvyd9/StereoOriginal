@@ -3,12 +3,12 @@
 #include "InfrastructureTypes.hpp"
 #include "Key.hpp"
 
-enum class PointPenEditingToolMode {
+enum class PolylinePenEditingToolMode {
 	Immediate,
 	Step,
 };
 
-enum class SinePenEditingToolMode {
+enum class CosinePenEditingToolMode {
 	Step123,
 	Step132,
 };
@@ -45,6 +45,11 @@ enum class MoveCoordinateAction {
 	None,
 };
 
+enum class NavigationMode {
+	Cross,
+	Camera,
+};
+
 class Settings {
 public:
 	//StaticProperty(::ObjectMode, ObjectMode)
@@ -54,6 +59,7 @@ public:
 	StaticProperty(bool, ShouldDetectPosition)
 
 	StaticProperty(bool, ShouldRestrictTargetModeToPivot)
+	StaticProperty(::NavigationMode, NavigationMode)
 
 	// Settings
 	StaticProperty(std::string, Language)
@@ -61,6 +67,8 @@ public:
 	StaticProperty(std::string, LogFileName)
 	// Display Pixels Per Centimeter
 	StaticProperty(float, PPI)
+	StaticProperty(bool, IsAutosaveEnabled)
+	StaticProperty(int, AutosavePeriodMinutes)
 
 	StaticProperty(bool, UseDiscreteMovement)
 	StaticProperty(float, TranslationStep)
@@ -75,8 +83,24 @@ public:
 
 	StaticProperty(float, CustomRenderWindowAlpha)
 
-	StaticProperty(bool, ShouldMoveCrossOnSinePenModeChange)
+	StaticProperty(bool, ShouldMoveCrossOnCosinePenModeChange)
 
+	StaticProperty(int, PointRadiusPixel)
+	StaticProperty(int, LineThickness)
+
+	StaticProperty(int, CosinePointCount)
+	
+	StaticProperty(glm::vec2, CameraResolution)
+	StaticProperty(glm::vec2, CameraViewAngles)
+	StaticProperty(glm::vec2, CameraAngle)
+
+	StaticProperty(float, FaceSizeYMillimeters)
+	StaticProperty(glm::vec3, ScreenCenterToCameraDistanceMillimeters)
+
+
+	// Readonly system fields
+	StaticField(int, MinLineThickness)
+	StaticField(int, MaxLineThickness)
 
 	static const std::string& Name(void* reference) {
 		static std::map<void*, const std::string> v = {
@@ -84,6 +108,8 @@ public:
 			{&StateBufferLength,"stateBufferLength"},
 			{&LogFileName,"logFileName"},
 			{&PPI,"ppi"},
+			{&IsAutosaveEnabled,"isAutosaveEnabled"},
+			{&AutosavePeriodMinutes,"autosavePeriodMinutes"},
 
 			{&UseDiscreteMovement,"useDiscreteMovement"},
 			{&TranslationStep,"translationStep"},
@@ -100,13 +126,28 @@ public:
 			{&DimmedColorRight,"dimmedColorRight"},
 			{&CustomRenderWindowAlpha,"customRenderWindowAlpha"},
 
-			{&ShouldMoveCrossOnSinePenModeChange,"shouldMoveCrossOnSinePenModeChange"},
+			{&ShouldMoveCrossOnCosinePenModeChange,"shouldMoveCrossOnCosinePenModeChange"},
+
+			{&PointRadiusPixel,"pointRadiusPixel"},
+			{&LineThickness,"lineThickness"},
+
+			{&CosinePointCount,"cosinePointCount"},
+
+			{&CameraResolution,"cameraResolution"},
+			{&CameraViewAngles,"cameraViewAngles"},
+			{&CameraAngle,"cameraAngle"},
+			{&FaceSizeYMillimeters,"faceSizeYMillimeters"},
+			{&ScreenCenterToCameraDistanceMillimeters,"screenCenterToCameraDistanceMillimeters"},
 		};
 
 		if (auto a = v.find(reference); a != v.end())
 			return a._Ptr->_Myval.second;
-
+		
 		throw new std::exception("Name for a reference was not found.");
 	}
 
+};
+
+struct ReadOnlyState {
+	StaticProperty(glm::vec2, ViewSize)
 };

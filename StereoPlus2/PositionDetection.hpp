@@ -9,6 +9,8 @@
 #include <queue>
 #include <future>
 #include "InfrastructureTypes.hpp"
+#include "GLLoader.hpp"
+#include "Settings.hpp"
 
 using namespace std;
 using namespace cv;
@@ -72,13 +74,13 @@ class PositionDetector {
 
 
     float getPosX(float center, const std::list<glm::vec2>& q, float distance) {
-        auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+        auto pixelToAngle = divide(Settings::CameraResolution().Get(), Settings::CameraViewAngles().Get());
         auto angleFaceSize = (center - medX(q)) / pixelToAngle.x;
         auto posX = distance * tan(angleFaceSize * degreeToRadian);
         return posX;
     }
     float getPosY(float center, const std::list<glm::vec2>& q, float distance) {
-        auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+        auto pixelToAngle = divide(Settings::CameraResolution().Get(), Settings::CameraViewAngles().Get());
         auto angleFaceSize = (center - medY(q)) / pixelToAngle.x;
         auto posX = distance * tan(angleFaceSize * degreeToRadian);
         return posX;
@@ -98,9 +100,9 @@ class PositionDetector {
     }
 
     float getDistanceToCamera(const std::list<float>& pixelFaceSizesY) {
-        auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+        auto pixelToAngle = divide(Settings::CameraResolution().Get(), Settings::CameraViewAngles().Get());
         auto angleFaceSize = avg(pixelFaceSizesY) / pixelToAngle.y;
-        auto distance = faceSizeRealY / (tan(angleFaceSize / 2.f * degreeToRadian) * 2.f);
+        auto distance = Settings::FaceSizeYMillimeters().Get() / (tan(angleFaceSize / 2.f * degreeToRadian) * 2.f);
         return distance;
     }
 
@@ -132,22 +134,20 @@ class PositionDetector {
                 distanceToCameraBuffer.pop_front();
             distanceToCamera = avg(distanceToCameraBuffer);
 
-            auto pixelToAngle = divide(cameraResolution, cameraViewAngle);
+            auto pixelToAngle = divide(Settings::CameraResolution().Get(), Settings::CameraViewAngles().Get());
 
             auto facePositionMedianY = medY(facePosition);
             auto angleFaceCenterY = (frame.size[0] / 2.f - facePositionMedianY) / pixelToAngle.y;
-            auto alpha = cameraAngle.y - angleFaceCenterY;
-            auto distanceToScreen = distanceToCamera * sin(alpha * degreeToRadian) + screenCenterToCameraDistance.z;
+            auto alpha = Settings::CameraAngle().Get().y - angleFaceCenterY;
+            auto distanceToScreen = distanceToCamera * sin(alpha * degreeToRadian) + Settings::ScreenCenterToCameraDistanceMillimeters().Get().z;
             distance = distanceToScreen * 1.2;
             auto posHorizontal = getPosX(frame.size[1] / 2.f, facePosition, distanceToCamera);
             positionHorizontal = posHorizontal;
 
 
             auto posVerticalRelativeToCamera = distanceToCamera * cos(alpha * degreeToRadian);
-            auto posVertical = posVerticalRelativeToCamera - screenCenterToCameraDistance.y;
+            auto posVertical = posVerticalRelativeToCamera - Settings::ScreenCenterToCameraDistanceMillimeters().Get().y;
             positionVertical = posVertical;
-
-
         }
 
         //-- Show what you got
@@ -202,18 +202,6 @@ public:
 
 
     const float degreeToRadian = 3.1415926f * 2 / 360;
-
-    glm::vec2 cameraResolution = glm::vec2(640, 480);
-    // Degrees
-    // These angles aren't correct. 
-    // Just found the values, that produce the best results.
-    // Need to find out the real values.
-    glm::vec2 cameraViewAngle = glm::vec2(47, 35);
-    glm::vec2 cameraAngle = glm::vec2(0, 65);
-
-    // Millimeters
-    float faceSizeRealY = 165;
-    glm::vec3 screenCenterToCameraDistance = glm::vec3(0, 170, 30);
 
 
     bool Init() {

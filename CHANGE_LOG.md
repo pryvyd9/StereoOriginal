@@ -39,7 +39,7 @@
 # 0.13.1
 - introduced unique naming;
 - fixed sine curve disappearing when rotation is nan;
-- when switching between SinePen Step123 and Step132 the cross will move to the existant relevant point (optional);
+- when switching between cosinepen Step123 and Step132 the cross will move to the existant relevant point (optional);
 - fixed delete all (Close) command leaving selected objects alive and rendered;
 # 0.13.2
 - fixed quaternion not being normalized on rotation;
@@ -53,3 +53,52 @@ Added Publish configuration that cleans output before build and copies only nece
 - introduced independent cross movement and rotation;
 - isolated main math in separate static classes;
 - fixed sine building when 2 points are at the same location;
+# 0.14.1
+- fixed target mode locking;
+- added combination Ctrl+A - select all scene objects;
+# 0.14.2
+- removed duplicate shaders;
+- added tool tips;
+# 0.15
+- added context menu to scene object inspector;
+# 0.15.1
+- fixed Z axis when moving with mouse; 
+# 0.16
+- reworked change buffer;
+- fixed issue with selecting incorrect object when selecting via inspector;
+# 0.17
+- added point object;
+- added point pen tool;
+- localized object names in inspector;
+- made ./scenes start directory for file management;
+- creates ./scenes directory if not exists;
+# 0.18
+- implemented color sum;
+- implemented batch render (improved performance for mass rendering);
+# 0.18.1
+- fixed gitignore;
+- added point radius setting;
+- added shortcuts to tool tips;
+# 0.18.2
+- fixed alpha blend;
+# 0.18.3
+- fixed LMB being required to activate Z mouse movement;
+# 0.18.4
+- fixed cosinepen tool name in Attributes window;
+# 0.18.5
+- renamed sine to cosine;
+- reworked cosine point distribution;
+# 0.18.6
+- added line thickness configuration;
+# 0.18.7
+- added position detection configuration to settings;
+# 0.18.8
+- fixed webcam settigns ui;
+# 0.18.9
+- introcuded navigation mode. Toggled by Z. 
+Switches between cross and camera movement.
+When in camera mode cross doesn't react to mouse+keyboard control;
+# 0.19
+- autosaving. Name is scenes/~temp<appStartTime>. 
+If an error occured the name is scenes/~backup<appStartTime>;
+- rearranged settings in settings window;
