@@ -98,4 +98,3 @@ Added Publish configuration that cleans output before build and copies only nece
 - introcuded navigation mode. Toggled by Z. 
 Switches between cross and camera movement.
 When in camera mode cross doesn't react to mouse+keyboard control;
-- starts maximized;
