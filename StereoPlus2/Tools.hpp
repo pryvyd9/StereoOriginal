@@ -856,7 +856,6 @@ class TransformTool : public EditingTool {
 
 	const Log Logger = Log::For<TransformTool>();
 
-	size_t inputHandlerId;
 	size_t spaceModeChangeHandlerId;
 
 	Mode mode;
@@ -1024,8 +1023,9 @@ class TransformTool : public EditingTool {
 		targets.clear();
 		targets.insert(targets.end(), v.begin(), v.end());
 		
-		Input::RemoveHandler(cross->keyboardBindingHandlerId);
-		inputHandlerId = Input::AddHandler([this]{ ProcessInput(type, mode); });
+		//Input::RemoveHandler(cross->keyboardBindingHandlerId);
+		//inputHandlerId = Input::AddHandler([this]{ ProcessInput(type, mode); });
+		cross->keyboardBindingProcessor = [this] { ProcessInput(type, mode); };
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
@@ -1060,10 +1060,7 @@ public:
 		oldAngle = glm::vec3();
 		transformPos = glm::vec3();
 
-		Input::RemoveHandler(inputHandlerId);
-		// Remove if exists and add a new one.
-		Input::RemoveHandler(cross->keyboardBindingHandlerId);
-		cross->keyboardBindingHandlerId = Input::AddHandler(cross->keyboardBindingHandler);
+		cross->keyboardBindingProcessor = cross->keyboardBindingProcessorDefault;
 
 		Settings::SpaceMode().OnChanged().RemoveHandler(spaceModeChangeHandlerId);
 	}
