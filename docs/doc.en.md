@@ -55,6 +55,7 @@ For more details see Tools.
 - Q - toggle discrete movement mode;
 - W - switch space mode (Local/World);
 - C - switch target mode (Object/Pivot);
+- Z switch navigation mode (cross/camera);
 - T - transformation tool;
 - P - pen tool;
 - E - extrusion tool;
