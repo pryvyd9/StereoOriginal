@@ -14,6 +14,8 @@
 
 #include <fstream>
 #include <filesystem>// C++17 standard header file name
+
+#include <thread>
 namespace fs = std::filesystem;
 
 template<typename T>
@@ -196,6 +198,10 @@ public:
 	static size_t GetTime() {
 		return std::chrono::time_point_cast<std::chrono::milliseconds>(*GetBegin()).time_since_epoch().count();
 	}
+	static const size_t& GetAppStartTime() {
+		static size_t v = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
+		return v;
+	}
 	static std::string GetTimeFormatted(const std::string& format = "%Y-%m-%d %H:%M:%S") {
 		std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 		std::time_t now_c = std::chrono::system_clock::to_time_t(now);
@@ -321,6 +327,12 @@ class Command {
 	}
 protected:
 	bool isReady = false;
+	// Defines wether command must be deleted after execution.
+	// false = will be deleted. 
+	// true  = will not be deleted.
+	// Persistent commands are executed once every frame 
+	// until mustPersist is set to false.
+	bool mustPersist = false;
 	virtual bool Execute() = 0;
 public:
 	Command() {
@@ -333,7 +345,8 @@ public:
 				if (!command->Execute())
 					return false;
 
-				deleteQueue.push_back(command);
+				if (!command->mustPersist)
+					deleteQueue.push_back(command);
 			}
 
 		for (auto command : deleteQueue) {

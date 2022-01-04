@@ -952,7 +952,7 @@ public:
 
 	GLFWwindow* glWindow;
 
-
+	StaticField(Scene*, scene);
 
 	static IEvent<>& OnDeleteAll() {
 		return deleteAll();
@@ -961,6 +961,7 @@ public:
 	Scene(std::function<std::string()> getRootLocalizedName) {
 		this->getRootLocalizedName() = getRootLocalizedName;
 		root() = CreateRoot();
+		scene() = this;
 	}
 
 	static bool Insert(SceneObject* destination, SceneObject* obj) {

@@ -79,6 +79,8 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 }
 
 int main() {
+	//Time::Init();
+
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
 
@@ -220,6 +222,14 @@ int main() {
 	camera.OnPropertiesChanged() += updateCacheForAllObjects;
 	Settings::PointRadiusPixel().OnChanged() += [updateCacheForAllObjects](int) { updateCacheForAllObjects(); };
 
+	if (Settings::IsAutosaveEnabled().Get()) {
+		auto autosaveCommand = new AutosaveCommand();
+		autosaveCommand->SetFunc([filename = AutosaveCommand::GetFileName()] {
+			FileManager::Save(filename, Scene::scene());
+			});
+		autosaveCommand->StartNew(Settings::AutosavePeriodMinutes().Get());
+	}
+
 	ConfigureShortcuts(customRenderWindow);
 
 	// Start the main loop and clean the memory when closed.
@@ -229,6 +239,9 @@ int main() {
 		!gui.OnExit() |
 		!renderPipeline.OnExit()) {
 		positionDetector.StopPositionDetection();
+
+		// Save temp file on exit
+		FileManager::Save(AutosaveCommand::GetBackupFileName(), Scene::scene());
 		return false;
 	}
 
@@ -236,6 +249,9 @@ int main() {
 	positionDetector.StopPositionDetection();
 	Changes::Clear();
 	SettingsLoader::Save();
+
+	// Save temp file on exit
+	FileManager::Save(AutosaveCommand::GetFileName(), Scene::scene());
     return true;
 }
 

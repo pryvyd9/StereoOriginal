@@ -1728,24 +1728,46 @@ class SettingsWindow : Window {
 		return LocaleProvider::GetC(path + Settings::Name(settingReference));
 	}
 
+	// Usage example:
+	// If (SettingField(&Settings::SomeProperty, std::function([](const char* name, bool& v)
+	// {
+	//		auto res = ImGui::InputBool(name, &v); 
+	//		Put here validation logic, tooltips, etc.
+	// 	    return res;
+	// })) {
+	//		Put here OnChange logic.
+	// }
 	template<typename T>
-	static void SettingField(Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
+	static bool SettingField(Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
 		if (auto v = (&settingReference())->Get();
 			field(LocaleProvider::GetC(Settings::Name(settingReference)), v)) {
 			*(&settingReference()) = v;
 			if (shouldForceUpdateCache)
 				Scene::root().Get()->ForceUpdateCache();
+
+			return true;
 		}
+		return false;
 	}
 
+	// prefix is LocaleProvider prefix.
+	// Basically, it's json path before the last item
+	// that can be found in locales files.
+	// Example: 
+	// tool:transformation
+	// tool: - prefix
+	// transformation - item name
 	template<typename T>
-	static void SettingField(const char* prefix, Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
+	static bool SettingField(const char* prefix, Property<T>& (*settingReference)(), std::function<bool(const char*, T&)> field, bool shouldForceUpdateCache = false) {
 		if (auto v = (&settingReference())->Get();
 			field(LocaleProvider::GetC(prefix + Settings::Name(settingReference)), v)) {
 			*(&settingReference()) = v;
 			if (shouldForceUpdateCache)
 				Scene::root().Get()->ForceUpdateCache();
+
+			return true;
 		}
+		return false;
 	}
 public:
 
@@ -1767,19 +1789,29 @@ public:
 			return true;
 		}
 
-		SettingField(&Settings::StateBufferLength, std::function([](const char* name, int& v)
-			{ return ImGui::InputInt(name, &v, 1, 10, 4); }));
+		SettingField(&Settings::CustomRenderWindowAlpha, std::function([](const char* name, float& v) 
+			{ return ImGui::DragFloat(name, &v, 0.01, 0, 1); }));
 
-		if (auto v = Settings::Language().Get();
-			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {
 
-			if (auto i = v == Locale::EN; ImGui::Selectable(LocaleProvider::GetC(Locale::EN), &i))
-				Settings::Language() = Locale::EN;
-			if (auto i = v == Locale::UA; ImGui::Selectable(LocaleProvider::GetC(Locale::UA), &i))
-				Settings::Language() = Locale::UA;
+		SettingField(&Settings::PointRadiusPixel, std::function([](const char* name, int& v)
+			{ return ImGui::DragInt(name, &v, 1, 1, 100); }));
 
-			ImGui::TreePop();
-		}
+		SettingField(&Settings::LineThickness, std::function([](const char* name, int& v)
+			{ return ImGui::DragInt(name, &v, 1, Settings::MinLineThickness(), Settings::MaxLineThickness()); }));
+
+		SettingField(&Settings::CosinePointCount, std::function([](const char* name, int& v)
+			{
+				auto res = ImGui::InputInt(name, &v);
+				{
+					const char* explanation = " (k)\nd=x^2/(3+k), 0 <= k <= 1e6";
+					ImGui::SameLine();
+					ImGui::Extensions::HelpMarker((LocaleProvider::Get("cosinePointCountToolTip") + explanation).c_str());
+				}
+				if (v < 0) v = 0;
+				else if (v > 1e6) v = 1e6;
+				return res;
+			}),
+			true);
 
 		if (ImGui::TreeNode(LocaleProvider::GetC("step:step"))) {
 
@@ -1797,11 +1829,66 @@ public:
 			
 			ImGui::TreePop();
 		}
+		
+		ImGui::Separator();
+
+		// Settings that are supposed to not be changed often.
+
+		if (SettingField(&Settings::IsAutosaveEnabled, std::function([](const char* name, bool& v)
+			{ return ImGui::Checkbox(name, &v); }))) {
+
+			if (Settings::IsAutosaveEnabled().Get()) {
+				auto autosaveCommand = new AutosaveCommand();
+				autosaveCommand->SetFunc([filename = AutosaveCommand::GetFileName()] {
+					FileManager::Save(filename, Scene::scene());
+					});
+				autosaveCommand->StartNew(Settings::AutosavePeriodMinutes().Get());
+			}
+			else
+				AutosaveCommand::Abort();
+		}
+
+		if (Settings::IsAutosaveEnabled().Get()) {
+			if (SettingField(&Settings::AutosavePeriodMinutes, std::function([](const char* name, int& v)
+				{
+					auto oldV = v;
+					auto res = ImGui::InputInt(name, &v);
+
+					// Autosave shouldn't be more frequent than 
+					// once per minute.
+					if (v < 1)
+						v = 1;
+
+					// If it was 1 and user attempted to set 
+					// value < 1 then don't create a new command.
+					if (oldV == v)
+						return false;
+
+					return res;
+				}))) {
+
+				auto autosaveCommand = new AutosaveCommand();
+				autosaveCommand->SetFunc([filename = AutosaveCommand::GetFileName()] {
+					FileManager::Save(filename, Scene::scene());
+					});
+				autosaveCommand->StartNew(Settings::AutosavePeriodMinutes().Get());
+			}
+		}
+
+		SettingField(&Settings::StateBufferLength, std::function([](const char* name, int& v)
+			{ return ImGui::InputInt(name, &v, 1, 10, 4); }));
+
+
+		SettingField(&Settings::LogFileName, std::function([](const char* name, std::string& v) 
+			{ return ImGui::InputText(name, &v); }));
+
+		SettingField(&Settings::PPI, std::function([](const char* name, float& v) 
+			{ return ImGui::InputFloat(name, &v); }));
 
 		if (ImGui::TreeNode(LocaleProvider::GetC("color:color"))) {
 
 			std::function colorField = [](const char* name, glm::vec4& v)
-				{ return ImGui::ColorEdit4(name, (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview); };
+			{ return ImGui::ColorEdit4(name, (float*)&v, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreview); };
 
 			SettingField("color:", &Settings::ColorLeft, colorField);
 			SettingField("color:", &Settings::ColorRight, colorField);
@@ -1831,36 +1918,17 @@ public:
 			ImGui::TreePop();
 		}
 
-	
-		SettingField(&Settings::LogFileName, std::function([](const char* name, std::string& v) 
-			{ return ImGui::InputText(name, &v); }));
+		if (auto v = Settings::Language().Get();
+			ImGui::TreeNode((LocaleProvider::Get(Settings::Name(&Settings::Language)) + ": " + LocaleProvider::Get(v)).c_str())) {
 
-		SettingField(&Settings::PPI, std::function([](const char* name, float& v) 
-			{ return ImGui::InputFloat(name, &v); }));
+			if (auto i = v == Locale::EN; ImGui::Selectable(LocaleProvider::GetC(Locale::EN), &i))
+				Settings::Language() = Locale::EN;
+			if (auto i = v == Locale::UA; ImGui::Selectable(LocaleProvider::GetC(Locale::UA), &i))
+				Settings::Language() = Locale::UA;
 
-		SettingField(&Settings::CustomRenderWindowAlpha, std::function([](const char* name, float& v) 
-			{ return ImGui::DragFloat(name, &v, 0.01, 0, 1); }));
+			ImGui::TreePop();
+		}
 
-		SettingField(&Settings::PointRadiusPixel, std::function([](const char* name, int& v) 
-			{ return ImGui::DragInt(name, &v, 1, 1, 100); }));
-
-		SettingField(&Settings::LineThickness, std::function([](const char* name, int& v)
-			{ return ImGui::DragInt(name, &v, 1, Settings::MinLineThickness(), Settings::MaxLineThickness()); }));
-
-
-		SettingField(&Settings::CosinePointCount, std::function([](const char* name, int& v) 
-			{ 
-				auto res = ImGui::InputInt(name, &v);
-				{
-					const char* explanation = " (k)\nd=x^2/(3+k), 0 <= k <= 1e6";
-					ImGui::SameLine(); 
-					ImGui::Extensions::HelpMarker((LocaleProvider::Get("cosinePointCountToolTip") + explanation).c_str());
-				}
-				if (v < 0) v = 0;
-				else if (v > 1e6) v = 1e6;
-				return res; 
-			}),
-			true);
 
 		//ImGui::SameLine(); ImGui::Extensions::HelpMarker("Requires restart.\n");
 

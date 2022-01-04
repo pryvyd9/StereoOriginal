@@ -98,3 +98,7 @@ Added Publish configuration that cleans output before build and copies only nece
 - introcuded navigation mode. Toggled by Z. 
 Switches between cross and camera movement.
 When in camera mode cross doesn't react to mouse+keyboard control;
+# 0.19
+- autosaving. Name is scenes/~temp<appStartTime>. 
+If an error occured the name is scenes/~backup<appStartTime>;
+- rearranged settings in settings window;

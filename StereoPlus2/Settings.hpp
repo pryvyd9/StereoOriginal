@@ -67,6 +67,8 @@ public:
 	StaticProperty(std::string, LogFileName)
 	// Display Pixels Per Centimeter
 	StaticProperty(float, PPI)
+	StaticProperty(bool, IsAutosaveEnabled)
+	StaticProperty(int, AutosavePeriodMinutes)
 
 	StaticProperty(bool, UseDiscreteMovement)
 	StaticProperty(float, TranslationStep)
@@ -106,6 +108,8 @@ public:
 			{&StateBufferLength,"stateBufferLength"},
 			{&LogFileName,"logFileName"},
 			{&PPI,"ppi"},
+			{&IsAutosaveEnabled,"isAutosaveEnabled"},
+			{&AutosavePeriodMinutes,"autosavePeriodMinutes"},
 
 			{&UseDiscreteMovement,"useDiscreteMovement"},
 			{&TranslationStep,"translationStep"},
@@ -138,7 +142,7 @@ public:
 
 		if (auto a = v.find(reference); a != v.end())
 			return a._Ptr->_Myval.second;
-
+		
 		throw new std::exception("Name for a reference was not found.");
 	}
 

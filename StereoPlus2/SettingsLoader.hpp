@@ -186,15 +186,22 @@ class SettingsLoader {
 		jso.objects.insert({ Settings::Name(selector), JsonConvert::serialize(selector().Get()) });
 	}
 
+	static void VerifySettings() {
+		// Cannot be less than 1.
+		if (Settings::AutosavePeriodMinutes().Get() < 1)
+			Settings::AutosavePeriodMinutes() = 1;
+	}
 public:
 	
 	static void Load() {
 		LoadSettings("settings.json");
-		
+
 		Load(&Settings::Language);
 		Load(&Settings::StateBufferLength);
 		Load(&Settings::LogFileName);
 		Load(&Settings::PPI);
+		Load(&Settings::IsAutosaveEnabled);
+		Load(&Settings::AutosavePeriodMinutes);
 
 		Load(&Settings::UseDiscreteMovement);
 		Load(&Settings::TranslationStep);
@@ -220,6 +227,8 @@ public:
 		Load(&Settings::CameraAngle);
 		Load(&Settings::FaceSizeYMillimeters);
 		Load(&Settings::ScreenCenterToCameraDistanceMillimeters);
+
+		VerifySettings();
 	}
 	static void Save() {
 		Js::Object json;
@@ -228,6 +237,8 @@ public:
 		Insert(json, &Settings::StateBufferLength);
 		Insert(json, &Settings::LogFileName);
 		Insert(json, &Settings::PPI);
+		Insert(json, &Settings::IsAutosaveEnabled);
+		Insert(json, &Settings::AutosavePeriodMinutes);
 
 		Insert(json, &Settings::UseDiscreteMovement);
 		Insert(json, &Settings::TranslationStep);
