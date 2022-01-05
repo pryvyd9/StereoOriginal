@@ -521,15 +521,77 @@ namespace P {
 		}
 	};
 
+	enum class Source {
+		GUI,
+		NonGUI,
+		Keyboard,
+		Mouse,
+		None,
+	};
+
+	// MultiSourcePropertyNode
+	// Handles user input.
+	// Unlike simple properties its events are fired once per frame
+	// ensuring only the most prioritized input triggers the event.
+	template<typename T>
+	class MSPN {
+	public:
+		template<typename T>
+		struct EventArgs{
+			Source source;
+			T newValue;
+		};
+	private:
+		T value;
+		Event<EventArgs<T>> changed;
+		EventArgs<T> eventArgs;
+		FuncCommand* cmd = nullptr;
+	public:
+	
+		const T& Get() const {
+			return value;
+		}
+		T& Get() {
+			return value;
+		}
+		void Set(const T& v, Source source) {
+			value = v;
+			
+			if (eventArgs.source < source) {
+				eventArgs.source = source;
+				eventArgs.newValue = v;
+			}
+	
+			if (!cmd) {
+				cmd = new FuncCommand();
+				cmd->func = [&changed, &eventArgs, &cmd] {
+					changed.Invoke(eventArgs);
+					cmd = nullptr;
+					eventArgs.source = Source::None;
+				};
+			}
+		}
+		IEvent<EventArgs<T>>& OnChanged() {
+			return changed;
+		}
+		bool IsAssigned() {
+			return true;
+		}
+	};
+
+
 	// ReadonlyProperty
-	template<typename T, template<typename> typename Node>
+	template<typename T, template<typename> typename Node, typename EventArgs>
 	class RP {
 	protected:
-		std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
-		RP(const std::shared_ptr<Node<T>>& node) {
+		using _RP = RP<T, Node, EventArgs>;
+		using _Node = Node<T>;
+
+		std::shared_ptr<_Node> node = std::make_shared<_Node>();
+		RP(const std::shared_ptr<_Node>& node) {
 			this->node = node;
 		}
-		void ReplaceNode(const std::shared_ptr<Node<T>>& node) {
+		void ReplaceNode(const std::shared_ptr<_Node>& node) {
 			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
 			this->node = node;
 		}
@@ -547,30 +609,33 @@ namespace P {
 			return node->Get();
 		}
 
-		RP<T, Node> CloneReadonly() {
-			return new RP(node);
+		_RP CloneReadonly() {
+			return new _RP(node);
 		}
 
-		IEvent<T>& OnChanged() {
+		IEvent<EventArgs>& OnChanged() {
 			return node->OnChanged();
 		}
 
-		RP<T, Node>& operator=(const RP<T, Node>&) = delete;
+		_RP& operator=(const _RP&) = delete;
 		const T* operator->() const {
 			return &Get();
 		}
-		void operator<<=(const RP<T, Node>& v) {
+		void operator<<=(const _RP& v) {
 			ReplaceNode(v.node);
 		}
 	};
-	template<typename T, template<typename> typename Node>
-	class RP<T*, Node> {
+	template<typename T, template<typename> typename Node, typename EventArgs>
+	class RP<T*, Node, EventArgs> {
 	protected:
-		std::shared_ptr<Node<T*>> node = std::make_shared<Node<T*>>();
-		RP(const std::shared_ptr<Node<T*>>& node) {
+		using _RP = RP<T*, Node, EventArgs>;
+		using _Node = Node<T*>;
+
+		std::shared_ptr<_Node> node = std::make_shared<_Node>();
+		RP(const std::shared_ptr<_Node>& node) {
 			this->node = node;
 		}
-		void ReplaceNode(const std::shared_ptr<Node<T*>>& node) {
+		void ReplaceNode(const std::shared_ptr<_Node>& node) {
 			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
 			this->node = node;
 		}
@@ -588,30 +653,33 @@ namespace P {
 			return node->Get();
 		}
 
-		RP<T*, Node> CloneReadonly() {
-			return new RP(node);
+		_RP CloneReadonly() {
+			return new _RP(node);
 		}
 
-		IEvent<T>& OnChanged() {
+		IEvent<EventArgs>& OnChanged() {
 			return node->OnChanged();
 		}
 
-		RP<T*, Node>& operator=(const RP<T*, Node>&) = delete;
+		_RP& operator=(const _RP&) = delete;
 		const T* operator->() const {
 			return &Get();
 		}
-		void operator<<=(const RP<T*, Node>& v) {
+		void operator<<=(const _RP& v) {
 			ReplaceNode(v.node);
 		}
 	};
-	template<typename R, template<typename> typename Node, typename ...T>
-	class RP<std::function<R(T...)>, Node> {
+	template<typename R, template<typename> typename Node, typename EventArgs, typename ...T>
+	class RP<std::function<R(T...)>, Node, EventArgs> {
 	protected:
-		std::shared_ptr<Node<std::function<R(T...)>>> node = std::make_shared<Node<std::function<R(T...)>>>();
-		RP(const std::shared_ptr<Node<std::function<R(T...)>>>& node) {
+		using _RP = RP<std::function<R(T...)>, Node, EventArgs>;
+		using _Node = Node<std::function<R(T...)>>;
+
+		std::shared_ptr<_Node> node = std::make_shared<_Node>();
+		RP(const std::shared_ptr<_Node>& node) {
 			this->node = node;
 		}
-		void ReplaceNode(const std::shared_ptr<Node<std::function<R(T...)>>>& node) {
+		void ReplaceNode(const std::shared_ptr<_Node>& node) {
 			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
 			this->node = node;
 		}
@@ -629,156 +697,183 @@ namespace P {
 			return node->Get();
 		}
 
-		RP<std::function<R(T...)>, Node> CloneReadonly() {
+		_RP CloneReadonly() {
 			return new RP(node);
 		}
 
-		IEvent<std::function<R(T...)>>& OnChanged() {
+		IEvent<EventArgs>& OnChanged() {
 			return node->OnChanged();
 		}
 
-		RP<std::function<R(T...)>, Node>& operator=(const RP<std::function<R(T...)>, Node>&) = delete;
+		_RP& operator=(const _RP&) = delete;
 		R operator()(T... vs) const {
 			return Get()(vs...);
 		}
-		void operator<<=(const RP<std::function<R(T...)>, Node>& v) {
+		void operator<<=(const _RP& v) {
 			ReplaceNode(v.node);
 		}
 	};
 
 	// NonAssignProperty
-	template<typename T, template<typename> typename Node>
-	class NAP : public RP<T, Node> {
+	template<typename T, template<typename> typename Node, typename EventArgs>
+	class NAP : public RP<T, Node, EventArgs> {
 	protected:
-		NAP(const Node<T>& node) {
-			RP<T, Node>::node = node;
+		using _RP = RP<T, Node, EventArgs>;
+		using _NAP = NAP<T, Node, EventArgs>;
+		using _Node = Node<T>;
+
+		NAP(const _Node& node) {
+			_RP::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(const T& o) : RP<T, Node>(o) {}
+		NAP(const T& o) : _RP(o) {}
 
 		T& Get() {
-			return RP<T, Node>::node->Get();
+			return _RP::node->Get();
 		}
 
-		NAP<T, Node> CloneNonAssign() {
-			return new NAP(RP<T, Node>::node);
+		_NAP CloneNonAssign() {
+			return new _NAP(RP::node);
 		}
 
-		NAP<T, Node>& operator=(const NAP<T, Node>&) = delete;
+		_NAP& operator=(const _NAP&) = delete;
 		T* operator->() {
 			return &Get();
 		}
-		void operator<<=(const NAP<T, Node>& v) {
-			RP<T, Node>::ReplaceNode(v.node);
+		void operator<<=(const _NAP& v) {
+			_RP::ReplaceNode(v.node);
 		}
 	};
-	template<typename T, template<typename> typename Node>
-	class NAP<T*, Node> : public RP<T*, Node> {
+	template<typename T, template<typename> typename Node, typename EventArgs>
+	class NAP<T*, Node, EventArgs> : public RP<T*, Node, EventArgs> {
 	protected:
-		NAP(const Node<T*>& node) {
-			RP<T*, Node>::node = node;
+		using _RP = RP<T*, Node, EventArgs>;
+		using _NAP = NAP<T*, Node, EventArgs>;
+		using _Node = Node<T*>;
+
+		NAP(const _Node& node) {
+			_RP::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(T* o) : RP<T*, Node>(o) {}
+		NAP(T* o) : _RP(o) {}
 
 		T& Get() {
-			return RP<T*, Node>::node->Get();
+			return _RP::node->Get();
 		}
 
-		NAP<T*, Node> CloneNonAssign() {
-			return new NAP(RP<T*, Node>::node);
+		_NAP CloneNonAssign() {
+			return new _NAP(RP::node);
 		}
 
-		NAP<T*, Node>& operator=(const NAP<T*, Node>&) = delete;
+		_NAP& operator=(const _NAP&) = delete;
 		T* operator->() {
 			return &Get();
 		}
-		void operator<<=(const NAP<T*, Node>& v) {
-			RP<T*, Node>::ReplaceNode(v.node);
+		void operator<<=(const _NAP& v) {
+			_RP::ReplaceNode(v.node);
 		}
 	};
-	template<typename R, template<typename> typename Node, typename ...T>
-	class NAP<std::function<R(T...)>, Node> : public RP<std::function<R(T...)>, Node> {
+	template<typename R, template<typename> typename Node, typename EventArgs, typename ...T>
+	class NAP<std::function<R(T...)>, Node, EventArgs> : public RP<std::function<R(T...)>, Node, EventArgs> {
 	protected:
-		NAP(const Node<std::function<R(T...)>>& node) {
-			RP<std::function<R(T...)>, Node>::node = node;
+		using _RP = RP<std::function<R(T...)>, Node, EventArgs>;
+		using _NAP = NAP<std::function<R(T...)>, Node, EventArgs>;
+		using _Node = Node<std::function<R(T...)>>;
+
+		NAP(const _Node& node) {
+			_RP::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(const std::function<R(T...)>& o) : RP<std::function<R(T...)>, Node>(o) {}
+		NAP(const std::function<R(T...)>& o) : RP(o) {}
 
-		NAP<std::function<R(T...)>, Node> CloneNonAssign() {
-			return new NAP(RP<std::function<R(T...)>, Node>::node);
+		_NAP CloneNonAssign() {
+			return new _NAP(_RP::node);
 		}
 
-		NAP<std::function<R(T...)>, Node>& operator=(const NAP<std::function<R(T...)>, Node>&) = delete;
-		void operator<<=(const NAP<std::function<R(T...)>, Node>& v) {
-			RP<std::function<R(T...)>, Node>::ReplaceNode(v.node);
+		_NAP& operator=(const _NAP&) = delete;
+		void operator<<=(const _NAP& v) {
+			_RP::ReplaceNode(v.node);
 		}
 	};
 
 	// Property
-	template<typename T, template<typename> typename Node>
-	class P : public NAP<T, Node> {
+	template<typename T, template<typename> typename Node, typename EventArgs>
+	class P : public NAP<T, Node, EventArgs> {
+	protected:
+		using _RP = RP<T, Node, EventArgs>;
+		using _NAP = NAP<T, Node, EventArgs>;
+		using _P = P<T, Node, EventArgs>;
+
 	public:
 		P() {}
-		P(const T& o) : NAP<T, Node>(o) {}
-		P(const P<T, Node>&) = delete;
+		P(const T& o) : _NAP(o) {}
+		P(const P&) = delete;
 
 
-		P<T, Node>& operator=(const P<T, Node>&) = delete;
-		P<T, Node>& operator=(const T& v) {
-			RP<T, Node>::node->Set(v);
+		_P& operator=(const _P&) = delete;
+		_P& operator=(const T& v) {
+			_RP::node->Set(v);
 			return *this;
 		}
-		void operator<<=(const P<T, Node>& v) {
-			RP<T, Node>::ReplaceNode(v.node);
+		void operator<<=(const _P& v) {
+			_RP::ReplaceNode(v.node);
 		}
 	};
-	template<typename T, template<typename> typename Node>
-	class P<T*, Node> : public NAP<T*, Node> {
+	template<typename T, template<typename> typename Node, typename EventArgs>
+	class P<T*, Node, EventArgs> : public NAP<T*, Node, EventArgs> {
+	protected:
+		using _RP = RP<T*, Node, EventArgs>;
+		using _NAP = NAP<T*, Node, EventArgs>;
+		using _P = P<T*, Node, EventArgs>;
+
 	public:
 		P() {}
-		P(T* o) : NAP<T*, Node>(o) {}
+		P(T* o) : _NAP(o) {}
 
-		P<T*, Node>& operator=(const P<T*, Node>&) = delete;
-		P<T*, Node>& operator=(T* v) {
-			RP<T*, Node>::node->Set(v);
+		_P& operator=(const _P&) = delete;
+		_P& operator=(T* v) {
+			_RP::node->Set(v);
 			return *this;
 		}
-		void operator<<=(const P<T*, Node>& v) {
-			RP<T*, Node>::ReplaceNode(v.node);
+		void operator<<=(const _P& v) {
+			_RP::ReplaceNode(v.node);
 		}
 	};
-	template<typename R, template<typename> typename Node, typename ...T>
-	class P<std::function<R(T...)>, Node> : public NAP<std::function<R(T...)>, Node> {
+	template<typename R, template<typename> typename Node, typename EventArgs, typename ...T>
+	class P<std::function<R(T...)>, Node, EventArgs> : public NAP<std::function<R(T...)>, Node, EventArgs> {
+	protected:
+		using _RP = RP<std::function<R(T...)>, Node, EventArgs>;
+		using _NAP = NAP<std::function<R(T...)>, Node, EventArgs>;
+		using _P = P<std::function<R(T...)>, Node, EventArgs>;
+
 	public:
 		P() {}
-		P(const std::function<R(T...)>& o) : NAP<std::function<R(T...)>, Node>(o) {}
-		P(const P<std::function<R(T...)>, Node>&) = delete;
+		P(const std::function<R(T...)>& o) : _NAP(o) {}
+		P(const _P&) = delete;
 
 
-		P<std::function<R(T...)>, Node>& operator=(const P<std::function<R(T...)>, Node>&) = delete;
-		P<std::function<R(T...)>, Node>& operator=(const std::function<R(T...)>& v) {
-			RP<std::function<R(T...)>, Node>::node->Set(v);
+		_P& operator=(const _P&) = delete;
+		_P& operator=(const std::function<R(T...)>& v) {
+			_RP::node->Set(v);
 			return *this;
 		}
-		void operator<<=(const P<std::function<R(T...)>, Node>& v) {
-			RP<std::function<R(T...)>, Node>::ReplaceNode(v.node);
+		void operator<<=(const _P& v) {
+			_RP::ReplaceNode(v.node);
 		}
 	};
 };
 
 template<typename T>
-using ReadonlyProperty = P::RP<T, P::PN>;
+using ReadonlyProperty = P::RP<T, P::PN, T>;
 
 template<typename T>
-using NonAssignProperty = P::NAP<T, P::PN>;
+using NonAssignProperty = P::NAP<T, P::PN, T>;
 
 template<typename T>
-using Property = P::P<T, P::PN>;
+using Property = P::P<T, P::PN, T>;
 
 
 
@@ -800,62 +895,6 @@ static type& name() {\
 	return v;\
 }
 
-enum class Source {
-	GUI,
-	NonGUI,
-	Keyboard,
-	Mouse,
-	None,
-};
-
-//// Handles user input.
-//// Unlike simple properties its events are fired once per frame
-//// ensuring only the most prioritized input triggers the event.
-//template<typename T>
-//class MultiSourcePropertyNode {
-//public:
-//	template<typename T>
-//	struct EventArgs{
-//		Source source;
-//		T newValue;
-//	};
-//private:
-//	T value;
-//	Event<EventArgs<T>> changed;
-//	EventArgs<T> eventArgs;
-//	FuncCommand* cmd = nullptr;
-//public:
-//
-//	const T& Get() const {
-//		return value;
-//	}
-//	T& Get() {
-//		return value;
-//	}
-//	void Set(const T& v, Source source) {
-//		value = v;
-//		
-//		if (eventArts.source < source) {
-//			eventArgs.source = source;
-//			eventArgs.newValue = v;
-//		}
-//
-//		if (!cmd) {
-//			cmd = new FuncCommand();
-//			cmd->func = [&changed, &eventArgs, &cmd] {
-//				changed.Invoke(eventArgs);
-//				cmd = nullptr;
-//				eventArgs.source = Source::None;
-//			};
-//		}
-//	}
-//	IEvent<T>& OnChanged() {
-//		return changed;
-//	}
-//	bool IsAssigned() {
-//		return true;
-//	}
-//};
 
 
 
