@@ -95,7 +95,7 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.18.8
 - fixed webcam settigns ui;
 # 0.18.9
-- introcuded navigation mode. Toggled by Z. 
+- introduced navigation mode. Toggled by Z. 
 Switches between cross and camera movement.
 When in camera mode cross doesn't react to mouse+keyboard control;
 # 0.19
