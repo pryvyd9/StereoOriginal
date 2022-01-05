@@ -522,14 +522,14 @@ namespace P {
 	};
 
 	// ReadonlyProperty
-	template<typename T>
+	template<typename T, template<typename> typename Node>
 	class RP {
 	protected:
-		std::shared_ptr<PN<T>> node = std::make_shared<PN<T>>();
-		RP(const std::shared_ptr<PN<T>>& node) {
+		std::shared_ptr<Node<T>> node = std::make_shared<Node<T>>();
+		RP(const std::shared_ptr<Node<T>>& node) {
 			this->node = node;
 		}
-		void ReplaceNode(const std::shared_ptr<PN<T>>& node) {
+		void ReplaceNode(const std::shared_ptr<Node<T>>& node) {
 			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
 			this->node = node;
 		}
@@ -547,7 +547,7 @@ namespace P {
 			return node->Get();
 		}
 
-		RP<T> CloneReadonly() {
+		RP<T, Node> CloneReadonly() {
 			return new RP(node);
 		}
 
@@ -555,22 +555,22 @@ namespace P {
 			return node->OnChanged();
 		}
 
-		RP<T>& operator=(const RP<T>&) = delete;
+		RP<T, Node>& operator=(const RP<T, Node>&) = delete;
 		const T* operator->() const {
 			return &Get();
 		}
-		void operator<<=(const RP<T>& v) {
+		void operator<<=(const RP<T, Node>& v) {
 			ReplaceNode(v.node);
 		}
 	};
-	template<typename T>
-	class RP<T*> {
+	template<typename T, template<typename> typename Node>
+	class RP<T*, Node> {
 	protected:
-		std::shared_ptr<PN<T*>> node = std::make_shared<PN<T*>>();
-		RP(const std::shared_ptr<PN<T*>>& node) {
+		std::shared_ptr<Node<T*>> node = std::make_shared<Node<T*>>();
+		RP(const std::shared_ptr<Node<T*>>& node) {
 			this->node = node;
 		}
-		void ReplaceNode(const std::shared_ptr<PN<T*>>& node) {
+		void ReplaceNode(const std::shared_ptr<Node<T*>>& node) {
 			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
 			this->node = node;
 		}
@@ -588,7 +588,7 @@ namespace P {
 			return node->Get();
 		}
 
-		RP<T*> CloneReadonly() {
+		RP<T*, Node> CloneReadonly() {
 			return new RP(node);
 		}
 
@@ -596,22 +596,22 @@ namespace P {
 			return node->OnChanged();
 		}
 
-		RP<T*>& operator=(const RP<T*>&) = delete;
+		RP<T*, Node>& operator=(const RP<T*, Node>&) = delete;
 		const T* operator->() const {
 			return &Get();
 		}
-		void operator<<=(const RP<T*>& v) {
+		void operator<<=(const RP<T*, Node>& v) {
 			ReplaceNode(v.node);
 		}
 	};
-	template<typename R, typename ...T>
-	class RP<std::function<R(T...)>> {
+	template<typename R, template<typename> typename Node, typename ...T>
+	class RP<std::function<R(T...)>, Node> {
 	protected:
-		std::shared_ptr<PN<std::function<R(T...)>>> node = std::make_shared<PN<std::function<R(T...)>>>();
-		RP(const std::shared_ptr<PN<std::function<R(T...)>>>& node) {
+		std::shared_ptr<Node<std::function<R(T...)>>> node = std::make_shared<Node<std::function<R(T...)>>>();
+		RP(const std::shared_ptr<Node<std::function<R(T...)>>>& node) {
 			this->node = node;
 		}
-		void ReplaceNode(const std::shared_ptr<PN<std::function<R(T...)>>>& node) {
+		void ReplaceNode(const std::shared_ptr<Node<std::function<R(T...)>>>& node) {
 			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
 			this->node = node;
 		}
@@ -629,7 +629,7 @@ namespace P {
 			return node->Get();
 		}
 
-		RP<std::function<R(T...)>> CloneReadonly() {
+		RP<std::function<R(T...)>, Node> CloneReadonly() {
 			return new RP(node);
 		}
 
@@ -637,148 +637,148 @@ namespace P {
 			return node->OnChanged();
 		}
 
-		RP<std::function<R(T...)>>& operator=(const RP<std::function<R(T...)>>&) = delete;
+		RP<std::function<R(T...)>, Node>& operator=(const RP<std::function<R(T...)>, Node>&) = delete;
 		R operator()(T... vs) const {
 			return Get()(vs...);
 		}
-		void operator<<=(const RP<std::function<R(T...)>>& v) {
+		void operator<<=(const RP<std::function<R(T...)>, Node>& v) {
 			ReplaceNode(v.node);
 		}
 	};
 
 	// NonAssignProperty
-	template<typename T>
-	class NAP : public RP<T> {
+	template<typename T, template<typename> typename Node>
+	class NAP : public RP<T, Node> {
 	protected:
-		NAP(const PN<T>& node) {
-			RP<T>::node = node;
+		NAP(const Node<T>& node) {
+			RP<T, Node>::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(const T& o) : RP<T>(o) {}
+		NAP(const T& o) : RP<T, Node>(o) {}
 
 		T& Get() {
-			return RP<T>::node->Get();
+			return RP<T, Node>::node->Get();
 		}
 
-		NAP<T> CloneNonAssign() {
-			return new NAP(RP<T>::node);
+		NAP<T, Node> CloneNonAssign() {
+			return new NAP(RP<T, Node>::node);
 		}
 
-		NAP<T>& operator=(const NAP<T>&) = delete;
+		NAP<T, Node>& operator=(const NAP<T, Node>&) = delete;
 		T* operator->() {
 			return &Get();
 		}
-		void operator<<=(const NAP<T>& v) {
-			RP<T>::ReplaceNode(v.node);
+		void operator<<=(const NAP<T, Node>& v) {
+			RP<T, Node>::ReplaceNode(v.node);
 		}
 	};
-	template<typename T>
-	class NAP<T*> : public RP<T*> {
+	template<typename T, template<typename> typename Node>
+	class NAP<T*, Node> : public RP<T*, Node> {
 	protected:
-		NAP(const RP<T*>& node) {
-			RP<T>::node = node;
+		NAP(const Node<T*>& node) {
+			RP<T*, Node>::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(T* o) : RP<T*>(o) {}
+		NAP(T* o) : RP<T*, Node>(o) {}
 
 		T& Get() {
-			return RP<T*>::node->Get();
+			return RP<T*, Node>::node->Get();
 		}
 
-		NAP<T*> CloneNonAssign() {
-			return new NAP(RP<T*>::node);
+		NAP<T*, Node> CloneNonAssign() {
+			return new NAP(RP<T*, Node>::node);
 		}
 
-		NAP<T*>& operator=(const NAP<T*>&) = delete;
+		NAP<T*, Node>& operator=(const NAP<T*, Node>&) = delete;
 		T* operator->() {
 			return &Get();
 		}
-		void operator<<=(const NAP<T*>& v) {
-			RP<T*>::ReplaceNode(v.node);
+		void operator<<=(const NAP<T*, Node>& v) {
+			RP<T*, Node>::ReplaceNode(v.node);
 		}
 	};
-	template<typename R, typename ...T>
-	class NAP<std::function<R(T...)>> : public RP<std::function<R(T...)>> {
+	template<typename R, template<typename> typename Node, typename ...T>
+	class NAP<std::function<R(T...)>, Node> : public RP<std::function<R(T...)>, Node> {
 	protected:
-		NAP(const PN<std::function<R(T...)>>& node) {
-			RP<std::function<R(T...)>>::node = node;
+		NAP(const Node<std::function<R(T...)>>& node) {
+			RP<std::function<R(T...)>, Node>::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(const std::function<R(T...)>& o) : RP<std::function<R(T...)>>(o) {}
+		NAP(const std::function<R(T...)>& o) : RP<std::function<R(T...)>, Node>(o) {}
 
-		NAP<std::function<R(T...)>> CloneNonAssign() {
-			return new NAP(RP<std::function<R(T...)>>::node);
+		NAP<std::function<R(T...)>, Node> CloneNonAssign() {
+			return new NAP(RP<std::function<R(T...)>, Node>::node);
 		}
 
-		NAP<std::function<R(T...)>>& operator=(const NAP<std::function<R(T...)>>&) = delete;
-		void operator<<=(const NAP<std::function<R(T...)>>& v) {
-			RP<std::function<R(T...)>>::ReplaceNode(v.node);
+		NAP<std::function<R(T...)>, Node>& operator=(const NAP<std::function<R(T...)>, Node>&) = delete;
+		void operator<<=(const NAP<std::function<R(T...)>, Node>& v) {
+			RP<std::function<R(T...)>, Node>::ReplaceNode(v.node);
 		}
 	};
 
 	// Property
-	template<typename T>
-	class P : public NAP<T> {
+	template<typename T, template<typename> typename Node>
+	class P : public NAP<T, Node> {
 	public:
 		P() {}
-		P(const T& o) : NAP<T>(o) {}
-		P(const P<T>&) = delete;
+		P(const T& o) : NAP<T, Node>(o) {}
+		P(const P<T, Node>&) = delete;
 
 
-		P<T>& operator=(const P<T>&) = delete;
-		P<T>& operator=(const T& v) {
-			RP<T>::node->Set(v);
+		P<T, Node>& operator=(const P<T, Node>&) = delete;
+		P<T, Node>& operator=(const T& v) {
+			RP<T, Node>::node->Set(v);
 			return *this;
 		}
-		void operator<<=(const P<T>& v) {
-			RP<T>::ReplaceNode(v.node);
+		void operator<<=(const P<T, Node>& v) {
+			RP<T, Node>::ReplaceNode(v.node);
 		}
 	};
-	template<typename T>
-	class P<T*> : public NAP<T*> {
+	template<typename T, template<typename> typename Node>
+	class P<T*, Node> : public NAP<T*, Node> {
 	public:
 		P() {}
-		P(T* o) : NAP<T*>(o) {}
+		P(T* o) : NAP<T*, Node>(o) {}
 
-		P<T*>& operator=(const P<T*>&) = delete;
-		P<T*>& operator=(T* v) {
-			RP<T*>::node->Set(v);
+		P<T*, Node>& operator=(const P<T*, Node>&) = delete;
+		P<T*, Node>& operator=(T* v) {
+			RP<T*, Node>::node->Set(v);
 			return *this;
 		}
-		void operator<<=(const P<T*>& v) {
-			RP<T*>::ReplaceNode(v.node);
+		void operator<<=(const P<T*, Node>& v) {
+			RP<T*, Node>::ReplaceNode(v.node);
 		}
 	};
-	template<typename R, typename ...T>
-	class P<std::function<R(T...)>> : public NAP<std::function<R(T...)>> {
+	template<typename R, template<typename> typename Node, typename ...T>
+	class P<std::function<R(T...)>, Node> : public NAP<std::function<R(T...)>, Node> {
 	public:
 		P() {}
-		P(const std::function<R(T...)>& o) : NAP<std::function<R(T...)>>(o) {}
-		P(const P<std::function<R(T...)>>&) = delete;
+		P(const std::function<R(T...)>& o) : NAP<std::function<R(T...)>, Node>(o) {}
+		P(const P<std::function<R(T...)>, Node>&) = delete;
 
 
-		P<std::function<R(T...)>>& operator=(const P<std::function<R(T...)>>&) = delete;
-		P<std::function<R(T...)>>& operator=(const std::function<R(T...)>& v) {
-			RP<std::function<R(T...)>>::node->Set(v);
+		P<std::function<R(T...)>, Node>& operator=(const P<std::function<R(T...)>, Node>&) = delete;
+		P<std::function<R(T...)>, Node>& operator=(const std::function<R(T...)>& v) {
+			RP<std::function<R(T...)>, Node>::node->Set(v);
 			return *this;
 		}
-		void operator<<=(const P<std::function<R(T...)>>& v) {
-			RP<std::function<R(T...)>>::ReplaceNode(v.node);
+		void operator<<=(const P<std::function<R(T...)>, Node>& v) {
+			RP<std::function<R(T...)>, Node>::ReplaceNode(v.node);
 		}
 	};
 };
 
 template<typename T>
-using ReadonlyProperty = P::RP<T>;
+using ReadonlyProperty = P::RP<T, P::PN>;
 
 template<typename T>
-using NonAssignProperty = P::NAP<T>;
+using NonAssignProperty = P::NAP<T, P::PN>;
 
 template<typename T>
-using Property = P::P<T>;
+using Property = P::P<T, P::PN>;
 
 
 
