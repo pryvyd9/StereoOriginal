@@ -529,19 +529,18 @@ namespace P {
 		None,
 	};
 
+	template<typename T>
+	struct EventArgs {
+		Source source;
+		T newValue;
+	};
+
 	// MultiSourcePropertyNode
 	// Handles user input.
 	// Unlike simple properties its events are fired once per frame
 	// ensuring only the most prioritized input triggers the event.
 	template<typename T>
 	class MSPN {
-	public:
-		template<typename T>
-		struct EventArgs{
-			Source source;
-			T newValue;
-		};
-	private:
 		T value;
 		Event<EventArgs<T>> changed;
 		EventArgs<T> eventArgs;
@@ -854,7 +853,6 @@ namespace P {
 		P(const std::function<R(T...)>& o) : _NAP(o) {}
 		P(const _P&) = delete;
 
-
 		_P& operator=(const _P&) = delete;
 		_P& operator=(const std::function<R(T...)>& v) {
 			_RP::node->Set(v);
@@ -874,6 +872,9 @@ using NonAssignProperty = P::NAP<T, P::PN, T>;
 
 template<typename T>
 using Property = P::P<T, P::PN, T>;
+
+template<typename T>
+using MSProperty = P::P<T, P::MSPN, P::EventArgs<T>>;
 
 
 
