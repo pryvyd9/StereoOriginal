@@ -474,6 +474,7 @@ namespace P {
 			return true;
 		}
 	};
+	// PropertyNode
 	template<typename T>
 	class PN<T*> {
 		T* value = nullptr;
@@ -496,6 +497,7 @@ namespace P {
 			return value != nullptr;
 		}
 	};
+	// PropertyNode
 	template<typename R, typename ...T>
 	class PN<std::function<R(T...)>> {
 		std::function<R(T...)> value;
@@ -539,11 +541,11 @@ namespace P {
 	// Handles user input.
 	// Unlike simple properties its events are fired once per frame
 	// ensuring only the most prioritized input triggers the event.
+	// T must inherit EventArgs<T> or have 'source' field in it.
 	template<typename T>
 	class MSPN {
+		Event<T> changed;
 		T value;
-		Event<EventArgs<T>> changed;
-		EventArgs<T> eventArgs;
 		FuncCommand* cmd = nullptr;
 	public:
 	
@@ -553,24 +555,23 @@ namespace P {
 		T& Get() {
 			return value;
 		}
-		void Set(const T& v, Source source) {
+		void Set(const T& v) {
+			if (value.source > v.source)
+				return;
+
 			value = v;
-			
-			if (eventArgs.source < source) {
-				eventArgs.source = source;
-				eventArgs.newValue = v;
-			}
-	
-			if (!cmd) {
-				cmd = new FuncCommand();
-				cmd->func = [&changed, &eventArgs, &cmd] {
-					changed.Invoke(eventArgs);
-					cmd = nullptr;
-					eventArgs.source = Source::None;
-				};
-			}
+
+			if (cmd)
+				return;
+
+			cmd = new FuncCommand();
+			cmd->func = [&] {
+				changed.Invoke(value);
+				cmd = nullptr;
+				value.source = Source::None;
+			};
 		}
-		IEvent<EventArgs<T>>& OnChanged() {
+		IEvent<T>& OnChanged() {
 			return changed;
 		}
 		bool IsAssigned() {
@@ -580,10 +581,10 @@ namespace P {
 
 
 	// ReadonlyProperty
-	template<typename T, template<typename> typename Node, typename EventArgs>
+	template<typename T, template<typename> typename Node>
 	class RP {
 	protected:
-		using _RP = RP<T, Node, EventArgs>;
+		using _RP = RP<T, Node>;
 		using _Node = Node<T>;
 
 		std::shared_ptr<_Node> node = std::make_shared<_Node>();
@@ -612,7 +613,7 @@ namespace P {
 			return new _RP(node);
 		}
 
-		IEvent<EventArgs>& OnChanged() {
+		IEvent<T>& OnChanged() {
 			return node->OnChanged();
 		}
 
@@ -624,10 +625,11 @@ namespace P {
 			ReplaceNode(v.node);
 		}
 	};
-	template<typename T, template<typename> typename Node, typename EventArgs>
-	class RP<T*, Node, EventArgs> {
+	// ReadonlyProperty
+	template<typename T, template<typename> typename Node>
+	class RP<T*, Node> {
 	protected:
-		using _RP = RP<T*, Node, EventArgs>;
+		using _RP = RP<T*, Node>;
 		using _Node = Node<T*>;
 
 		std::shared_ptr<_Node> node = std::make_shared<_Node>();
@@ -656,7 +658,7 @@ namespace P {
 			return new _RP(node);
 		}
 
-		IEvent<EventArgs>& OnChanged() {
+		IEvent<T>& OnChanged() {
 			return node->OnChanged();
 		}
 
@@ -668,10 +670,11 @@ namespace P {
 			ReplaceNode(v.node);
 		}
 	};
-	template<typename R, template<typename> typename Node, typename EventArgs, typename ...T>
-	class RP<std::function<R(T...)>, Node, EventArgs> {
+	// ReadonlyProperty
+	template<typename R, template<typename> typename Node, typename ...T>
+	class RP<std::function<R(T...)>, Node> {
 	protected:
-		using _RP = RP<std::function<R(T...)>, Node, EventArgs>;
+		using _RP = RP<std::function<R(T...)>, Node>;
 		using _Node = Node<std::function<R(T...)>>;
 
 		std::shared_ptr<_Node> node = std::make_shared<_Node>();
@@ -700,7 +703,7 @@ namespace P {
 			return new RP(node);
 		}
 
-		IEvent<EventArgs>& OnChanged() {
+		IEvent<std::function<R(T...)>>& OnChanged() {
 			return node->OnChanged();
 		}
 
@@ -714,11 +717,11 @@ namespace P {
 	};
 
 	// NonAssignProperty
-	template<typename T, template<typename> typename Node, typename EventArgs>
-	class NAP : public RP<T, Node, EventArgs> {
+	template<typename T, template<typename> typename Node>
+	class NAP : public RP<T, Node> {
 	protected:
-		using _RP = RP<T, Node, EventArgs>;
-		using _NAP = NAP<T, Node, EventArgs>;
+		using _RP = RP<T, Node>;
+		using _NAP = NAP<T, Node>;
 		using _Node = Node<T>;
 
 		NAP(const _Node& node) {
@@ -744,11 +747,12 @@ namespace P {
 			_RP::ReplaceNode(v.node);
 		}
 	};
-	template<typename T, template<typename> typename Node, typename EventArgs>
-	class NAP<T*, Node, EventArgs> : public RP<T*, Node, EventArgs> {
+	// NonAssignProperty
+	template<typename T, template<typename> typename Node>
+	class NAP<T*, Node> : public RP<T*, Node> {
 	protected:
-		using _RP = RP<T*, Node, EventArgs>;
-		using _NAP = NAP<T*, Node, EventArgs>;
+		using _RP = RP<T*, Node>;
+		using _NAP = NAP<T*, Node>;
 		using _Node = Node<T*>;
 
 		NAP(const _Node& node) {
@@ -774,11 +778,12 @@ namespace P {
 			_RP::ReplaceNode(v.node);
 		}
 	};
-	template<typename R, template<typename> typename Node, typename EventArgs, typename ...T>
-	class NAP<std::function<R(T...)>, Node, EventArgs> : public RP<std::function<R(T...)>, Node, EventArgs> {
+	// NonAssignProperty
+	template<typename R, template<typename> typename Node, typename ...T>
+	class NAP<std::function<R(T...)>, Node> : public RP<std::function<R(T...)>, Node> {
 	protected:
-		using _RP = RP<std::function<R(T...)>, Node, EventArgs>;
-		using _NAP = NAP<std::function<R(T...)>, Node, EventArgs>;
+		using _RP = RP<std::function<R(T...)>, Node>;
+		using _NAP = NAP<std::function<R(T...)>, Node>;
 		using _Node = Node<std::function<R(T...)>>;
 
 		NAP(const _Node& node) {
@@ -799,18 +804,16 @@ namespace P {
 	};
 
 	// Property
-	template<typename T, template<typename> typename Node, typename EventArgs>
-	class P : public NAP<T, Node, EventArgs> {
+	template<typename T, template<typename> typename Node>
+	class P : public NAP<T, Node> {
 	protected:
-		using _RP = RP<T, Node, EventArgs>;
-		using _NAP = NAP<T, Node, EventArgs>;
-		using _P = P<T, Node, EventArgs>;
-
+		using _RP = RP<T, Node>;
+		using _NAP = NAP<T, Node>;
+		using _P = P<T, Node>;
 	public:
 		P() {}
 		P(const T& o) : _NAP(o) {}
 		P(const P&) = delete;
-
 
 		_P& operator=(const _P&) = delete;
 		_P& operator=(const T& v) {
@@ -820,61 +823,98 @@ namespace P {
 		void operator<<=(const _P& v) {
 			_RP::ReplaceNode(v.node);
 		}
-	};
-	template<typename T, template<typename> typename Node, typename EventArgs>
-	class P<T*, Node, EventArgs> : public NAP<T*, Node, EventArgs> {
-	protected:
-		using _RP = RP<T*, Node, EventArgs>;
-		using _NAP = NAP<T*, Node, EventArgs>;
-		using _P = P<T*, Node, EventArgs>;
 
+		// It exists to simplify complex type modification with 
+		// only 1 event triggering.
+		// Example:
+		// MSProperty<int> j;
+		// 
+		// j.Update([](EventArgs<int> e) {
+		// 	   e.newValue = 1;
+		// 	   e.source = Source::Keyboard;
+		// 	   return e;
+		// 	   });
+		// ----------VS--------------
+		// auto h = P::EventArgs<int>();
+		// h.newValue = 1;
+		// h.source = Source::Keyboard;
+		// j = h;
+		_P& Update(std::function<const T&(T)> func) {
+			return operator=(func());
+		}
+	};
+	// Property
+	template<typename T, template<typename> typename Node>
+	class P<T*, Node> : public NAP<T*, Node> {
+	protected:
+		using _RP = RP<T*, Node>;
+		using _NAP = NAP<T*, Node>;
+		using _P = P<T*, Node>;
+		using _T = T*;
 	public:
 		P() {}
-		P(T* o) : _NAP(o) {}
+		P(_T o) : _NAP(o) {}
 
 		_P& operator=(const _P&) = delete;
-		_P& operator=(T* v) {
+		_P& operator=(_T v) {
 			_RP::node->Set(v);
 			return *this;
 		}
 		void operator<<=(const _P& v) {
 			_RP::ReplaceNode(v.node);
 		}
+		_P& Update(std::function<const _T& (_T)> func) {
+			return operator=(func());
+		}
 	};
-	template<typename R, template<typename> typename Node, typename EventArgs, typename ...T>
-	class P<std::function<R(T...)>, Node, EventArgs> : public NAP<std::function<R(T...)>, Node, EventArgs> {
+	// Property
+	template<typename R, template<typename> typename Node, typename ...T>
+	class P<std::function<R(T...)>, Node> : public NAP<std::function<R(T...)>, Node> {
 	protected:
-		using _RP = RP<std::function<R(T...)>, Node, EventArgs>;
-		using _NAP = NAP<std::function<R(T...)>, Node, EventArgs>;
-		using _P = P<std::function<R(T...)>, Node, EventArgs>;
-
+		using _RP = RP<std::function<R(T...)>, Node>;
+		using _NAP = NAP<std::function<R(T...)>, Node>;
+		using _P = P<std::function<R(T...)>, Node>;
+		using _T = std::function<R(T...)>;
 	public:
 		P() {}
-		P(const std::function<R(T...)>& o) : _NAP(o) {}
+		P(const _T& o) : _NAP(o) {}
 		P(const _P&) = delete;
 
 		_P& operator=(const _P&) = delete;
-		_P& operator=(const std::function<R(T...)>& v) {
+		_P& operator=(const _T& v) {
 			_RP::node->Set(v);
 			return *this;
 		}
 		void operator<<=(const _P& v) {
 			_RP::ReplaceNode(v.node);
 		}
+		_P& Update(std::function<const _T& (_T)> func) {
+			return operator=(func());
+		}
+
 	};
 };
 
-template<typename T>
-using ReadonlyProperty = P::RP<T, P::PN, T>;
+using Source = P::Source;
 
 template<typename T>
-using NonAssignProperty = P::NAP<T, P::PN, T>;
+using EventArgs = P::EventArgs<T>;
 
 template<typename T>
-using Property = P::P<T, P::PN, T>;
+using ReadonlyProperty = P::RP<T, P::PN>;
 
 template<typename T>
-using MSProperty = P::P<T, P::MSPN, P::EventArgs<T>>;
+using NonAssignProperty = P::NAP<T, P::PN>;
+
+template<typename T>
+using Property = P::P<T, P::PN>;
+
+// MultiSourceProperty
+// Handles user input.
+// Unlike simple properties its events are fired once per frame
+// ensuring only the most prioritized input triggers the event.
+template<typename T>
+using MSProperty = P::P<P::EventArgs<T>, P::MSPN>;
 
 
 
@@ -895,9 +935,6 @@ static type& name() {\
 	static type v = defaultValue;\
 	return v;\
 }
-
-
-
 
 template<typename T>
 class ValueStability {

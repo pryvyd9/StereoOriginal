@@ -79,8 +79,6 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 }
 
 int main() {
-	//Time::Init();
-
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
 
