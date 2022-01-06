@@ -191,12 +191,12 @@ public:
 	StaticField(glm::vec3, NumpadAxe)
 	StaticField(glm::vec3, MouseAxe)
 
-	StaticField(glm::vec3, movement)
+	StaticProperty(glm::vec3, movement)
 
 	StaticProperty(bool, IsCustomRenderImageActive)
 
 	static bool IsMoved() {
-		return movement() != glm::vec3();
+		return movement().Get() != glm::vec3();
 	}
 
 	static bool IsPressed(Key::KeyPair key, bool discreteInput = false) {
@@ -347,12 +347,12 @@ public:
 	static const glm::vec3 GetRelativeRotation(const glm::vec3& defaultAngle) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!Input::IsPressed(Key::Modifier::Control) || Input::movement() == zero)
+		if (!Input::IsPressed(Key::Modifier::Control) || Input::movement().Get() == zero)
 			return defaultAngle;
 
 		// If all 3 axes are modified then don't apply such rotation.
 		// Quaternion can't rotate around 3 axes.
-		if (Input::movement().x && Input::movement().y && Input::movement().z)
+		if (Input::movement()->x && Input::movement()->y && Input::movement()->z)
 			return defaultAngle;
 
 		auto mouseThresholdMin = 0.8;
@@ -385,18 +385,18 @@ public:
 	static const glm::vec3 GetRelativeMovement(const glm::vec3& defaultMovement) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!Input::IsPressed(Key::Modifier::Alt) || Input::movement() == zero)
+		if (!Input::IsPressed(Key::Modifier::Alt) || Input::movement().Get() == zero)
 			return defaultMovement;
 
-		return Input::movement() * Settings::TranslationStep().Get();
+		return Input::movement().Get() * Settings::TranslationStep().Get();
 	}
 	static const float GetNewScale(const float& currentScale) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!Input::IsPressed(Key::Modifier::Shift) || Input::movement() == zero)
+		if (!Input::IsPressed(Key::Modifier::Shift) || Input::movement().Get() == zero)
 			return currentScale;
 
-		return currentScale + Input::movement().x * Settings::ScalingStep().Get();
+		return currentScale + Input::movement()->x * Settings::ScalingStep().Get();
 	}
 
 };
@@ -415,11 +415,10 @@ class KeyBinding {
 			bool mouseBoundlessMode = Input::IsPressed(Key::Modifier::Alt) || Input::IsPressed(Key::Modifier::Shift) || Input::IsPressed(Key::Modifier::Control);
 			Input::SetMouseBoundlessMode(mouseBoundlessMode && Input::IsCustomRenderImageActive().Get());
 
-			Input::movement() = glm::vec3();
-
-			Input::movement() += Input::MouseAxe() * Settings::MouseSensivity().Get();
-			Input::movement() += Input::ArrowAxe();
-			Input::movement() += Input::NumpadAxe();
+			Input::movement() = 
+				Input::MouseAxe() * Settings::MouseSensivity().Get()
+				+ Input::ArrowAxe()
+				+ Input::NumpadAxe();
 			});
 		Input::AddHandler([] {
 			if (Input::IsPressed(Key::Modifier::Alt)) {

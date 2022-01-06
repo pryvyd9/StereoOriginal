@@ -149,7 +149,7 @@ int main() {
 		return false;
 
 	cross.Name = "Cross";
-	cross.GUIPositionEditHandler = [] { Input::movement() += Scene::cross()->GUIPositionEditDifference; };
+	cross.GUIPositionEditHandler = [] { Input::movement() = Input::movement().Get() + Scene::cross()->GUIPositionEditDifference; };
 	cross.GUIPositionEditHandlerId = Input::AddHandler(cross.GUIPositionEditHandler);
 	cross.keyboardBindingProcessorDefault = cross.keyboardBindingProcessor = [] {
 		auto relativeRotation = Input::GetRelativeRotation(glm::vec3());

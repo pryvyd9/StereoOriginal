@@ -534,7 +534,7 @@ namespace P {
 	template<typename T>
 	struct EventArgs {
 		Source source;
-		T newValue;
+		T value;
 	};
 
 	// MultiSourcePropertyNode
@@ -840,7 +840,7 @@ namespace P {
 		// h.source = Source::Keyboard;
 		// j = h;
 		_P& Update(std::function<const T&(T)> func) {
-			return operator=(func());
+			return operator=(func(_NAP::Get()));
 		}
 	};
 	// Property
@@ -864,7 +864,7 @@ namespace P {
 			_RP::ReplaceNode(v.node);
 		}
 		_P& Update(std::function<const _T& (_T)> func) {
-			return operator=(func());
+			return operator=(func(_NAP::Get()));
 		}
 	};
 	// Property
@@ -889,7 +889,7 @@ namespace P {
 			_RP::ReplaceNode(v.node);
 		}
 		_P& Update(std::function<const _T& (_T)> func) {
-			return operator=(func());
+			return operator=(func(_NAP::Get()));
 		}
 
 	};
@@ -935,6 +935,15 @@ static type& name() {\
 	static type v = defaultValue;\
 	return v;\
 }
+
+#define MSProperty(type,name)\
+MSProperty<type> name;\
+const type& Get##name() {\
+	return name.Get().value;\
+}\
+void Set##name(const type& v) {\
+	name.Update([&v](EventArgs<type> o){ o.value = v; return o; });\
+}\
 
 template<typename T>
 class ValueStability {
