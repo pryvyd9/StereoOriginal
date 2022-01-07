@@ -30,7 +30,7 @@ class Transform {
 	// Get rotation angle around the axe.
 	// Calculates a simple sum of absolute values of angles from all axes,
 	// trims angle to 180 degrees and then converts to radians
-	static bool tryGetLocalRotation(const glm::vec3& rotation, glm::vec3& axe, float& angle) {
+	static bool tryGetRotation(const glm::vec3& rotation, glm::vec3& axe, float& angle) {
 		glm::vec3 t[2] = { glm::vec3(), glm::vec3() };
 		float angles[2] = { 0, 0 };
 
@@ -80,47 +80,46 @@ class Transform {
 public:
 	static void Scale(const glm::vec3& center, const float& oldScale, const float& scale, std::vector<PON>& targets) {
 		for (auto& target : targets) {
-			target->SetWorldPosition((target->GetWorldPosition() - center) / oldScale * scale + center);
+			target->SetPosition((target->GetPosition() - center) / oldScale * scale + center);
 			for (size_t i = 0; i < target->GetVertices().size(); i++)
 				target->SetVertice(i, (target->GetVertices()[i] - center) / oldScale * scale + center);
 		}
 	}
-	static void Translate(const glm::vec3& transformVector, SceneObject* cross) {
+	static void Translate(const glm::vec3& transformVector, SceneObject* cross, Source source) {
 		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
-			auto r = glm::rotate(cross->GetWorldRotation(), transformVector);
-			cross->SetWorldPosition(cross->GetWorldPosition() + r);
+			auto r = glm::rotate(cross->GetRotation(), transformVector);
+			cross->SetPosition(cross->GetPosition() + r, source);
 			return;
 		}
-
-		cross->SetWorldPosition(cross->GetWorldPosition() + transformVector);
+		cross->SetPosition(cross->GetPosition() + transformVector, source);
 	}
 	static void Translate(const glm::vec3& transformVector, std::vector<PON>& targets, SceneObject* cross) {
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
 		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
-			auto r = glm::rotate(cross->GetWorldRotation(), transformVector);
+			auto r = glm::rotate(cross->GetRotation(), transformVector);
 
-			cross->SetWorldPosition(cross->GetWorldPosition() + r);
+			cross->SetPosition(cross->GetPosition() + r);
 			for (auto o : targets) {
-				o->SetWorldPosition(o->GetWorldPosition() + r);
+				o->SetPosition(o->GetPosition() + r);
 				for (size_t i = 0; i < o->GetVertices().size(); i++)
 					o->SetVertice(i, o->GetVertices()[i] + r);
 			}
 			return;
 		}
 
-		cross->SetWorldPosition(cross->GetWorldPosition() + transformVector);
+		cross->SetPosition(cross->GetPosition() + transformVector);
 		for (auto o : targets) {
-			o->SetWorldPosition(o->GetWorldPosition() + transformVector);
+			o->SetPosition(o->GetPosition() + transformVector);
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
 				o->SetVertice(i, o->GetVertices()[i] + transformVector);
 		}
 	}
-	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, SceneObject* cross) {
+	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, SceneObject* cross, Source source) {
 		glm::vec3 axe;
 		float angle;
 
-		if (!tryGetLocalRotation(rotation, axe, angle))
+		if (!tryGetRotation(rotation, axe, angle))
 			return;
 
 		auto r = glm::normalize(glm::angleAxis(angle, axe));
@@ -132,15 +131,16 @@ public:
 		// When multiple objects are selected cross' rotation is equal to the first 
 		// object in selection. See TransformTool::OnSelectionChanged
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			r = getIsolatedRotation(r, cross->GetWorldRotation());
+			r = getIsolatedRotation(r, cross->GetRotation());
 
-		cross->SetLocalRotation(r * cross->GetLocalRotation());
+		auto h = r * cross->GetRotation();
+		cross->SetRotation(r * cross->GetRotation(), source);
 	}
 	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::vector<PON>& targets, SceneObject* cross) {
 		glm::vec3 axe;
 		float angle;
 
-		if (!tryGetLocalRotation(rotation, axe, angle))
+		if (!tryGetRotation(rotation, axe, angle))
 			return;
 
 		auto r = glm::normalize(glm::angleAxis(angle, axe));
@@ -152,16 +152,16 @@ public:
 		// When multiple objects are selected cross' rotation is equal to the first 
 		// object in selection. See TransformTool::OnSelectionChanged
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			r = getIsolatedRotation(r, cross->GetWorldRotation());
+			r = getIsolatedRotation(r, cross->GetRotation());
 
-		cross->SetLocalRotation(r * cross->GetLocalRotation());
+		cross->SetRotation(r * cross->GetRotation());
 
 		for (auto& target : targets) {
-			target->SetWorldPosition(glm::rotate(r, target->GetWorldPosition() - center) + center);
+			target->SetPosition(glm::rotate(r, target->GetPosition() - center) + center);
 			for (size_t i = 0; i < target->GetVertices().size(); i++)
 				target->SetVertice(i, glm::rotate(r, target->GetVertices()[i] - center) + center);
 
-			target->SetWorldRotation(r * target->GetWorldRotation());
+			target->SetRotation(r * target->GetRotation());
 		}
 	}
 

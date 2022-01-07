@@ -28,10 +28,6 @@ class SceneObject {
 
 	// Unique id. Needed for PON. Doesn't need to be saved to file.
 	size_t id;
-	// Local position;
-	glm::vec3 position;
-	// Local rotation;
-	glm::fquat rotation = unitQuat();
 	SceneObject* parent = nullptr;
 protected:
 	bool shouldTransformPosition = false;
@@ -76,22 +72,22 @@ protected:
 	virtual void CascadeTransform(std::vector<glm::vec3>& vertices) const {
 		if (shouldTransformRotation && shouldTransformPosition)
 			for (size_t i = 0; i < vertices.size(); i++)
-				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]) + GetLocalPosition();
+				vertices[i] = glm::rotate(GetRotation(), vertices[i]) + GetPosition();
 		else if (shouldTransformRotation)
 			for (size_t i = 0; i < vertices.size(); i++)
-				vertices[i] = glm::rotate(GetLocalRotation(), vertices[i]);
+				vertices[i] = glm::rotate(GetRotation(), vertices[i]);
 		else if (shouldTransformPosition)
 			for (size_t i = 0; i < vertices.size(); i++)
-				vertices[i] += GetLocalPosition();
+				vertices[i] += GetPosition();
 
 		if (GetParent())
 			GetParent()->CascadeTransform(vertices);
 	}
 	virtual void CascadeTransform(glm::vec3& v) const {
 		if (shouldTransformRotation)
-			v += glm::rotate(GetLocalRotation(), v);
+			v += glm::rotate(GetRotation(), v);
 		if (shouldTransformPosition)
-			v += GetLocalPosition();
+			v += GetPosition();
 
 		if (GetParent())
 			GetParent()->CascadeTransform(v);
@@ -101,14 +97,17 @@ protected:
 			GetParent()->CascadeTransformInverse(v);
 
 		if (shouldTransformPosition)
-			v -= GetLocalPosition();
+			v -= GetPosition();
 		if (shouldTransformRotation)
-			v += glm::rotate(glm::inverse(GetLocalRotation()), v);
+			v += glm::rotate(glm::inverse(GetRotation()), v);
 	}
 
 public:
 	std::vector<SceneObject*> children;
 	std::string Name = "noname";
+
+	SceneObjectMSProperty(glm::vec3, Position);
+	SceneObjectMSPropertyDefault(glm::quat, Rotation, { unitQuat() });
 
 	const size_t& Id() const {
 		return id;
@@ -134,8 +133,8 @@ public:
 	SceneObject(const SceneObject* copy) : SceneObject() {
 		id = freeId()++;
 
-		position = copy->position;
-		rotation = copy->rotation;
+		Position = copy->Position.Get();
+		Rotation = copy->Rotation.Get();
 		parent = copy->parent;
 		children = copy->children;
 		Name = copy->Name;
@@ -170,18 +169,7 @@ public:
 		auto source = &parent->children;
 		auto dest = &newParent->children;
 
-		if (Settings::MoveCoordinateAction().Get() == MoveCoordinateAction::Adapt) {
-			auto oldPosition = GetWorldPosition();
-			auto oldRotation = GetWorldRotation();
-
-			parent = newParent;
-
-			SetWorldPosition(oldPosition);
-			SetWorldRotation(oldRotation);
-		}
-		else
-			parent = newParent;
-
+		parent = newParent;
 
 		auto sourcePositionInt = find(*source, this);
 
@@ -206,7 +194,6 @@ public:
 	}
 	void SetParent(
 		SceneObject* newParent,
-		bool shouldConvertValues = false,
 		bool shouldIgnoreOldParent = false,
 		bool shouldForceUpdateCache = true,
 		bool shouldUpdateNewParent = true) {
@@ -219,85 +206,17 @@ public:
 				parent->children.erase(pos);
 		}
 
-		if (shouldConvertValues) {
-			auto oldPosition = GetWorldPosition();
-			auto oldRotation = GetWorldRotation();
-
-			parent = newParent;
-
-			SetWorldPosition(oldPosition);
-			SetWorldRotation(oldRotation);
-		}
-		else {
-			parent = newParent;
-		}
-
+		parent = newParent;
 
 		if (shouldUpdateNewParent && newParent)
 			newParent->children.push_back(this);
-	}
-
-	// Transforms position relative to the object.
-
-	glm::vec3 ToWorldPosition(const glm::vec3& v) const {
-		glm::vec3 r = v;
-		CascadeTransform(r);
-		return r;
-	}
-	glm::vec3 ToLocalPosition(const glm::vec3& v) const {
-		glm::vec3 r = v;
-		CascadeTransformInverse(r);
-		return r;
 	}
 
 	virtual ObjectType GetType() const = 0;
 	virtual std::string GetDefaultName() {
 		return "SceneObject";
 	}
-
-	const glm::vec3& GetLocalPosition() const {
-		return position;
-	}
-	const virtual glm::vec3 GetWorldPosition() const {
-		return shouldTransformPosition && GetParent()
-			? ToWorldPosition(glm::vec3())
-			: GetLocalPosition();
-	}
-	void SetLocalPosition(const glm::vec3& v) {
-		ForceUpdateCache();
-		position = v;
-	}
-	void SetWorldPosition(const glm::vec3& v) {
-		ForceUpdateCache();
-
-		position = shouldTransformPosition && GetParent()
-			// Set world position means to set local position
-			// relative to parent.
-			? GetParent()->ToLocalPosition(v)
-			: v;
-	}
-
-	const glm::quat& GetLocalRotation() const {
-		return rotation;
-	}
-	const virtual glm::quat GetWorldRotation() const {
-		return shouldTransformRotation && GetParent()
-			? GetParent()->GetWorldRotation() * GetLocalRotation()
-			: GetLocalRotation();
-	}
-	void SetLocalRotation(const glm::quat& v) {
-		ForceUpdateCache();
-		rotation = v;
-	}
-	void SetWorldRotation(const glm::quat& v) {
-		ForceUpdateCache();
-
-		rotation = shouldTransformRotation && GetParent()
-			// Set world rotation means to set local rotation
-			// relative to parent.
-			? glm::inverse(GetParent()->GetWorldRotation()) * v
-			: v;
-	}
+	
 
 	// Forces the object and all children to update cache.
 	void ForceUpdateCache() {
@@ -330,25 +249,13 @@ public:
 
 	virtual void DesignProperties() {
 
-		//if (ImGui::TreeNodeEx("local", ImGuiTreeNodeFlags_DefaultOpen)) {
-		//	ImGui::Indent(propertyIndent);
-
-		//	if (auto v = GetLocalPosition(); ImGui::DragFloat3("local position", (float*)&v, 1, 0, 0, "%.1f"))
-		//		SetLocalPosition(v);
-		//	if (auto v = GetLocalRotation(); ImGui::DragFloat4("local rotation", (float*)&v, 0.01, 0, 1, "%.3f"))
-		//		SetLocalRotation(v);
-
-		//	ImGui::Unindent(propertyIndent);
-		//	ImGui::TreePop();
-		//}
-
 		if (ImGui::TreeNodeEx("world", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Indent(propertyIndent);
 
-			if (auto v = GetWorldPosition(); ImGui::DragFloat3("world position", (float*)&v, 1, 0, 0, "%.1f"))
-				SetWorldPosition(v);
-			if (auto v = GetWorldRotation(); ImGui::DragFloat4("world rotation", (float*)&v, 0.01, -1, 1, "%.3f"))
-				SetWorldRotation(v);
+			if (auto v = GetPosition(); ImGui::DragFloat3("Position", (float*)&v, 1, 0, 0, "%.1f"))
+				Position = EventArgs<glm::vec3>(v, Source::GUI);
+			if (auto v = GetRotation(); ImGui::DragFloat4("Rotation", (float*)&v, 0.01, -1, 1, "%.3f"))
+				Rotation = EventArgs<glm::quat>(v, Source::GUI);
 
 			ImGui::Unindent(propertyIndent);
 			ImGui::TreePop();
@@ -374,8 +281,8 @@ public:
 
 	virtual SceneObject* Clone() const { throw std::exception("not implemented"); }
 	SceneObject& operator=(const SceneObject& o) {
-		position = o.position;
-		rotation = o.rotation;
+		Position = o.Position.Get();
+		Rotation = o.Rotation.Get();
 		parent = o.parent;
 		children = o.children;
 		Name = o.Name;

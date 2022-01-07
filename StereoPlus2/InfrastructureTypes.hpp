@@ -8,13 +8,13 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <queue>
 #include <functional>
 #include <map>
 #include <glm/vec3.hpp>
 
 #include <fstream>
 #include <filesystem>// C++17 standard header file name
-
 #include <thread>
 namespace fs = std::filesystem;
 
@@ -122,7 +122,7 @@ public:
 	}
 	void apply(fs::path n) {
 		path = fs::absolute(n);
-		pathBuffer = path.u8string();
+		pathBuffer = reinterpret_cast<const char*>(path.u8string().c_str());
 	}
 
 	bool isSome() {
@@ -147,8 +147,39 @@ public:
 	}
 };
 
+template<typename T>
+class PercentileStorage {
+	using FrameId = size_t;
+	
+	// sorted by value.
+	std::map<T, FrameId> storage;
+
+	// sorted by age. Old to young.
+	std::queue<FrameId> ages;
+public:
+	size_t size;
+	PercentileStorage(size_t size) : size(size) {}
+	void Put(size_t id, T value) {
+		if (storage.size() > size) {
+			storage.erase(ages.front());
+			ages.pop();
+		}
+
+		ages.push(id);
+		storage.insert(std::make_pair(value, id));
+	}
+
+	size_t GetPercentile(size_t percentile) {
+		auto requiredIndex = (storage.size() - 1) * percentile / 100;
+		auto it = storage.begin();
+		std::advance(it, requiredIndex);
+		return it->first;
+	}
+};
+
 class Time {
-	static const int timeLogSize = 5;
+	static const int timeLogSize = 30;
+	static const int timeLogSortedSize = 120;
 
 	static std::chrono::steady_clock::time_point* GetBegin() {
 		static std::chrono::steady_clock::time_point instance;
@@ -159,17 +190,25 @@ class Time {
 		return &instance;
 	}
 
-	static std::vector<size_t>& TimeLog() {
-		static std::vector<size_t> v(timeLogSize);
+	static PercentileStorage<size_t>& TimeLogSorted() {
+		static PercentileStorage<size_t> v (timeLogSortedSize);
+		return v;
+	}
+
+	static std::deque<size_t>& TimeLog() {
+		static std::deque<size_t> v;
 		return v;
 	}
 
 	static void UpdateTimeLog(size_t v) {
-		static int i = 0;
-		TimeLog()[i] = v;
-		i++;
-		if (i >= timeLogSize)
-			i = 0;
+		if (TimeLog().size() >= timeLogSize)
+			TimeLog().pop_front();
+
+		TimeLog().push_back(v);
+
+		static size_t frameId = 0;
+		TimeLogSorted().Put(frameId, v);
+		frameId++;
 	}
 public:
 	static void UpdateFrame() {
@@ -178,6 +217,17 @@ public:
 		*GetBegin() = end;
 
 		UpdateTimeLog(*GetDeltaTimeMicroseconds());
+	}
+	static int GetFrameRatePercentile(size_t percentile) {
+		if (!TimeLog().size())
+			return 0;
+
+		auto p = TimeLogSorted().GetPercentile(100 - percentile);
+
+		if (!p)
+			return 0;
+
+		return round(1e6 / (double)p);
 	}
 	static int GetFrameRate() {
 		return round(1 / GetDeltaTime());
@@ -523,18 +573,19 @@ namespace P {
 		}
 	};
 
+	// Input source
 	enum class Source {
-		GUI,
-		NonGUI,
-		Keyboard,
-		Mouse,
 		None,
+		// Keyboard + Mouse
+		NonGUI,
+		GUI,
+		Tool,
 	};
 
 	template<typename T>
 	struct EventArgs {
-		Source source;
 		T value;
+		Source source;
 	};
 
 	// MultiSourcePropertyNode
@@ -556,14 +607,20 @@ namespace P {
 			return value;
 		}
 		void Set(const T& v) {
+			// The higher source value the higher the priority.
+			// If the new value is from less prioritized source
+			// then ignore the change.
 			if (value.source > v.source)
 				return;
 
+			// Update the value immediately to enable 
+			// consistent interaction with the property.
 			value = v;
 
 			if (cmd)
 				return;
 
+			// OnChanged handlers will be executed in the end of the frame.
 			cmd = new FuncCommand();
 			cmd->func = [&] {
 				changed.Invoke(value);
@@ -599,6 +656,10 @@ namespace P {
 		RP() {}
 		RP(const T& o) {
 			node->Set(o);
+		}
+		RP(std::vector<std::function<void(const T&)>> onChangedHandlers) {
+			for (auto f : onChangedHandlers)
+				OnChanged() += f;
 		}
 
 		bool IsAssigned() {
@@ -645,6 +706,10 @@ namespace P {
 		RP(T* o) {
 			node->Set(o);
 		}
+		RP(std::vector<std::function<void(const T*&)>> onChangedHandlers) {
+			for (auto f : onChangedHandlers)
+				OnChanged() += f;
+		}
 
 		bool IsAssigned() {
 			return node->IsAssigned();
@@ -690,6 +755,10 @@ namespace P {
 		RP(std::function<R(T...)> o) {
 			node->Set(o);
 		}
+		RP(std::vector<std::function<void(const std::function<R(T...)>&)>> onChangedHandlers) {
+			for (auto f : onChangedHandlers)
+				OnChanged() += f;
+		}
 
 		bool IsAssigned() {
 			return node->IsAssigned();
@@ -730,8 +799,9 @@ namespace P {
 	public:
 		NAP() {}
 		NAP(const T& o) : _RP(o) {}
+		NAP(std::vector<std::function<void(const T&)>> onChangedHandlers) : _RP(onChangedHandlers) {}
 
-		T& Get() {
+		T& Get() const {
 			return _RP::node->Get();
 		}
 
@@ -761,8 +831,9 @@ namespace P {
 	public:
 		NAP() {}
 		NAP(T* o) : _RP(o) {}
+		NAP(std::vector<std::function<void(const T*&)>> onChangedHandlers) : _RP(onChangedHandlers) {}
 
-		T& Get() {
+		T& Get() const {
 			return _RP::node->Get();
 		}
 
@@ -782,16 +853,18 @@ namespace P {
 	template<typename R, template<typename> typename Node, typename ...T>
 	class NAP<std::function<R(T...)>, Node> : public RP<std::function<R(T...)>, Node> {
 	protected:
-		using _RP = RP<std::function<R(T...)>, Node>;
-		using _NAP = NAP<std::function<R(T...)>, Node>;
-		using _Node = Node<std::function<R(T...)>>;
+		using _T = std::function<R(T...)>;
+		using _RP = RP<_T, Node>;
+		using _NAP = NAP<_T, Node>;
+		using _Node = Node<_T>;
 
 		NAP(const _Node& node) {
 			_RP::node = node;
 		}
 	public:
 		NAP() {}
-		NAP(const std::function<R(T...)>& o) : RP(o) {}
+		NAP(const _T& o) : RP(o) {}
+		NAP(std::vector<std::function<void(const _T&)>> onChangedHandlers) : _RP(onChangedHandlers) {}
 
 		_NAP CloneNonAssign() {
 			return new _NAP(_RP::node);
@@ -814,6 +887,11 @@ namespace P {
 		P() {}
 		P(const T& o) : _NAP(o) {}
 		P(const P&) = delete;
+		P(std::vector<std::function<void(const T&)>> onChangedHandlers) : _NAP(onChangedHandlers) {}
+		P(std::vector<std::function<void(const T&)>> onChangedHandlers, const T& v) : _NAP(onChangedHandlers) 
+		{
+			_RP::node->Set(v);
+		}
 
 		_P& operator=(const _P&) = delete;
 		_P& operator=(const T& v) {
@@ -847,13 +925,14 @@ namespace P {
 	template<typename T, template<typename> typename Node>
 	class P<T*, Node> : public NAP<T*, Node> {
 	protected:
-		using _RP = RP<T*, Node>;
-		using _NAP = NAP<T*, Node>;
-		using _P = P<T*, Node>;
 		using _T = T*;
+		using _RP = RP<_T, Node>;
+		using _NAP = NAP<_T, Node>;
+		using _P = P<_T, Node>;
 	public:
 		P() {}
 		P(_T o) : _NAP(o) {}
+		P(std::vector<std::function<void(const _T&)>> onChangedHandlers) : _NAP(onChangedHandlers) {}
 
 		_P& operator=(const _P&) = delete;
 		_P& operator=(_T v) {
@@ -871,14 +950,15 @@ namespace P {
 	template<typename R, template<typename> typename Node, typename ...T>
 	class P<std::function<R(T...)>, Node> : public NAP<std::function<R(T...)>, Node> {
 	protected:
-		using _RP = RP<std::function<R(T...)>, Node>;
-		using _NAP = NAP<std::function<R(T...)>, Node>;
-		using _P = P<std::function<R(T...)>, Node>;
 		using _T = std::function<R(T...)>;
+		using _RP = RP<_T, Node>;
+		using _NAP = NAP<_T, Node>;
+		using _P = P<_T, Node>;
 	public:
 		P() {}
 		P(const _T& o) : _NAP(o) {}
 		P(const _P&) = delete;
+		P(std::vector<std::function<void(const _T&)>> onChangedHandlers) : _NAP(onChangedHandlers) {}
 
 		_P& operator=(const _P&) = delete;
 		_P& operator=(const _T& v) {
@@ -891,10 +971,10 @@ namespace P {
 		_P& Update(std::function<const _T& (_T)> func) {
 			return operator=(func(_NAP::Get()));
 		}
-
 	};
 };
 
+// Input source
 using Source = P::Source;
 
 template<typename T>
@@ -936,13 +1016,37 @@ static type& name() {\
 	return v;\
 }
 
+#define PropertyDefault(type,name,defaultValue)\
+static Property<type>& name() {\
+	static Property<type> v = Property<type>(defaultValue);\
+	return v;\
+}
+
 #define MSProperty(type,name)\
 MSProperty<type> name;\
-const type& Get##name() {\
+const type& Get##name() const {\
 	return name.Get().value;\
 }\
 void Set##name(const type& v) {\
-	name.Update([&v](EventArgs<type> o){ o.value = v; return o; });\
+	name.Update([&v](EventArgs<type> o){ o.value = v; o.source = Source::None; return o; });\
+}\
+
+#define SceneObjectMSProperty(type,name)\
+MSProperty<type> name { {[&](const EventArgs<type>&) { ForceUpdateCache(); }} };\
+const type& Get##name() const {\
+	return name.Get().value;\
+}\
+void Set##name(const type& v, Source source = Source::None) {\
+	name = {v, source};\
+}\
+
+#define SceneObjectMSPropertyDefault(type,name,defaultValue)\
+MSProperty<type> name { {[&](const EventArgs<type>&) { ForceUpdateCache(); }}, defaultValue };\
+const type& Get##name() const {\
+	return name.Get().value;\
+}\
+void Set##name(const type& v, Source source = Source::None) {\
+	name = {v, source};\
 }\
 
 template<typename T>

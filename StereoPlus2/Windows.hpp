@@ -1288,9 +1288,9 @@ class TransformToolWindow : Window, Attributes {
 			if (isRelativeMode)
 				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 1);
 			else {
-				auto crossPosCopy = tool->cross->GetLocalPosition();
+				auto crossPosCopy = tool->cross->GetPosition();
 				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 1))
-					tool->transformPos += crossPosCopy - tool->cross->GetLocalPosition();
+					tool->transformPos += crossPosCopy - tool->cross->GetPosition();
 			}
 			break;
 		case TransformToolMode::Scale:
@@ -1619,16 +1619,16 @@ private:
 			}
 
 			for (const auto& a : folders)
-				if (const std::string directoryName = '[' + a.path().filename().u8string() + ']';
-					ImGui::Selectable(directoryName.c_str())) {
+				if (const std::u8string directoryName = u8'[' + a.path().filename().u8string() + u8']';
+					ImGui::Selectable(reinterpret_cast<const char*>(directoryName.c_str()))) {
 				path.apply(a);
 				ImGui::ListBoxFooter();
 				return;
 			}
 
 			for (const auto& a : files)
-				if (const std::string fileName = a.path().filename().u8string();
-					ImGui::Selectable(fileName.c_str()))
+				if (const std::u8string fileName = a.path().filename().u8string();
+					ImGui::Selectable(reinterpret_cast<const char*>(fileName.c_str())))
 					selectedFile.apply(a);
 
 

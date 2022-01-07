@@ -102,3 +102,8 @@ When in camera mode cross doesn't react to mouse+keyboard control;
 - autosaving. Name is scenes/~temp<appStartTime>. 
 If an error occured the name is scenes/~backup<appStartTime>;
 - rearranged settings in settings window;
+# 1.0
+- introduced percentile performance metrics;
+- introduced event-based input handling;
+- removed obsolete cascade code;
+- updated to c++20 (v143);
