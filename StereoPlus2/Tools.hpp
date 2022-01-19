@@ -848,13 +848,10 @@ public:
 };
 
 class TransformTool : public EditingTool {
-	using Mode = TransformToolMode;
-
 	const Log Logger = Log::For<TransformTool>();
 
 	size_t spaceModeChangeHandlerId;
 
-	Mode mode;
 	ObjectType type;
 
 	std::vector<PON> targets;
@@ -870,7 +867,7 @@ class TransformTool : public EditingTool {
 	
 
 
-	void ProcessInput(const ObjectType& type, const Mode& mode) {
+	void ProcessInput(const ObjectType& type) {
 		if (!shouldTrace && Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
 			Changes::Commit();
 			SceneObject::ResetIsAnyElementChanged();
@@ -1019,7 +1016,7 @@ class TransformTool : public EditingTool {
 		targets.clear();
 		targets.insert(targets.end(), v.begin(), v.end());
 		
-		cross->keyboardBindingProcessor = [this] { ProcessInput(type, mode); };
+		cross->keyboardBindingProcessor = [this] { ProcessInput(type); };
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
@@ -1034,6 +1031,16 @@ public:
 	glm::vec3 angle;
 	glm::vec3 transformPos;
 	bool shouldTrace;
+
+	// This is a GUI angle modified property.
+	// It defines the onChanged handler via constructor
+	Property<glm::vec3> GUIAngle{ {[&](const glm::vec3& v) {
+		const auto newScale = Input::GetNewScale(scale);
+		const auto relativeMovement = Input::GetRelativeMovement(transformPos - transformOldPos);
+		const auto relativeRotation = Input::GetRelativeRotation(v);
+
+		Transform(relativeMovement, newScale, relativeRotation);
+	}} };
 
 	CreatingTool<TraceObject> traceObjectTool;
 	CloneTool cloneTool;
@@ -1063,12 +1070,6 @@ public:
 			return nullptr;
 		else 
 			return targets.front().Get();
-	}
-	void SetMode(Mode mode) {
-		this->mode = mode;
-	}
-	const Mode& GetMode() {
-		return mode;
 	}
 };
 

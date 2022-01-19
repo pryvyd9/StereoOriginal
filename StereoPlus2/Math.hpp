@@ -164,8 +164,6 @@ public:
 			target->SetRotation(r * target->GetRotation());
 		}
 	}
-
-
 };
 
 struct Convert {

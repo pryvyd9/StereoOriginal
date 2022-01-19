@@ -1269,14 +1269,11 @@ class TransformToolWindow : Window, Attributes {
 		//	ImGui::Extensions::PopActive();
 		//}
 
-		auto transformToolModeCopy = tool->GetMode();
+		static TransformToolMode transformToolModeCopy = TransformToolMode::Translate;
 		{
-			if (ImGui::RadioButton("Move", (int*)&transformToolModeCopy, (int)TransformToolMode::Translate))
-				tool->SetMode(TransformToolMode::Translate);
-			if (ImGui::RadioButton("Scale", (int*)&transformToolModeCopy, (int)TransformToolMode::Scale))
-				tool->SetMode(TransformToolMode::Scale);
-			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate))
-				tool->SetMode(TransformToolMode::Rotate);
+			if (ImGui::RadioButton("Move", (int*)&transformToolModeCopy, (int)TransformToolMode::Translate));
+			if (ImGui::RadioButton("Scale", (int*)&transformToolModeCopy, (int)TransformToolMode::Scale));
+			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate));
 		}
 		ImGui::Checkbox("Trace", &tool->shouldTrace);
 
@@ -1301,10 +1298,13 @@ class TransformToolWindow : Window, Attributes {
 			if (!Input::IsContinuousInputNoDelay())
 				oldAngle = tool->angle;
 
-			ImGui::Separator();
-			if (auto angle = tool->angle - oldAngle;
-				DragVector(angle, "X", "Y", "Z", 1))
-				tool->angle = angle;
+			ImGui::Separator(); 
+			{
+				auto crossOldAngle = glm::degrees(glm::eulerAngles(Scene::cross()->GetRotation()));
+				if (auto angle = crossOldAngle;
+					DragVector(angle, "X", "Y", "Z", 1))
+					tool->GUIAngle = crossOldAngle - angle;
+			}
 
 			break;
 		default:
