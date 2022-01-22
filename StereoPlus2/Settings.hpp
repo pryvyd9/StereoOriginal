@@ -39,12 +39,6 @@ enum class TransformToolMode {
 	Rotate,
 };
 
-
-enum class MoveCoordinateAction {
-	Adapt,
-	None,
-};
-
 enum class NavigationMode {
 	Cross,
 	Camera,
@@ -55,7 +49,6 @@ public:
 	//StaticProperty(::ObjectMode, ObjectMode)
 	StaticProperty(::SpaceMode, SpaceMode)
 	StaticProperty(::TargetMode, TargetMode)
-	StaticProperty(::MoveCoordinateAction, MoveCoordinateAction)
 	StaticProperty(bool, ShouldDetectPosition)
 
 	StaticProperty(bool, ShouldRestrictTargetModeToPivot)

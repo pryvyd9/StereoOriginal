@@ -196,7 +196,7 @@ private:
 			}
 
 			if (p != nullptr)
-				o->SetParent(p, false, true, false, false);
+				o->SetParent(p, true, false, false);
 
 			for (size_t i = 0; i < o->children.size(); i++)
 				if (auto pair = newCopies.find(o->children[i]); pair != newCopies.end())

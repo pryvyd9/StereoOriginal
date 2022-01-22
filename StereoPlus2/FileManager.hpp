@@ -39,8 +39,8 @@ public:
 
 		put(so.GetType());
 		put(so.Name);
-		put(so.GetLocalPosition());
-		put(so.GetLocalRotation());
+		put(so.GetPosition());
+		put(so.GetRotation());
 
 		switch (so.GetType())
 		{
@@ -172,8 +172,8 @@ public:
 		{
 			auto o = start<GroupObject>();
 			read(&o->Name);
-			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			read(std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			readChildren(o);
 			return o;
 		}
@@ -181,8 +181,8 @@ public:
 		{
 			auto o = start<PointObject>();
 			read(&o->Name);
-			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			read(std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			readChildren(o);
 			return o;
 		}
@@ -190,8 +190,8 @@ public:
 		{
 			auto o = start<PolyLine>();
 			read(&o->Name);
-			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			read(std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			readChildren(o);
 			return o;
@@ -200,8 +200,8 @@ public:
 		{
 			auto o = start<SineCurve>();
 			read(&o->Name);
-			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			read(std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			readChildren(o);
 			return o;
@@ -210,8 +210,8 @@ public:
 		{
 			auto o = start<Mesh>();
 			read(&o->Name);
-			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			read(std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			readArray(std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			readArray(std::function([&o](GLuint a, GLuint b) { o->Connect(a, b); }));
 			readChildren(o);
@@ -221,8 +221,8 @@ public:
 		{
 			auto o = start<TraceObject>();
 			read(&o->Name);
-			read(std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			read(std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			read(std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			read(std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			readChildren(o);
 			return o;
 		}
@@ -375,8 +375,8 @@ public:
 		{
 			auto o = start<GroupObject>();
 			get(j, "name", o->Name);
-			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			getChildren(j, "children", o);
 			return o;
 		}
@@ -384,8 +384,8 @@ public:
 		{
 			auto o = start<PointObject>();
 			get(j, "name", o->Name);
-			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			getChildren(j, "children", o);
 			return o;
 		}
@@ -393,8 +393,8 @@ public:
 		{
 			auto o = start<TraceObject>();
 			get(j, "name", o->Name);
-			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			getChildren(j, "children", o);
 			return o;
 		}
@@ -402,8 +402,8 @@ public:
 		{
 			auto o = start<PolyLine>();
 			get(j, "name", o->Name);
-			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			getChildren(j, "children", o);
 			getArray(j, "vertices", std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			return o;
@@ -412,8 +412,8 @@ public:
 		{
 			auto o = start<SineCurve>();
 			get(j, "name", o->Name);
-			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			getChildren(j, "children", o);
 			getArray(j, "vertices", std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			return o;
@@ -422,8 +422,8 @@ public:
 		{
 			auto o = start<Mesh>();
 			get(j, "name", o->Name);
-			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetLocalPosition(v); }));
-			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetLocalRotation(v); }));
+			get(j, "localPosition", std::function([&o](glm::vec3 v) { o->SetPosition(v); }));
+			get(j, "localRotation", std::function([&o](glm::fquat v) { o->SetRotation(v); }));
 			getChildren(j, "children", o);
 			getArray(j, "vertices", std::function([&o](glm::vec3 v) { o->AddVertice(v); }));
 			getArray(j, "connections", std::function([&o](size_t a, size_t b) { o->Connect(a, b); }));
@@ -504,8 +504,8 @@ public:
 		auto jo = new Js::Object();
 		insert(jo, "type", so.GetType());
 		insert(jo, "name", so.Name);
-		insert(jo, "localPosition", so.GetLocalPosition());
-		insert(jo, "localRotation", so.GetLocalRotation());
+		insert(jo, "localPosition", so.GetPosition());
+		insert(jo, "localRotation", so.GetRotation());
 		insert(jo, "children", so.children);
 
 		switch (so.GetType()) {

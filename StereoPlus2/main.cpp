@@ -79,8 +79,6 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 }
 
 int main() {
-	//Time::Init();
-
 	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
 	SettingsLoader::Load();
 
@@ -151,30 +149,25 @@ int main() {
 		return false;
 
 	cross.Name = "Cross";
-	cross.GUIPositionEditHandler = [] { Input::movement() += Scene::cross()->GUIPositionEditDifference; };
-	cross.GUIPositionEditHandlerId = Input::AddHandler(cross.GUIPositionEditHandler);
-	cross.keyboardBindingProcessorDefault = cross.keyboardBindingProcessor = [] {
+	cross.keyboardBindingProcessor = cross.keyboardBindingProcessorDefault = [&cross] {
 		auto relativeRotation = Input::GetRelativeRotation(glm::vec3());
-		auto relativeMovement = Input::GetRelativeMovement(Scene::cross()->GUIPositionEditDifference);
+		auto relativeMovement = Input::GetRelativeMovement(glm::vec3());
 
 		if (relativeRotation != glm::vec3())
-			Transform::Rotate(Scene::cross()->GetWorldPosition(), relativeRotation, &Scene::cross().Get());
+			Transform::Rotate(cross.GetPosition(), relativeRotation, &cross, Source::NonGUI);
 		if (relativeMovement != glm::vec3())
-			Transform::Translate(relativeMovement, &Scene::cross().Get());
+			Transform::Translate(relativeMovement, &cross, Source::NonGUI);
 	};
-	cross.keyboardBindingHandler = [&cross, &camera] { 
+
+	Input::movement().OnChanged() += [&cross, &camera](const glm::vec3& v) {
 		if (Settings::NavigationMode().Get() == NavigationMode::Cross)
 			cross.keyboardBindingProcessor();
-		else
-			camera.keyboardBindingProcessor();
+		else {
+			camera.PositionModifier = camera.PositionModifier.Get() + Input::GetRelativeMovement(glm::vec3());
+			camera.ForceUpdateCache();
+		}
 	};
-	cross.keyboardBindingHandlerId = Input::AddHandler(cross.keyboardBindingHandler);
-
-	camera.keyboardBindingProcessor = [&camera] { 
-		camera.PositionModifier = camera.PositionModifier.Get() + Input::GetRelativeMovement(glm::vec3());
-		camera.ForceUpdateCache();
-	};
-
+	
 	if (!ToolPool::Init())
 		return false;
 

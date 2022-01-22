@@ -8,13 +8,13 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <queue>
 #include <functional>
 #include <map>
 #include <glm/vec3.hpp>
 
 #include <fstream>
 #include <filesystem>// C++17 standard header file name
-
 #include <thread>
 namespace fs = std::filesystem;
 
@@ -122,7 +122,7 @@ public:
 	}
 	void apply(fs::path n) {
 		path = fs::absolute(n);
-		pathBuffer = path.u8string();
+		pathBuffer = reinterpret_cast<const char*>(path.u8string().c_str());
 	}
 
 	bool isSome() {
@@ -147,8 +147,39 @@ public:
 	}
 };
 
+template<typename T>
+class PercentileStorage {
+	using FrameId = size_t;
+	
+	// sorted by value.
+	std::map<T, FrameId> storage;
+
+	// sorted by age. Old to young.
+	std::queue<FrameId> ages;
+public:
+	size_t size;
+	PercentileStorage(size_t size) : size(size) {}
+	void Put(size_t id, T value) {
+		if (storage.size() > size) {
+			storage.erase(ages.front());
+			ages.pop();
+		}
+
+		ages.push(id);
+		storage.insert(std::make_pair(value, id));
+	}
+
+	size_t GetPercentile(size_t percentile) {
+		auto requiredIndex = (storage.size() - 1) * percentile / 100;
+		auto it = storage.begin();
+		std::advance(it, requiredIndex);
+		return it->first;
+	}
+};
+
 class Time {
-	static const int timeLogSize = 5;
+	static const int timeLogSize = 30;
+	static const int timeLogSortedSize = 120;
 
 	static std::chrono::steady_clock::time_point* GetBegin() {
 		static std::chrono::steady_clock::time_point instance;
@@ -159,17 +190,25 @@ class Time {
 		return &instance;
 	}
 
-	static std::vector<size_t>& TimeLog() {
-		static std::vector<size_t> v(timeLogSize);
+	static PercentileStorage<size_t>& TimeLogSorted() {
+		static PercentileStorage<size_t> v (timeLogSortedSize);
+		return v;
+	}
+
+	static std::deque<size_t>& TimeLog() {
+		static std::deque<size_t> v;
 		return v;
 	}
 
 	static void UpdateTimeLog(size_t v) {
-		static int i = 0;
-		TimeLog()[i] = v;
-		i++;
-		if (i >= timeLogSize)
-			i = 0;
+		if (TimeLog().size() >= timeLogSize)
+			TimeLog().pop_front();
+
+		TimeLog().push_back(v);
+
+		static size_t frameId = 0;
+		TimeLogSorted().Put(frameId, v);
+		frameId++;
 	}
 public:
 	static void UpdateFrame() {
@@ -178,6 +217,17 @@ public:
 		*GetBegin() = end;
 
 		UpdateTimeLog(*GetDeltaTimeMicroseconds());
+	}
+	static int GetFrameRatePercentile(size_t percentile) {
+		if (!TimeLog().size())
+			return 0;
+
+		auto p = TimeLogSorted().GetPercentile(100 - percentile);
+
+		if (!p)
+			return 0;
+
+		return round(1e6 / (double)p);
 	}
 	static int GetFrameRate() {
 		return round(1 / GetDeltaTime());
@@ -450,323 +500,501 @@ public:
 	}
 };
 
+namespace P {
+	// PropertyNode
+	template<typename T>
+	class PN {
+		T value;
+		Event<T> changed;
+	public:
+		const T& Get() const {
+			return value;
+		}
+		T& Get() {
+			return value;
+		}
+		void Set(const T& v) {
+			value = v;
+			changed.Invoke(v);
+		}
+		IEvent<T>& OnChanged() {
+			return changed;
+		}
+		bool IsAssigned() {
+			return true;
+		}
+	};
+	// PropertyNode
+	template<typename T>
+	class PN<T*> {
+		T* value = nullptr;
+		Event<T> changed;
+	public:
+		const T& Get() const {
+			return *value;
+		}
+		T& Get() {
+			return *value;
+		}
+		void Set(T* v) {
+			value = v;
+			changed.Invoke(*v);
+		}
+		IEvent<T>& OnChanged() {
+			return changed;
+		}
+		bool IsAssigned() {
+			return value != nullptr;
+		}
+	};
+	// PropertyNode
+	template<typename R, typename ...T>
+	class PN<std::function<R(T...)>> {
+		std::function<R(T...)> value;
+		Event<std::function<R(T...)>> changed;
+		bool isAssigned = false;
+	public:
+		const std::function<R(T...)>& Get() const {
+			return value;
+		}
+		void Set(const std::function<R(T...)>& v) {
+			value = v;
+			isAssigned = true;
+			changed.Invoke(v);
+		}
+		IEvent<std::function<R(T...)>>& OnChanged() {
+			return changed;
+		}
+		bool IsAssigned() {
+			return isAssigned;
+		}
+		R operator()(T... vs) {
+			return value(vs...);
+		}
+	};
 
-template<typename T>
-class PropertyNode {
-	T value;
-	Event<T> changed;
-public:
-	const T& Get() const {
-		return value;
-	}
-	T& Get() {
-		return value;
-	}
-	void Set(const T& v) {
-		value = v;
-		changed.Invoke(v);
-	}
-	IEvent<T>& OnChanged() {
-		return changed;
-	}
-	bool IsAssigned() {
-		return true;
-	}
-};
-template<typename T>
-class PropertyNode<T*> {
-	T* value = nullptr;
-	Event<T> changed;
-public:
-	const T& Get() const {
-		return *value;
-	}
-	T& Get() {
-		return *value;
-	}
-	void Set(T* v) {
-		value = v;
-		changed.Invoke(*v);
-	}
-	IEvent<T>& OnChanged() {
-		return changed;
-	}
-	bool IsAssigned() {
-		return value != nullptr;
-	}
-};
-template<typename R, typename ...T>
-class PropertyNode<std::function<R(T...)>> {
-	std::function<R(T...)> value;
-	Event<std::function<R(T...)>> changed;
-	bool isAssigned = false;
-public:
-	const std::function<R(T...)>& Get() const {
-		return value;
-	}
-	void Set(const std::function<R(T...)>& v) {
-		value = v;
-		isAssigned = true;
-		changed.Invoke(v);
-	}
-	IEvent<std::function<R(T...)>>& OnChanged() {
-		return changed;
-	}
-	bool IsAssigned() {
-		return isAssigned;
-	}
-	R operator()(T... vs) {
-		return value(vs...);
-	}
-};
+	// Input source
+	enum class Source {
+		None,
+		// Keyboard + Mouse
+		NonGUI,
+		GUI,
+		Tool,
+	};
 
+	template<typename T>
+	struct EventArgs {
+		T value;
+		Source source;
+	};
 
-template<typename T>
-class ReadonlyProperty {
-protected:
-	std::shared_ptr<PropertyNode<T>> node = std::make_shared<PropertyNode<T>>();
-	ReadonlyProperty(const std::shared_ptr<PropertyNode<T>>& node) {
-		this->node = node;
-	}
-	void ReplaceNode(const std::shared_ptr<PropertyNode<T>>& node) {
-		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
-		this->node = node;
-	}
-public:
-	ReadonlyProperty() {}
-	ReadonlyProperty(const T& o) {
-		node->Set(o);
-	}
-
-	bool IsAssigned() {
-		return node->IsAssigned();
-	}
-
-	const T& Get() const {
-		return node->Get();
-	}
-
-	ReadonlyProperty<T> CloneReadonly() {
-		return new ReadonlyProperty(node);
-	}
-
-	IEvent<T>& OnChanged() {
-		return node->OnChanged();
-	}
-
-	ReadonlyProperty<T>& operator=(const ReadonlyProperty<T>&) = delete;
-	const T* operator->() const {
-		return &Get();
-	}
-	void operator<<=(const ReadonlyProperty<T>& v) {
-		ReplaceNode(v.node);
-	}
-};
-template<typename T>
-class ReadonlyProperty<T*> {
-protected:
-	std::shared_ptr<PropertyNode<T*>> node = std::make_shared<PropertyNode<T*>>();
-	ReadonlyProperty(const std::shared_ptr<PropertyNode<T*>>& node) {
-		this->node = node;
-	}
-	void ReplaceNode(const std::shared_ptr<PropertyNode<T*>>& node) {
-		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
-		this->node = node;
-	}
-public:
-	ReadonlyProperty() {}
-	ReadonlyProperty(T* o) {
-		node->Set(o);
-	}
-
-	bool IsAssigned() {
-		return node->IsAssigned();
-	}
-
-	const T& Get() const {
-		return node->Get();
-	}
-
-	ReadonlyProperty<T*> CloneReadonly() {
-		return new ReadonlyProperty(node);
-	}
+	// MultiSourcePropertyNode
+	// Handles user input.
+	// Unlike simple properties its events are fired once per frame
+	// ensuring only the most prioritized input triggers the event.
+	// T must inherit EventArgs<T> or have 'source' field in it.
+	template<typename T>
+	class MSPN {
+		Event<T> changed;
+		T value;
+		FuncCommand* cmd = nullptr;
+	public:
 	
-	IEvent<T>& OnChanged() {
-		return node->OnChanged();
-	}
+		const T& Get() const {
+			return value;
+		}
+		T& Get() {
+			return value;
+		}
+		void Set(const T& v) {
+			// The higher source value the higher the priority.
+			// If the new value is from less prioritized source
+			// then ignore the change.
+			if (value.source > v.source)
+				return;
 
-	ReadonlyProperty<T*>& operator=(const ReadonlyProperty<T*>&) = delete;
-	const T* operator->() const {
-		return &Get();
-	}
-	void operator<<=(const ReadonlyProperty<T*>& v) {
-		ReplaceNode(v.node);
-	}
+			// Update the value immediately to enable 
+			// consistent interaction with the property.
+			value = v;
+
+			if (cmd)
+				return;
+
+			// OnChanged handlers will be executed in the end of the frame.
+			cmd = new FuncCommand();
+			cmd->func = [&] {
+				changed.Invoke(value);
+				cmd = nullptr;
+				value.source = Source::None;
+			};
+		}
+		IEvent<T>& OnChanged() {
+			return changed;
+		}
+		bool IsAssigned() {
+			return true;
+		}
+	};
+
+
+	// ReadonlyProperty
+	template<typename T, template<typename> typename Node>
+	class RP {
+	protected:
+		using _RP = RP<T, Node>;
+		using _Node = Node<T>;
+
+		std::shared_ptr<_Node> node = std::make_shared<_Node>();
+		RP(const std::shared_ptr<_Node>& node) {
+			this->node = node;
+		}
+		void ReplaceNode(const std::shared_ptr<_Node>& node) {
+			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+			this->node = node;
+		}
+	public:
+		RP() {}
+		RP(const T& o) {
+			node->Set(o);
+		}
+		RP(std::vector<std::function<void(const T&)>> onChangedHandlers) {
+			for (auto f : onChangedHandlers)
+				OnChanged() += f;
+		}
+
+		bool IsAssigned() {
+			return node->IsAssigned();
+		}
+
+		const T& Get() const {
+			return node->Get();
+		}
+
+		_RP CloneReadonly() {
+			return new _RP(node);
+		}
+
+		IEvent<T>& OnChanged() {
+			return node->OnChanged();
+		}
+
+		_RP& operator=(const _RP&) = delete;
+		const T* operator->() const {
+			return &Get();
+		}
+		void operator<<=(const _RP& v) {
+			ReplaceNode(v.node);
+		}
+	};
+	// ReadonlyProperty
+	template<typename T, template<typename> typename Node>
+	class RP<T*, Node> {
+	protected:
+		using _RP = RP<T*, Node>;
+		using _Node = Node<T*>;
+
+		std::shared_ptr<_Node> node = std::make_shared<_Node>();
+		RP(const std::shared_ptr<_Node>& node) {
+			this->node = node;
+		}
+		void ReplaceNode(const std::shared_ptr<_Node>& node) {
+			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+			this->node = node;
+		}
+	public:
+		RP() {}
+		RP(T* o) {
+			node->Set(o);
+		}
+		RP(std::vector<std::function<void(const T*&)>> onChangedHandlers) {
+			for (auto f : onChangedHandlers)
+				OnChanged() += f;
+		}
+
+		bool IsAssigned() {
+			return node->IsAssigned();
+		}
+
+		const T& Get() const {
+			return node->Get();
+		}
+
+		_RP CloneReadonly() {
+			return new _RP(node);
+		}
+
+		IEvent<T>& OnChanged() {
+			return node->OnChanged();
+		}
+
+		_RP& operator=(const _RP&) = delete;
+		const T* operator->() const {
+			return &Get();
+		}
+		void operator<<=(const _RP& v) {
+			ReplaceNode(v.node);
+		}
+	};
+	// ReadonlyProperty
+	template<typename R, template<typename> typename Node, typename ...T>
+	class RP<std::function<R(T...)>, Node> {
+	protected:
+		using _RP = RP<std::function<R(T...)>, Node>;
+		using _Node = Node<std::function<R(T...)>>;
+
+		std::shared_ptr<_Node> node = std::make_shared<_Node>();
+		RP(const std::shared_ptr<_Node>& node) {
+			this->node = node;
+		}
+		void ReplaceNode(const std::shared_ptr<_Node>& node) {
+			node->OnChanged().AddHandlersFrom(this->node->OnChanged());
+			this->node = node;
+		}
+	public:
+		RP() {}
+		RP(std::function<R(T...)> o) {
+			node->Set(o);
+		}
+		RP(std::vector<std::function<void(const std::function<R(T...)>&)>> onChangedHandlers) {
+			for (auto f : onChangedHandlers)
+				OnChanged() += f;
+		}
+
+		bool IsAssigned() {
+			return node->IsAssigned();
+		}
+
+		const std::function<R(T...)>& Get() const {
+			return node->Get();
+		}
+
+		_RP CloneReadonly() {
+			return new RP(node);
+		}
+
+		IEvent<std::function<R(T...)>>& OnChanged() {
+			return node->OnChanged();
+		}
+
+		_RP& operator=(const _RP&) = delete;
+		R operator()(T... vs) const {
+			return Get()(vs...);
+		}
+		void operator<<=(const _RP& v) {
+			ReplaceNode(v.node);
+		}
+	};
+
+	// NonAssignProperty
+	template<typename T, template<typename> typename Node>
+	class NAP : public RP<T, Node> {
+	protected:
+		using _RP = RP<T, Node>;
+		using _NAP = NAP<T, Node>;
+		using _Node = Node<T>;
+
+		NAP(const _Node& node) {
+			_RP::node = node;
+		}
+	public:
+		NAP() {}
+		NAP(const T& o) : _RP(o) {}
+		NAP(std::vector<std::function<void(const T&)>> onChangedHandlers) : _RP(onChangedHandlers) {}
+
+		T& Get() const {
+			return _RP::node->Get();
+		}
+
+		_NAP CloneNonAssign() {
+			return new _NAP(RP::node);
+		}
+
+		_NAP& operator=(const _NAP&) = delete;
+		T* operator->() {
+			return &Get();
+		}
+		void operator<<=(const _NAP& v) {
+			_RP::ReplaceNode(v.node);
+		}
+	};
+	// NonAssignProperty
+	template<typename T, template<typename> typename Node>
+	class NAP<T*, Node> : public RP<T*, Node> {
+	protected:
+		using _RP = RP<T*, Node>;
+		using _NAP = NAP<T*, Node>;
+		using _Node = Node<T*>;
+
+		NAP(const _Node& node) {
+			_RP::node = node;
+		}
+	public:
+		NAP() {}
+		NAP(T* o) : _RP(o) {}
+		NAP(std::vector<std::function<void(const T*&)>> onChangedHandlers) : _RP(onChangedHandlers) {}
+
+		T& Get() const {
+			return _RP::node->Get();
+		}
+
+		_NAP CloneNonAssign() {
+			return new _NAP(RP::node);
+		}
+
+		_NAP& operator=(const _NAP&) = delete;
+		T* operator->() {
+			return &Get();
+		}
+		void operator<<=(const _NAP& v) {
+			_RP::ReplaceNode(v.node);
+		}
+	};
+	// NonAssignProperty
+	template<typename R, template<typename> typename Node, typename ...T>
+	class NAP<std::function<R(T...)>, Node> : public RP<std::function<R(T...)>, Node> {
+	protected:
+		using _T = std::function<R(T...)>;
+		using _RP = RP<_T, Node>;
+		using _NAP = NAP<_T, Node>;
+		using _Node = Node<_T>;
+
+		NAP(const _Node& node) {
+			_RP::node = node;
+		}
+	public:
+		NAP() {}
+		NAP(const _T& o) : RP(o) {}
+		NAP(std::vector<std::function<void(const _T&)>> onChangedHandlers) : _RP(onChangedHandlers) {}
+
+		_NAP CloneNonAssign() {
+			return new _NAP(_RP::node);
+		}
+
+		_NAP& operator=(const _NAP&) = delete;
+		void operator<<=(const _NAP& v) {
+			_RP::ReplaceNode(v.node);
+		}
+	};
+
+	// Property
+	template<typename T, template<typename> typename Node>
+	class P : public NAP<T, Node> {
+	protected:
+		using _RP = RP<T, Node>;
+		using _NAP = NAP<T, Node>;
+		using _P = P<T, Node>;
+	public:
+		P() {}
+		P(const T& o) : _NAP(o) {}
+		P(const P&) = delete;
+		P(std::vector<std::function<void(const T&)>> onChangedHandlers) : _NAP(onChangedHandlers) {}
+		P(std::vector<std::function<void(const T&)>> onChangedHandlers, const T& v) : _NAP(onChangedHandlers) 
+		{
+			_RP::node->Set(v);
+		}
+
+		_P& operator=(const _P&) = delete;
+		_P& operator=(const T& v) {
+			_RP::node->Set(v);
+			return *this;
+		}
+		void operator<<=(const _P& v) {
+			_RP::ReplaceNode(v.node);
+		}
+
+		// It exists to simplify complex type modification with 
+		// only 1 event triggering.
+		// Example:
+		// MSProperty<int> j;
+		// 
+		// j.Update([](EventArgs<int> e) {
+		// 	   e.newValue = 1;
+		// 	   e.source = Source::Keyboard;
+		// 	   return e;
+		// 	   });
+		// ----------VS--------------
+		// auto h = P::EventArgs<int>();
+		// h.newValue = 1;
+		// h.source = Source::Keyboard;
+		// j = h;
+		_P& Update(std::function<const T&(T)> func) {
+			return operator=(func(_NAP::Get()));
+		}
+	};
+	// Property
+	template<typename T, template<typename> typename Node>
+	class P<T*, Node> : public NAP<T*, Node> {
+	protected:
+		using _T = T*;
+		using _RP = RP<_T, Node>;
+		using _NAP = NAP<_T, Node>;
+		using _P = P<_T, Node>;
+	public:
+		P() {}
+		P(_T o) : _NAP(o) {}
+		P(std::vector<std::function<void(const _T&)>> onChangedHandlers) : _NAP(onChangedHandlers) {}
+
+		_P& operator=(const _P&) = delete;
+		_P& operator=(_T v) {
+			_RP::node->Set(v);
+			return *this;
+		}
+		void operator<<=(const _P& v) {
+			_RP::ReplaceNode(v.node);
+		}
+		_P& Update(std::function<const _T& (_T)> func) {
+			return operator=(func(_NAP::Get()));
+		}
+	};
+	// Property
+	template<typename R, template<typename> typename Node, typename ...T>
+	class P<std::function<R(T...)>, Node> : public NAP<std::function<R(T...)>, Node> {
+	protected:
+		using _T = std::function<R(T...)>;
+		using _RP = RP<_T, Node>;
+		using _NAP = NAP<_T, Node>;
+		using _P = P<_T, Node>;
+	public:
+		P() {}
+		P(const _T& o) : _NAP(o) {}
+		P(const _P&) = delete;
+		P(std::vector<std::function<void(const _T&)>> onChangedHandlers) : _NAP(onChangedHandlers) {}
+
+		_P& operator=(const _P&) = delete;
+		_P& operator=(const _T& v) {
+			_RP::node->Set(v);
+			return *this;
+		}
+		void operator<<=(const _P& v) {
+			_RP::ReplaceNode(v.node);
+		}
+		_P& Update(std::function<const _T& (_T)> func) {
+			return operator=(func(_NAP::Get()));
+		}
+	};
 };
-template<typename R, typename ...T>
-class ReadonlyProperty<std::function<R(T...)>> {
-protected:
-	std::shared_ptr<PropertyNode<std::function<R(T...)>>> node = std::make_shared<PropertyNode<std::function<R(T...)>>>();
-	ReadonlyProperty(const std::shared_ptr<PropertyNode<std::function<R(T...)>>>& node) {
-		this->node = node;
-	}
-	void ReplaceNode(const std::shared_ptr<PropertyNode<std::function<R(T...)>>>& node) {
-		node->OnChanged().AddHandlersFrom(this->node->OnChanged());
-		this->node = node;
-	}
-public:
-	ReadonlyProperty() {}
-	ReadonlyProperty(std::function<R(T...)> o) {
-		node->Set(o);
-	}
 
-	bool IsAssigned() {
-		return node->IsAssigned();
-	}
-
-	const std::function<R(T...)>& Get() const {
-		return node->Get();
-	}
-
-	ReadonlyProperty<std::function<R(T...)>> CloneReadonly() {
-		return new ReadonlyProperty(node);
-	}
-
-	IEvent<std::function<R(T...)>>& OnChanged() {
-		return node->OnChanged();
-	}
-
-	ReadonlyProperty<std::function<R(T...)>>& operator=(const ReadonlyProperty<std::function<R(T...)>>&) = delete;
-	R operator()(T... vs) const {
-		return Get()(vs...);
-	}
-	void operator<<=(const ReadonlyProperty<std::function<R(T...)>>& v) {
-		ReplaceNode(v.node);
-	}
-};
+// Input source
+using Source = P::Source;
 
 template<typename T>
-class NonAssignProperty : public ReadonlyProperty<T> {
-protected:
-	NonAssignProperty(const PropertyNode<T>& node) {
-		ReadonlyProperty<T>::node = node;
-	}
-public:
-	NonAssignProperty() {}
-	NonAssignProperty(const T& o) : ReadonlyProperty<T>(o) {}
-
-	T& Get() {
-		return ReadonlyProperty<T>::node->Get();
-	}
-
-	NonAssignProperty<T> CloneNonAssign() {
-		return new NonAssignProperty(ReadonlyProperty<T>::node);
-	}
-
-	NonAssignProperty<T>& operator=(const NonAssignProperty<T>&) = delete;
-	T* operator->() {
-		return &Get();
-	}
-	void operator<<=(const NonAssignProperty<T>& v) {
-		ReadonlyProperty<T>::ReplaceNode(v.node);
-	}
-};
-template<typename T>
-class NonAssignProperty<T*> : public ReadonlyProperty<T*> {
-protected:
-	NonAssignProperty(const PropertyNode<T*>& node) {
-		ReadonlyProperty<T>::node = node;
-	}
-public:
-	NonAssignProperty() {}
-	NonAssignProperty(T* o) : ReadonlyProperty<T*>(o) {}
-
-	T& Get() {
-		return ReadonlyProperty<T*>::node->Get();
-	}
-	
-	NonAssignProperty<T*> CloneNonAssign() {
-		return new NonAssignProperty(ReadonlyProperty<T*>::node);
-	}
-
-	NonAssignProperty<T*>& operator=(const NonAssignProperty<T*>&) = delete;
-	T* operator->() {
-		return &Get();
-	}
-	void operator<<=(const NonAssignProperty<T*>& v) {
-		ReadonlyProperty<T*>::ReplaceNode(v.node);
-	}
-};
-template<typename R, typename ...T>
-class NonAssignProperty<std::function<R(T...)>> : public ReadonlyProperty<std::function<R(T...)>> {
-protected:
-	NonAssignProperty(const PropertyNode<std::function<R(T...)>>& node) {
-		ReadonlyProperty<std::function<R(T...)>>::node = node;
-	}
-public:
-	NonAssignProperty() {}
-	NonAssignProperty(const std::function<R(T...)>& o) : ReadonlyProperty<std::function<R(T...)>>(o) {}
-
-	NonAssignProperty<std::function<R(T...)>> CloneNonAssign() {
-		return new NonAssignProperty(ReadonlyProperty<std::function<R(T...)>>::node);
-	}
-
-	NonAssignProperty<std::function<R(T...)>>& operator=(const NonAssignProperty<std::function<R(T...)>>&) = delete;
-	void operator<<=(const NonAssignProperty<std::function<R(T...)>>& v) {
-		ReadonlyProperty<std::function<R(T...)>>::ReplaceNode(v.node);
-	}
-};
+using EventArgs = P::EventArgs<T>;
 
 template<typename T>
-class Property : public NonAssignProperty<T> {
-public:
-	Property() {}
-	Property(const T& o) : NonAssignProperty<T>(o) {}
-	Property(const Property<T>&) = delete;
+using ReadonlyProperty = P::RP<T, P::PN>;
 
-	
-	Property<T>& operator=(const Property<T>&) = delete;
-	Property<T>& operator=(const T& v) {
-		ReadonlyProperty<T>::node->Set(v);
-		return *this;
-	}
-	void operator<<=(const Property<T>& v) {
-		ReadonlyProperty<T>::ReplaceNode(v.node);
-	}
-};
 template<typename T>
-class Property<T*> : public NonAssignProperty<T*> {
-public:
-	Property() {}
-	Property(T* o) : NonAssignProperty<T*>(o) {}
+using NonAssignProperty = P::NAP<T, P::PN>;
 
-	Property<T*>& operator=(const Property<T*>&) = delete;
-	Property<T*>& operator=(T* v) {
-		ReadonlyProperty<T*>::node->Set(v);
-		return *this;
-	}
-	void operator<<=(const Property<T*>& v) {
-		ReadonlyProperty<T*>::ReplaceNode(v.node);
-	}
-};
-template<typename R, typename ...T>
-class Property<std::function<R(T...)>> : public NonAssignProperty<std::function<R(T...)>> {
-public:
-	Property() {}
-	Property(const std::function<R(T...)>& o) : NonAssignProperty<std::function<R(T...)>>(o) {}
-	Property(const Property<std::function<R(T...)>>&) = delete;
+template<typename T>
+using Property = P::P<T, P::PN>;
 
-
-	Property<std::function<R(T...)>>& operator=(const Property<std::function<R(T...)>>&) = delete;
-	Property<std::function<R(T...)>>& operator=(const std::function<R(T...)>& v) {
-		ReadonlyProperty<std::function<R(T...)>>::node->Set(v);
-		return *this;
-	}
-	void operator<<=(const Property<std::function<R(T...)>>& v) {
-		ReadonlyProperty<std::function<R(T...)>>::ReplaceNode(v.node);
-	}
-};
-
+// MultiSourceProperty
+// Handles user input.
+// Unlike simple properties its events are fired once per frame
+// ensuring only the most prioritized input triggers the event.
+template<typename T>
+using MSProperty = P::P<P::EventArgs<T>, P::MSPN>;
 
 
 
@@ -787,6 +1015,39 @@ static type& name() {\
 	static type v = defaultValue;\
 	return v;\
 }
+
+#define PropertyDefault(type,name,defaultValue)\
+static Property<type>& name() {\
+	static Property<type> v = Property<type>(defaultValue);\
+	return v;\
+}
+
+#define MSProperty(type,name)\
+MSProperty<type> name;\
+const type& Get##name() const {\
+	return name.Get().value;\
+}\
+void Set##name(const type& v) {\
+	name.Update([&v](EventArgs<type> o){ o.value = v; o.source = Source::None; return o; });\
+}\
+
+#define SceneObjectMSProperty(type,name)\
+MSProperty<type> name { {[&](const EventArgs<type>&) { ForceUpdateCache(); }} };\
+const type& Get##name() const {\
+	return name.Get().value;\
+}\
+void Set##name(const type& v, Source source = Source::None) {\
+	name = {v, source};\
+}\
+
+#define SceneObjectMSPropertyDefault(type,name,defaultValue)\
+MSProperty<type> name { {[&](const EventArgs<type>&) { ForceUpdateCache(); }}, defaultValue };\
+const type& Get##name() const {\
+	return name.Get().value;\
+}\
+void Set##name(const type& v, Source source = Source::None) {\
+	name = {v, source};\
+}\
 
 template<typename T>
 class ValueStability {

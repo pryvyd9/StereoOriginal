@@ -199,17 +199,17 @@ class PenTool : public EditingTool {
 
 		// Create 2 points to be able to measure distance between them.
 		if (pointsCount < 2) {
-			target->AddVertice(cross->GetLocalPosition());
+			target->AddVertice(cross->GetPosition());
 			return;
 		}
 
 		// If cross is located at distance less than Precision then don't do anything.
-		if (glm::length(cross->GetWorldPosition() - points[pointsCount - 2]) < Precision)
+		if (glm::length(cross->GetPosition() - points[pointsCount - 2]) < Precision)
 			return;
 
 		// Create the third point to be able to measure the angle between the last 3 points.
 		if (pointsCount < 3) {
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 			return;
 		}
 
@@ -219,19 +219,19 @@ class PenTool : public EditingTool {
 			points[pointsCount - 3], 
 			points[pointsCount - 2], 
 			points[pointsCount - 1], 
-			cross->GetWorldPosition(),
+			cross->GetPosition(),
 			E)) {
-			target->SetVertice(pointsCount - 2, cross->GetWorldPosition());
-			target->SetVertice(pointsCount - 1, cross->GetWorldPosition());
+			target->SetVertice(pointsCount - 2, cross->GetPosition());
+			target->SetVertice(pointsCount - 1, cross->GetPosition());
 		}
 		else
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 	}
 	void Step() {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 			createdAdditionalPoints = true;
 			return;
 		}
@@ -239,14 +239,14 @@ class PenTool : public EditingTool {
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 			Changes::Commit();
 			createdNewObject = false;
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 			return;
 		}
 
-		if (cross->GetWorldPosition() == target->GetVertices().back())
+		if (cross->GetPosition() == target->GetVertices().back())
 			return;
 
-		target->SetVertice(target->GetVertices().size() - 1, cross->GetWorldPosition());
+		target->SetVertice(target->GetVertices().size() - 1, cross->GetPosition());
 	}
 
 	// Determines if the line will continue being straight after adding v4 to v1,v2,v3.
@@ -297,8 +297,8 @@ class PenTool : public EditingTool {
 
 				cmd->init = [] {
 					auto o = new PolyLine();
-					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
-					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
+					o->SetPosition(Scene::cross()->GetPosition());
+					o->SetRotation(Scene::cross()->GetRotation());
 					Scene::AssignUniqueName(o, LocaleProvider::Get("object:polyline"));
 					return o;
 				};
@@ -349,10 +349,10 @@ class PenTool : public EditingTool {
 		target = t;
 
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+			cross->SetRotation(target.Get()->GetRotation());
 
 		if (!target->GetVertices().empty())
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 
 		inputHandlerId = Input::AddHandler([&] {
 			// If handler was removed via shortcuts then don't execute it.
@@ -361,7 +361,7 @@ class PenTool : public EditingTool {
 			});
 		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
-				cross->SetWorldRotation(glm::quat());
+				cross->SetRotation(glm::quat());
 				return;
 			}
 
@@ -373,7 +373,7 @@ class PenTool : public EditingTool {
 			if (target->GetVertices().empty())
 				return;
 
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 		};
 	}
 
@@ -393,10 +393,10 @@ public:
 		createdAdditionalPoints = false;
 
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+			cross->SetRotation(target.Get()->GetRotation());
 
 		if (!target->GetVertices().empty())
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 
 		inputHandlerId = Input::AddHandler([&] {
 			// If handler was removed via shortcuts then don't execute it.
@@ -405,17 +405,17 @@ public:
 			});
 		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
-				cross->SetWorldRotation(glm::quat());
+				cross->SetRotation(glm::quat());
 				return;
 			}
 
 			if (Settings::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+				cross->SetRotation(target.Get()->GetRotation());
 
 			if (target->GetVertices().empty())
 				return;
 
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 		};
 		Settings::ShouldRestrictTargetModeToPivot() = true;
 
@@ -515,10 +515,7 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 	}
 
 	const glm::vec3 GetPos() {
-		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			return cross->GetLocalPosition();
-
-		return mesh->ToLocalPosition(cross->GetLocalPosition());
+		return cross->GetPosition();
 	}
 
 
@@ -727,10 +724,10 @@ class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMo
 
 	void ResetTool() {
 		cross->SetParent(crossOriginalParent);
-		cross->SetLocalPosition(crossOriginalPosition);
+		cross->SetPosition(crossOriginalPosition);
 
 		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
-		Input::RemoveHandler(inputHandlerId);
+		Input::continuousInputNoDelay().ContinuousOrStopped() -= inputHandlerId;
 		Changes::OnStateChange().RemoveHandler(stateChangedHandlerId);
 
 		DeleteConfig();
@@ -756,12 +753,12 @@ public:
 			o->Name = ss.str();
 			*mesh = o;
 
-			o->SetWorldPosition(cross->GetWorldPosition());
-			o->SetWorldRotation(pen->GetWorldRotation());
+			o->SetPosition(cross->GetPosition());
+			o->SetRotation(pen->GetRotation());
 
 			if (Settings::SpaceMode().Get() == SpaceMode::Local) {
-				cross->SetParent(o, false, true, true, false);
-				cross->SetLocalPosition(glm::vec3());
+				cross->SetParent(o, true, true, false);
+				cross->SetPosition(glm::vec3());
 			}
 
 			crossStartPosition = this->GetPos();
@@ -780,28 +777,27 @@ public:
 		}
 		pen = objs[0];
 
-		crossOriginalPosition = cross->GetLocalPosition();
+		crossOriginalPosition = cross->GetPosition();
 		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
 		stateChangedHandlerId = Changes::OnStateChange().AddHandler([&] {
-			cross->SetParent(mesh.Get(), false, true, true, false);
-			cross->SetLocalPosition(glm::vec3());
+			cross->SetParent(mesh.Get(), true, true, false);
+			cross->SetPosition(glm::vec3());
 			});
 
 		
-
-		inputHandlerId = Input::AddHandler([&] { ProcessInput(); });
+		inputHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] { ProcessInput(); };
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			if (!mesh.HasValue())
 				return;
 
-			auto pos = cross->GetWorldPosition();
+			auto pos = cross->GetPosition();
 			
 			if (Settings::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetParent(mesh.Get(), false, true, true, false);
+				cross->SetParent(mesh.Get(), true, true, false);
 			else
-				cross->SetParent(crossOriginalParent, false, true, true, false);
+				cross->SetParent(crossOriginalParent, true, true, false);
 
-			cross->SetWorldPosition(pos);
+			cross->SetPosition(pos);
 			};
 
 		return true;
@@ -852,13 +848,10 @@ public:
 };
 
 class TransformTool : public EditingTool {
-	using Mode = TransformToolMode;
-
 	const Log Logger = Log::For<TransformTool>();
 
 	size_t spaceModeChangeHandlerId;
 
-	Mode mode;
 	ObjectType type;
 
 	std::vector<PON> targets;
@@ -874,7 +867,7 @@ class TransformTool : public EditingTool {
 	
 
 
-	void ProcessInput(const ObjectType& type, const Mode& mode) {
+	void ProcessInput(const ObjectType& type) {
 		if (!shouldTrace && Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
 			Changes::Commit();
 			SceneObject::ResetIsAnyElementChanged();
@@ -890,17 +883,17 @@ class TransformTool : public EditingTool {
 
 		// Check if we need to process tool.
 		if (targets.empty() || !targets.front().HasValue()) {
-			TransformCross(relativeMovement, newScale, relativeRotation);
+			TransformCross(relativeMovement, newScale, relativeRotation, Source::Tool);
 			return;
 		}
 		if (Input::IsDown(Key::Escape, true)) {
-			TransformCross(relativeMovement, newScale, relativeRotation);
+			TransformCross(relativeMovement, newScale, relativeRotation, Source::Tool);
 			UnbindSceneObjects();
 			return;
 		}
 
 		if (Settings::TargetMode().Get() == TargetMode::Pivot)
-			TransformCross(relativeMovement, newScale, relativeRotation);
+			TransformCross(relativeMovement, newScale, relativeRotation, Source::Tool);
 		else
 			Transform(relativeMovement, newScale, relativeRotation);
 
@@ -922,7 +915,7 @@ class TransformTool : public EditingTool {
 		if (shouldTrace)
 			Trace(targets);
 
-		Transform::Rotate(center, rotation, targets, &cross.Get());
+		Transform::Rotate(center, rotation, targets, &cross.Get(), Source::Tool);
 	}
 
 	void Trace(std::vector<PON>& targets) {
@@ -962,7 +955,7 @@ class TransformTool : public EditingTool {
 			else {
 				cloneTool.destination = nonTraceObjects[i]->children[pos];
 				cloneTool.target = nonTraceObjects[i];
-				cloneTool.init = [p = nonTraceObjects[i]->GetWorldPosition(), r = nonTraceObjects[i]->GetWorldRotation()](SceneObject* obj) {
+				cloneTool.init = [p = nonTraceObjects[i]->GetPosition(), r = nonTraceObjects[i]->GetRotation()](SceneObject* obj) {
 					Scene::AssignUniqueName(obj, obj->Name);
 					obj->children.clear();
 				};
@@ -979,20 +972,20 @@ class TransformTool : public EditingTool {
 		if (relativeMovement != glm::vec3())
 			Translate(relativeMovement, targets);
 		if (relativeRotation != glm::vec3()) {
-			Rotate(cross->GetWorldPosition(), relativeRotation, targets);
+			Rotate(cross->GetPosition(), relativeRotation, targets);
 			nullifyUntouchedAngles(relativeRotation, angle, oldAngle);
 			oldAngle = angle;
 		}
 		if (newScale != oldScale) {
-			Scale(cross->GetWorldPosition(), oldScale, newScale, targets);
+			Scale(cross->GetPosition(), oldScale, newScale, targets);
 			oldScale = scale = newScale;
 		}
 	}
-	void TransformCross(const glm::vec3& relativeMovement, const float newScale, const glm::vec3& relativeRotation) {
+	void TransformCross(const glm::vec3& relativeMovement, const float newScale, const glm::vec3& relativeRotation, Source source) {
 		if (relativeMovement != glm::vec3())
-			Transform::Translate(relativeMovement, &Scene::cross().Get());
+			Transform::Translate(relativeMovement, &Scene::cross().Get(), source);
 		if (relativeRotation != glm::vec3()) {
-			Transform::Rotate(cross->GetWorldPosition(), relativeRotation, &Scene::cross().Get());
+			Transform::Rotate(cross->GetPosition(), relativeRotation, &Scene::cross().Get(), source);
 			nullifyUntouchedAngles(relativeRotation, angle, oldAngle);
 			oldAngle = angle;
 		}
@@ -1007,11 +1000,11 @@ class TransformTool : public EditingTool {
 				angle[i] = oldAngle[i] = 0.f;
 	}
 
-	static std::vector<glm::vec3> GetWorldPositions(std::list<PON>& vs) {
+	static std::vector<glm::vec3> GetPositions(std::list<PON>& vs) {
 		std::vector<glm::vec3> l;
 		for (auto o : vs)
 			if (o.HasValue())
-				l.push_back(o->GetWorldPosition());
+				l.push_back(o->GetPosition());
 		return l;
 	}
 
@@ -1023,9 +1016,7 @@ class TransformTool : public EditingTool {
 		targets.clear();
 		targets.insert(targets.end(), v.begin(), v.end());
 		
-		//Input::RemoveHandler(cross->keyboardBindingHandlerId);
-		//inputHandlerId = Input::AddHandler([this]{ ProcessInput(type, mode); });
-		cross->keyboardBindingProcessor = [this] { ProcessInput(type, mode); };
+		cross->keyboardBindingProcessor = [this] { ProcessInput(type); };
 		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
 			transformOldPos = transformPos = oldAngle = angle = glm::vec3();
 			oldAngle = angle = glm::vec3();
@@ -1040,6 +1031,25 @@ public:
 	glm::vec3 angle;
 	glm::vec3 transformPos;
 	bool shouldTrace;
+
+	// This is a GUI angle modified property.
+	// It defines the onChanged handler via constructor
+	Property<glm::vec3> GUIAngle{ {[&](const glm::vec3& v) {
+		const auto relativeRotation = Input::GetRelativeRotation(v);
+		Rotate(Scene::cross()->GetPosition(), relativeRotation, targets);
+	}} };
+	Property<glm::vec3> GUIPosition{ {[&](const glm::vec3& v) {
+		const auto relativeMovement = Input::GetRelativeMovement(v - Scene::cross()->GetPosition());
+		Translate(relativeMovement, targets);
+	}} };
+	Property<float> GUIScale{ {[&](const float& v) {
+		const auto newScale = Input::GetNewScale(v);
+		if (abs(newScale) < minScale)
+			return;
+		Scale(Scene::cross()->GetPosition(), oldScale, newScale, targets);
+		oldScale = scale = newScale;
+	}}, 1 };
+
 
 	CreatingTool<TraceObject> traceObjectTool;
 	CloneTool cloneTool;
@@ -1070,12 +1080,6 @@ public:
 		else 
 			return targets.front().Get();
 	}
-	void SetMode(Mode mode) {
-		this->mode = mode;
-	}
-	const Mode& GetMode() {
-		return mode;
-	}
 };
 
 class CosinePenTool : public EditingTool {
@@ -1103,23 +1107,23 @@ class CosinePenTool : public EditingTool {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
 			// We need to select one point and create an additional point
 			// so that we can perform some optimizations.
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 			createdAdditionalPoints = true;
 			return;
 		}
 
 		if (createdNewObject || Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 			createdNewObject = false;
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 
 			Changes::Commit();
 			return;
 		}
 
-		if (cross->GetWorldPosition() == target->GetVertices().back())
+		if (cross->GetPosition() == target->GetVertices().back())
 			return;
 
-		target->SetVertice(target->GetVertices().size() - 1, cross->GetWorldPosition());
+		target->SetVertice(target->GetVertices().size() - 1, cross->GetPosition());
 	}
 	void Step132() {
 		if (!createdAdditionalPoints || target->GetVertices().empty()) {
@@ -1138,10 +1142,10 @@ class CosinePenTool : public EditingTool {
 			return;
 		}
 
-		if (cross->GetWorldPosition() == target->GetVertices()[currentVertice])
+		if (cross->GetPosition() == target->GetVertices()[currentVertice])
 			return;
 
-		target->SetVertice(currentVertice, cross->GetWorldPosition());
+		target->SetVertice(currentVertice, cross->GetPosition());
 	}
 
 	void createVertice132() {
@@ -1149,12 +1153,12 @@ class CosinePenTool : public EditingTool {
 		{
 			currentVertice = target->GetVertices().size() - 1;
 			target->AddVertice(target->GetVertices().back());
-			target->SetVertice(currentVertice, cross->GetWorldPosition());
+			target->SetVertice(currentVertice, cross->GetPosition());
 		}
 		else
 		{
 			currentVertice = target->GetVertices().size();
-			target->AddVertice(cross->GetWorldPosition());
+			target->AddVertice(cross->GetPosition());
 		}
 	}
 
@@ -1172,7 +1176,7 @@ class CosinePenTool : public EditingTool {
 	}
 
 	void moveCrossToVertice(int i) {
-		cross->SetWorldPosition(target->GetVertices()[i]);
+		cross->SetPosition(target->GetVertices()[i]);
 	}
 
 	void ProcessInput() {
@@ -1208,8 +1212,8 @@ class CosinePenTool : public EditingTool {
 
 				cmd->init = [] {
 					auto o = new SineCurve();
-					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
-					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
+					o->SetPosition(Scene::cross()->GetPosition());
+					o->SetRotation(Scene::cross()->GetRotation());
 					Scene::AssignUniqueName(o, LocaleProvider::Get("object:sinecurve"));
 					return o;
 				};
@@ -1261,16 +1265,12 @@ class CosinePenTool : public EditingTool {
 		target = t;
 
 		if (!target->GetVertices().empty())
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 
-		inputHandlerId = Input::AddHandler([&]{
-			// If handler was removed via shortcuts then don't execute it.
-			if (inputHandlerId)
-				ProcessInput();
-			});
+		inputHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] (){ ProcessInput(); };
 		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
-				cross->SetWorldRotation(glm::quat());
+				cross->SetRotation(glm::quat());
 				return;
 			}
 
@@ -1280,12 +1280,12 @@ class CosinePenTool : public EditingTool {
 			}
 
 			if (Settings::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+				cross->SetRotation(target.Get()->GetRotation());
 
 			if (target->GetVertices().empty())
 				return;
 
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 		};
 		modeChangedHandlerId = mode.OnChanged() += [&](const Mode& v) {
 			currentVertice = getCurrentVertice();
@@ -1310,29 +1310,25 @@ public:
 		createdAdditionalPoints = false;
 
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+			cross->SetRotation(target.Get()->GetRotation());
 
 		if (!target->GetVertices().empty())
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 
-		inputHandlerId = Input::AddHandler([&] {
-			// If handler was removed via shortcuts then don't execute it.
-			if (inputHandlerId)
-				ProcessInput();
-			});
+		inputHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&]() { ProcessInput(); };
 		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
-				cross->SetWorldRotation(glm::quat());
+				cross->SetRotation(glm::quat());
 				return;
 			}
 
 			if (Settings::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+				cross->SetRotation(target.Get()->GetRotation());
 
 			if (target->GetVertices().empty())
 				return;
 
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 		};
 		Settings::ShouldRestrictTargetModeToPivot() = true;
 
@@ -1353,7 +1349,8 @@ public:
 		target->RemoveVertice();
 		createdAdditionalPoints = false;
 
-		Input::RemoveHandler(inputHandlerId);
+		Input::continuousInputNoDelay().ContinuousOrStopped() -= inputHandlerId;
+
 		Changes::OnStateChange() -= stateChangedHandlerId;
 		mode.OnChanged() -= modeChangedHandlerId;
 
@@ -1397,7 +1394,7 @@ class PointPenTool : public EditingTool {
 		if (createNewObjectHandlerId)
 			return;
 
-		createNewObjectHandlerId = Input::AddHandler([&] {
+		createNewObjectHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] {
 			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
@@ -1410,20 +1407,20 @@ class PointPenTool : public EditingTool {
 
 				cmd->init = [] {
 					auto o = new PointObject();
-					o->SetWorldPosition(Scene::cross()->GetWorldPosition());
-					o->SetWorldRotation(Scene::cross()->GetWorldRotation());
+					o->SetPosition(Scene::cross()->GetPosition());
+					o->SetRotation(Scene::cross()->GetRotation());
 					Scene::AssignUniqueName(o, LocaleProvider::Get("object:point"));
 					return o;
 				};
 				cmd->onCreated = [&](SceneObject* o) {
 					createdNewObject = true;
 					ObjectSelection::Set(o);
-					Input::RemoveHandler(createNewObjectHandlerId);
+					Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
 					lockCreateNewObjectHandlerId = false;
 					Changes::Commit();
 				};
 			}
-			});
+		};
 	}
 
 	ObjectSelection::Selection GetExistingObjects(const ObjectSelection::Selection& v) {
@@ -1460,17 +1457,14 @@ class PointPenTool : public EditingTool {
 		target = t;
 
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+			cross->SetRotation(target.Get()->GetRotation());
 
 		if (!target->GetVertices().empty())
-			cross->SetWorldPosition(target->GetVertices().back());
-
-		inputHandlerId = Input::AddHandler([&] {
-			TryCreateNewObject();
-			});
+			cross->SetPosition(target->GetVertices().back());
+		inputHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] { TryCreateNewObject(); };
 		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
-				cross->SetWorldRotation(glm::quat());
+				cross->SetRotation(glm::quat());
 				return;
 			}
 
@@ -1482,7 +1476,7 @@ class PointPenTool : public EditingTool {
 			if (target->GetVertices().empty())
 				return;
 
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 		};
 	}
 
@@ -1500,28 +1494,25 @@ public:
 		target = objs[0];
 
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
-			cross->SetWorldRotation(target.Get()->GetWorldRotation());
+			cross->SetRotation(target.Get()->GetRotation());
 
 		if (!target->GetVertices().empty())
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 
-		inputHandlerId = Input::AddHandler([&] {
-			// If handler was removed via shortcuts then don't execute it.
-			TryCreateNewObject();
-			});
+		inputHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] { TryCreateNewObject(); };
 		stateChangedHandlerId = Changes::OnStateChange() += [&] {
 			if (!target.HasValue()) {
-				cross->SetWorldRotation(glm::quat());
+				cross->SetRotation(glm::quat());
 				return;
 			}
 
 			if (Settings::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetWorldRotation(target.Get()->GetWorldRotation());
+				cross->SetRotation(target.Get()->GetRotation());
 
 			if (target->GetVertices().empty())
 				return;
 
-			cross->SetWorldPosition(target->GetVertices().back());
+			cross->SetPosition(target->GetVertices().back());
 		};
 		Settings::ShouldRestrictTargetModeToPivot() = true;
 
@@ -1529,14 +1520,14 @@ public:
 	}
 	virtual bool UnbindSceneObjects() {
 		if (!lockCreateNewObjectHandlerId)
-			Input::RemoveHandler(createNewObjectHandlerId);
+			Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
 
 		Settings::ShouldRestrictTargetModeToPivot() = false;
 
 		if (!target.HasValue())
 			return true;
 
-		Input::RemoveHandler(inputHandlerId);
+		Input::continuousInputNoDelay().ContinuousOrStopped() -= inputHandlerId;
 		Changes::OnStateChange() -= stateChangedHandlerId;
 
 		target = PON();
@@ -1553,7 +1544,7 @@ public:
 		// creating new object awaiting state.
 		// But if the tool is unbind then it should be cancelled.
 		if (!lockCreateNewObjectHandlerId)
-			Input::RemoveHandler(createNewObjectHandlerId);
+			Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
 	}
 
 	SceneObject* GetTarget() {

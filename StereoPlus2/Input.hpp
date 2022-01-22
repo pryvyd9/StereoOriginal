@@ -32,11 +32,16 @@ class Input {
 		bool iscontinuousInputLast = false;
 		bool isAnythingPressedLast = false;
 		size_t lastPressedTime;
+
+		Event<> continuousOrStopped;
 	public:
 		bool isContinuousInput = false;
 		// seconds
 		float continuousInputAwaitTime;
 
+		IEvent<>& ContinuousOrStopped() {
+			return continuousOrStopped;
+		}
 
 		ContinuousInput(float continuousInputAwaitTime) : continuousInputAwaitTime(continuousInputAwaitTime) {}
 
@@ -49,6 +54,17 @@ class Input {
 			}
 			else if (isContinuousInput && (Time::GetTime() - lastPressedTime) > continuousInputAwaitTime * 1e3)
 				isContinuousInput = false;
+
+			{
+				// Don't update state if the state hasn't changed
+				if (isContinuousInput == iscontinuousInputLast) {
+					continuousOrStopped.Invoke();
+					return;
+				}
+
+				if (isContinuousInput || HasStopped())
+					continuousOrStopped.Invoke();
+			}
 		}
 
 		bool HasStopped() {
@@ -65,9 +81,6 @@ class Input {
 	StaticFieldDefault(float, mouseSensivity, 1e-2)
 	StaticFieldDefault(float, mouseMaxMagnitude, 1e4)
 
-	StaticFieldDefault(ContinuousInput, continuousInputOneSecondDelay, ContinuousInput(1))
-	StaticFieldDefault(ContinuousInput, continuousInputNoDelay, ContinuousInput(0))
-	StaticFieldDefault(ContinuousInput, continuousMovementInputNoDelay, ContinuousInput(0))
 
 	static std::map<size_t, std::function<void()>>& handlers() {
 		static std::map<size_t, std::function<void()>> v;
@@ -130,30 +143,30 @@ class Input {
 	}
 
 
-	//static bool RemoveCombination(
-	//	CombinationNode& node,
-	//	const std::vector<Key::Modifier>::const_iterator* modifiersCurrent,
-	//	const std::vector<Key::Modifier>::const_iterator* modifiersEnd,
-	//	const Key::KeyPair& endKey,
-	//	const std::function<void()>& callback) {
-	//	if (modifiersCurrent == modifiersEnd || *modifiersCurrent == *modifiersEnd) {
-	//		if (auto i = node.callbacks.find(endKey); i != node.callbacks.end()) {
-	//			node.callbacks.erase(i);
-	//			return true;
-	//		}
+	/*static bool RemoveCombination(
+		CombinationNode& node,
+		const std::vector<Key::Modifier>::const_iterator* modifiersCurrent,
+		const std::vector<Key::Modifier>::const_iterator* modifiersEnd,
+		const Key::KeyPair& endKey,
+		const std::function<void()>& callback) {
+		if (modifiersCurrent == modifiersEnd || *modifiersCurrent == *modifiersEnd) {
+			if (auto i = node.callbacks.find(endKey); i != node.callbacks.end()) {
+				node.callbacks.erase(i);
+				return true;
+			}
 
-	//		return false;
-	//	}
+			return false;
+		}
 
-	//	auto modifiersNext = (*modifiersCurrent) + 1;
+		auto modifiersNext = (*modifiersCurrent) + 1;
 
-	//	if (auto c = node.children.find(*modifiersCurrent->_Ptr);
-	//		c != node.children.end())
-	//		return RemoveCombination(c._Ptr->_Myval.second, &modifiersNext, modifiersEnd, endKey, callback);
+		if (auto c = node.children.find(*modifiersCurrent->_Ptr);
+			c != node.children.end())
+			return RemoveCombination(c._Ptr->_Myval.second, &modifiersNext, modifiersEnd, endKey, callback);
 
-	//	node.children[*modifiersCurrent->_Ptr] = CombinationNode();
-	//	return RemoveCombination(node.children[*modifiersCurrent->_Ptr], &modifiersNext, modifiersEnd, endKey, callback);
-	//}
+		node.children[*modifiersCurrent->_Ptr] = CombinationNode();
+		return RemoveCombination(node.children[*modifiersCurrent->_Ptr], &modifiersNext, modifiersEnd, endKey, callback);
+	}*/
 
 	// Prevents combinations with letters or printable symbols
 	// being executed while the keyboard is captured by text input.
@@ -191,12 +204,16 @@ public:
 	StaticField(glm::vec3, NumpadAxe)
 	StaticField(glm::vec3, MouseAxe)
 
-	StaticField(glm::vec3, movement)
+	StaticFieldDefault(ContinuousInput, continuousInputOneSecondDelay, ContinuousInput(1))
+	StaticFieldDefault(ContinuousInput, continuousInputNoDelay, ContinuousInput(0))
+	StaticFieldDefault(ContinuousInput, continuousMovementInputNoDelay, ContinuousInput(0))
+
+	StaticProperty(glm::vec3, movement)
 
 	StaticProperty(bool, IsCustomRenderImageActive)
 
 	static bool IsMoved() {
-		return movement() != glm::vec3();
+		return movement().Get() != glm::vec3();
 	}
 
 	static bool IsPressed(Key::KeyPair key, bool discreteInput = false) {
@@ -347,12 +364,12 @@ public:
 	static const glm::vec3 GetRelativeRotation(const glm::vec3& defaultAngle) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!Input::IsPressed(Key::Modifier::Control) || Input::movement() == zero)
+		if (!Input::IsPressed(Key::Modifier::Control) || Input::movement().Get() == zero)
 			return defaultAngle;
 
 		// If all 3 axes are modified then don't apply such rotation.
 		// Quaternion can't rotate around 3 axes.
-		if (Input::movement().x && Input::movement().y && Input::movement().z)
+		if (Input::movement()->x && Input::movement()->y && Input::movement()->z)
 			return defaultAngle;
 
 		auto mouseThresholdMin = 0.8;
@@ -385,18 +402,18 @@ public:
 	static const glm::vec3 GetRelativeMovement(const glm::vec3& defaultMovement) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!Input::IsPressed(Key::Modifier::Alt) || Input::movement() == zero)
+		if (!Input::IsPressed(Key::Modifier::Alt) || Input::movement().Get() == zero)
 			return defaultMovement;
 
-		return Input::movement() * Settings::TranslationStep().Get();
+		return Input::movement().Get() * Settings::TranslationStep().Get();
 	}
 	static const float GetNewScale(const float& currentScale) {
 		static glm::vec3 zero = glm::vec3();
 
-		if (!Input::IsPressed(Key::Modifier::Shift) || Input::movement() == zero)
+		if (!Input::IsPressed(Key::Modifier::Shift) || Input::movement().Get() == zero)
 			return currentScale;
 
-		return currentScale + Input::movement().x * Settings::ScalingStep().Get();
+		return currentScale + Input::movement()->x * Settings::ScalingStep().Get();
 	}
 
 };
@@ -414,30 +431,32 @@ class KeyBinding {
 			// and reset movement
 			bool mouseBoundlessMode = Input::IsPressed(Key::Modifier::Alt) || Input::IsPressed(Key::Modifier::Shift) || Input::IsPressed(Key::Modifier::Control);
 			Input::SetMouseBoundlessMode(mouseBoundlessMode && Input::IsCustomRenderImageActive().Get());
+			
+			auto movement =
+				Input::MouseAxe() * Settings::MouseSensivity().Get()
+				+ Input::ArrowAxe()
+				+ Input::NumpadAxe();
 
-			Input::movement() = glm::vec3();
-
-			Input::movement() += Input::MouseAxe() * Settings::MouseSensivity().Get();
-			Input::movement() += Input::ArrowAxe();
-			Input::movement() += Input::NumpadAxe();
+			if (movement != Input::movement().Get())
+				Input::movement() = movement;
 			});
 		Input::AddHandler([] {
 			if (Input::IsPressed(Key::Modifier::Alt)) {
 				if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty()) {
 					glm::vec3 v(0);
 					for (auto& o : ObjectSelection::Selected())
-						v += o.Get()->GetWorldPosition();
+						v += o.Get()->GetPosition();
 					v /= ObjectSelection::Selected().size();
-					Scene::cross()->SetWorldPosition(v);
+					Scene::cross()->SetPosition(v);
 				}
 				else if (Input::IsDown(Key::N0, true))
-					Scene::cross()->SetWorldPosition(glm::vec3());
+					Scene::cross()->SetPosition(glm::vec3());
 			}
 			else if (Input::IsPressed(Key::Modifier::Control)) {
 				if (Input::IsDown(Key::N5, true) && !ObjectSelection::Selected().empty())
-					Scene::cross()->SetWorldRotation(ObjectSelection::Selected().begin()._Ptr->_Myval->GetWorldRotation());
+					Scene::cross()->SetRotation(ObjectSelection::Selected().begin()._Ptr->_Myval->GetRotation());
 				else if (Input::IsDown(Key::N0, true))
-					Scene::cross()->SetWorldRotation(glm::quat(1, 0, 0, 0));
+					Scene::cross()->SetRotation(glm::quat(1, 0, 0, 0));
 			}
 			});
 	}

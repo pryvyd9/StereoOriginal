@@ -95,10 +95,16 @@ Added Publish configuration that cleans output before build and copies only nece
 # 0.18.8
 - fixed webcam settigns ui;
 # 0.18.9
-- introcuded navigation mode. Toggled by Z. 
+- introduced navigation mode. Toggled by Z. 
 Switches between cross and camera movement.
 When in camera mode cross doesn't react to mouse+keyboard control;
 # 0.19
 - autosaving. Name is scenes/~temp<appStartTime>. 
 If an error occured the name is scenes/~backup<appStartTime>;
 - rearranged settings in settings window;
+# 1.0
+- introduced percentile performance metrics;
+- introduced event-based input handling;
+- removed obsolete cascade code;
+- updated to c++20 (v143);
+- reworked transform tool GUI;

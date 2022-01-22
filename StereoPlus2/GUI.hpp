@@ -82,7 +82,13 @@ class GUI {
 		}
 
 		if (shouldShowFPS) {
-			ImGui::LabelText("", "FPS: %-12i DeltaTime: %-12f", Time::GetAverageFrameRate(), Time::GetAverageDeltaTime());
+			//ImGui::LabelText("", "FPS: %-12i P1: %-12i, P20: %-12i", Time::GetAverageFrameRate(), Time::GetFrameRatePercentile(20));
+			ImGui::LabelText("", "P1: %-12i P10: %-12i P25: %-12i P50: %-12i FPS: %-12i", 
+				Time::GetFrameRatePercentile(1), 
+				Time::GetFrameRatePercentile(10), 
+				Time::GetFrameRatePercentile(25), 
+				Time::GetFrameRatePercentile(50),
+				Time::GetAverageFrameRate());
 		}
 
 		return true;
@@ -273,6 +279,9 @@ public:
 			if (!Design())
 				return false;
 
+			if (!Command::ExecuteAll())
+				return false;
+
 			if (shouldClose)
 				return true;
 
@@ -295,9 +304,6 @@ public:
 			}
 
 			glfwSwapBuffers(glWindow);
-
-			if (!Command::ExecuteAll())
-				return false;
 
 			Time::UpdateFrame();
 			//std::cout << "FPS: " << Time::GetFrameRate() << std::endl;

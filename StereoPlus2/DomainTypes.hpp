@@ -235,7 +235,7 @@ void UpdateCache() {
 		isPositionCreated = true;
 
 		// Requests a redundant cache update.
-		SetWorldPosition(vertices[0]);
+		SetPosition(vertices[0]);
 	}
 
 	if (vertices.size() < 3) {
@@ -581,8 +581,8 @@ class PointObject : public LeafObject {
 		std::function<glm::vec3(glm::vec3)> toLeft,
 		std::function<glm::vec3(glm::vec3)> toRight) override {
 
-		auto leftCenter = toLeft(GetWorldPosition());
-		auto rightCenter = toRight(GetWorldPosition());
+		auto leftCenter = toLeft(GetPosition());
+		auto rightCenter = toRight(GetPosition());
 		auto millimeterSize = Convert::PixelsToMillimeters(Settings::PointRadiusPixel().Get());
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
@@ -757,19 +757,7 @@ public:
 			ImGui::TreePop();
 		}
 
-		auto oldPos = GetLocalPosition();
-
 		SceneObject::DesignProperties();
-
-		// Hack to enable cross movement via GUI editing count as input movement.
-		// It enables tools to react to it properly and work correctly.
-		// It's a crutch that should be reworked properly.
-		GUIPositionEditDifference = GetLocalPosition() - oldPos;
-
-		if (GUIPositionEditDifference != glm::vec3())
-			SetLocalPosition(oldPos);
-
-		//shouldUpdateCache = true;
 	}
 
 	virtual void DrawLeft(GLuint shader) override {
@@ -797,7 +785,7 @@ class Camera : public LeafObject
 	glm::vec3 positionModifier;
 
 	glm::vec3 GetPos() {
-		return positionModifier + GetLocalPosition();
+		return positionModifier + GetPosition();
 	}
 
 	Event<> onPropertiesChanged;
