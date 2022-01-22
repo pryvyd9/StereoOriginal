@@ -107,3 +107,4 @@ If an error occured the name is scenes/~backup<appStartTime>;
 - introduced event-based input handling;
 - removed obsolete cascade code;
 - updated to c++20 (v143);
+- reworked transform tool GUI;
