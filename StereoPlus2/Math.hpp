@@ -93,24 +93,24 @@ public:
 		}
 		cross->SetPosition(cross->GetPosition() + transformVector, source);
 	}
-	static void Translate(const glm::vec3& transformVector, std::vector<PON>& targets, SceneObject* cross) {
+	static void Translate(const glm::vec3& transformVector, std::vector<PON>& targets, SceneObject* cross, Source source = Source::None) {
 		// Need to calculate average rotation.
 		// https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions/27410865#27410865
 		if (Settings::SpaceMode().Get() == SpaceMode::Local) {
 			auto r = glm::rotate(cross->GetRotation(), transformVector);
 
-			cross->SetPosition(cross->GetPosition() + r);
+			cross->SetPosition(cross->GetPosition() + r, source);
 			for (auto o : targets) {
-				o->SetPosition(o->GetPosition() + r);
+				o->SetPosition(o->GetPosition() + r, source);
 				for (size_t i = 0; i < o->GetVertices().size(); i++)
 					o->SetVertice(i, o->GetVertices()[i] + r);
 			}
 			return;
 		}
 
-		cross->SetPosition(cross->GetPosition() + transformVector);
+		cross->SetPosition(cross->GetPosition() + transformVector, source);
 		for (auto o : targets) {
-			o->SetPosition(o->GetPosition() + transformVector);
+			o->SetPosition(o->GetPosition() + transformVector, source);
 			for (size_t i = 0; i < o->GetVertices().size(); i++)
 				o->SetVertice(i, o->GetVertices()[i] + transformVector);
 		}
@@ -136,7 +136,7 @@ public:
 		auto h = r * cross->GetRotation();
 		cross->SetRotation(r * cross->GetRotation(), source);
 	}
-	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::vector<PON>& targets, SceneObject* cross) {
+	static void Rotate(const glm::vec3& center, const glm::vec3& rotation, std::vector<PON>& targets, SceneObject* cross, Source source = Source::None) {
 		glm::vec3 axe;
 		float angle;
 
@@ -154,14 +154,14 @@ public:
 		if (Settings::SpaceMode().Get() == SpaceMode::Local)
 			r = getIsolatedRotation(r, cross->GetRotation());
 
-		cross->SetRotation(r * cross->GetRotation());
+		cross->SetRotation(r * cross->GetRotation(), source);
 
 		for (auto& target : targets) {
-			target->SetPosition(glm::rotate(r, target->GetPosition() - center) + center);
+			target->SetPosition(glm::rotate(r, target->GetPosition() - center) + center, source);
 			for (size_t i = 0; i < target->GetVertices().size(); i++)
 				target->SetVertice(i, glm::rotate(r, target->GetVertices()[i] - center) + center);
 
-			target->SetRotation(r * target->GetRotation());
+			target->SetRotation(r * target->GetRotation(), source);
 		}
 	}
 };

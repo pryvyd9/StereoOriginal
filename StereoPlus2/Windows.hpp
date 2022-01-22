@@ -1220,6 +1220,7 @@ class TransformToolWindow : Window, Attributes {
 
 	int getPrecision(float v) {
 		int precision = 0;
+		v -= (int)v;
 		for (int i = 0; i < maxPrecision; i++) {
 			v *= 10;
 			if ((int)v % 10 != 0)
@@ -1240,11 +1241,6 @@ class TransformToolWindow : Window, Attributes {
 		ss << "%." << getPrecision(v.z) << "f";
 		r |= ImGui::DragFloat(s3.c_str(), &v.z, speed, 0, 0, ss.str().c_str());
 		return r;
-	}
-	bool DragVector(glm::vec3& v, const char* s1, const char* s2, const char* s3, const char* f, float speed) {
-		return ImGui::DragFloat(s1, &v.x, speed, 0, 0, f)
-			| ImGui::DragFloat(s2, &v.y, speed, 0, 0, f)
-			| ImGui::DragFloat(s3, &v.z, speed, 0, 0, f);
 	}
 
 	bool DesignInternal() {
@@ -1280,31 +1276,24 @@ class TransformToolWindow : Window, Attributes {
 		switch (transformToolModeCopy) {
 		case TransformToolMode::Translate:
 			ImGui::Separator();
-			ImGui::Checkbox("Relative", &isRelativeMode);
-
-			if (isRelativeMode)
-				DragVector(tool->transformPos, "X", "Y", "Z", "%.5f", 1);
-			else {
-				auto crossPosCopy = tool->cross->GetPosition();
-				if (DragVector(crossPosCopy, "X", "Y", "Z", "%.5f", 1))
-					tool->transformPos += crossPosCopy - tool->cross->GetPosition();
+			if (auto v = Scene::cross()->GetPosition();
+				DragVector(v, "X", "Y", "Z", 1)) {
+				tool->GUIPosition = v;
 			}
 			break;
 		case TransformToolMode::Scale:
 			ImGui::Separator();
-			ImGui::DragFloat("scale", &tool->scale, 0.01f, 0, 0, "%.2f");
+			if (auto v = tool->GUIScale.Get();
+				ImGui::DragFloat("scale", &v, 0.01f, 0, 0, "%.2f")) {
+				tool->GUIScale = v;
+			}
 			break;
 		case TransformToolMode::Rotate:
-			if (!Input::IsContinuousInputNoDelay())
-				oldAngle = tool->angle;
-
-			ImGui::Separator(); 
-			{
-				auto crossOldAngle = glm::degrees(glm::eulerAngles(Scene::cross()->GetRotation()));
-				if (auto angle = crossOldAngle;
-					DragVector(angle, "X", "Y", "Z", 1))
-					tool->GUIAngle = crossOldAngle - angle;
-			}
+			ImGui::Separator();
+			auto crossOldAngle = glm::degrees(glm::eulerAngles(Scene::cross()->GetRotation()));
+			if (auto angle = crossOldAngle;
+				DragVector(angle, "X", "Y", "Z", 1))
+				tool->GUIAngle = crossOldAngle - angle;
 
 			break;
 		default:

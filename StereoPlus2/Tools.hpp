@@ -915,7 +915,7 @@ class TransformTool : public EditingTool {
 		if (shouldTrace)
 			Trace(targets);
 
-		Transform::Rotate(center, rotation, targets, &cross.Get());
+		Transform::Rotate(center, rotation, targets, &cross.Get(), Source::Tool);
 	}
 
 	void Trace(std::vector<PON>& targets) {
@@ -1035,12 +1035,21 @@ public:
 	// This is a GUI angle modified property.
 	// It defines the onChanged handler via constructor
 	Property<glm::vec3> GUIAngle{ {[&](const glm::vec3& v) {
-		const auto newScale = Input::GetNewScale(scale);
-		const auto relativeMovement = Input::GetRelativeMovement(transformPos - transformOldPos);
 		const auto relativeRotation = Input::GetRelativeRotation(v);
-
-		Transform(relativeMovement, newScale, relativeRotation);
+		Rotate(Scene::cross()->GetPosition(), relativeRotation, targets);
 	}} };
+	Property<glm::vec3> GUIPosition{ {[&](const glm::vec3& v) {
+		const auto relativeMovement = Input::GetRelativeMovement(v - Scene::cross()->GetPosition());
+		Translate(relativeMovement, targets);
+	}} };
+	Property<float> GUIScale{ {[&](const float& v) {
+		const auto newScale = Input::GetNewScale(v);
+		if (abs(newScale) < minScale)
+			return;
+		Scale(Scene::cross()->GetPosition(), oldScale, newScale, targets);
+		oldScale = scale = newScale;
+	}}, 1 };
+
 
 	CreatingTool<TraceObject> traceObjectTool;
 	CloneTool cloneTool;
