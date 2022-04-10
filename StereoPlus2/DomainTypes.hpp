@@ -48,15 +48,14 @@ class PolyLine : public LeafObject {
 	std::vector<glm::vec3> rightBuffer;
 
 	virtual void UpdateOpenGLBuffer(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) override {
+		std::function<glm::vec3(glm::vec3)> toStereo) override {
 		UpdateCache();
 
-		leftBuffer = std::vector<glm::vec3>(verticesCache.size());
-		rightBuffer = std::vector<glm::vec3>(verticesCache.size());
+		leftBuffer = rightBuffer = std::vector<glm::vec3>(verticesCache.size());
 		for (size_t i = 0; i < verticesCache.size(); i++) {
-			leftBuffer[i] = toLeft(verticesCache[i]);
-			rightBuffer[i] = toRight(verticesCache[i]);
+			auto pair = toStereo(verticesCache[i]);
+			leftBuffer[i] = glm::vec3(pair.x, pair.z, 0);
+			rightBuffer[i] = glm::vec3(pair.y, pair.z, 0);
 		}
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
@@ -194,15 +193,15 @@ class SineCurve : public LeafObject {
 	std::vector<glm::vec3> rightBuffer;
 
 	virtual void UpdateOpenGLBuffer(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) override {
+		std::function<glm::vec3(glm::vec3)> toStereo) override {
 		UpdateCache();
 
 		leftBuffer = std::vector<glm::vec3>(verticesCache.size());
 		rightBuffer = std::vector<glm::vec3>(verticesCache.size());
 		for (size_t i = 0; i < verticesCache.size(); i++) {
-			leftBuffer[i] = toLeft(verticesCache[i]);
-			rightBuffer[i] = toRight(verticesCache[i]);
+			auto pair = toStereo(verticesCache[i]);
+			leftBuffer[i] = glm::vec3(pair.x, pair.z, 0);
+			rightBuffer[i] = glm::vec3(pair.y, pair.z, 0);
 		}
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * verticesCache.size(), leftBuffer.data(), GL_DYNAMIC_DRAW);
@@ -384,14 +383,14 @@ class Mesh : public LeafObject {
 	bool shouldUpdateIBO = true;
 
 	virtual void UpdateOpenGLBuffer(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) override {
+		std::function<glm::vec3(glm::vec3)> toStereo) override {
 		UpdateCache();
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertexCache.size());
 		for (size_t i = 0; i < vertexCache.size(); i++) {
-			leftBuffer[i] = toLeft(vertexCache[i]);
-			rightBuffer[i] = toRight(vertexCache[i]);
+			auto pair = toStereo(vertexCache[i]);
+			leftBuffer[i] = glm::vec3(pair.x, pair.z, 0);
+			rightBuffer[i] = glm::vec3(pair.y, pair.z, 0);
 		}
 
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
@@ -578,16 +577,16 @@ class PointObject : public LeafObject {
 	std::vector<glm::vec3> rightBuffer;
 
 	virtual void UpdateOpenGLBuffer(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) override {
+		std::function<glm::vec3(glm::vec3)> toStereo) override {
 
-		auto leftCenter = toLeft(GetPosition());
-		auto rightCenter = toRight(GetPosition());
+		auto pair = toStereo(GetPosition());
+		auto leftCenter = glm::vec3(pair.x, pair.z, 0);
+		auto rightCenter = glm::vec3(pair.y, pair.z, 0);
 		auto millimeterSize = Convert::PixelsToMillimeters(Settings::PointRadiusPixel().Get());
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
 		for (size_t i = 0; i < vertices.size(); i++) {
-			auto p = Convert::MillimetersToViewCoordinates(vertices[i] * millimeterSize, ReadOnlyState::ViewSize().Get());
+			auto p = Convert::MillimetersToViewCoordinates3(vertices[i] * millimeterSize, ReadOnlyState::ViewSize().Get());
 			leftBuffer[i] = leftCenter + p;
 			rightBuffer[i] = rightCenter + p;
 		}
@@ -676,14 +675,14 @@ class Cross : public LeafObject {
 	std::vector<glm::vec3> rightBuffer;
 
 	virtual void UpdateOpenGLBuffer(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) override {
+		std::function<glm::vec3(glm::vec3)> toStereo) override {
 		UpdateCache();
 
 		leftBuffer = rightBuffer = std::vector<glm::vec3>(vertices.size());
 		for (size_t i = 0; i < vertices.size(); i++) {
-			leftBuffer[i] = toLeft(vertices[i]);
-			rightBuffer[i] = toRight(vertices[i]);
+			auto pair = toStereo(vertices[i]);
+			leftBuffer[i] = glm::vec3(pair.x, pair.z, 0);
+			rightBuffer[i] = glm::vec3(pair.y, pair.z, 0);
 		}
 
 		glBindBuffer(GL_ARRAY_BUFFER, VBOLeft);
@@ -797,7 +796,6 @@ public:
 	// Pixels
 	ReadonlyProperty<glm::vec2> ViewSize;
 	// Millimeters
-	float viewSizeZ = 100;
 	Property<float> EyeToCenterDistance = 34;
 	Property<glm::vec3> PositionModifier = glm::vec3(0, 50, 600);
 
@@ -808,7 +806,7 @@ public:
 		EyeToCenterDistance.OnChanged() += [&](const float& v) {
 			eyeToCenterDistance = Convert::MillimetersToViewCoordinates(v, ViewSize->x); };
 		PositionModifier.OnChanged() += [&](const glm::vec3& v) {
-			positionModifier = Convert::MillimetersToViewCoordinates(v, ViewSize.Get(), viewSizeZ); };
+			positionModifier = Convert::MillimetersToViewCoordinates3(v, ViewSize.Get()); };
 
 		ViewSize.OnChanged() += [&](const glm::vec2 v) {
 			// Trigger conversion.
@@ -821,11 +819,8 @@ public:
 		return onPropertiesChanged;
 	}
 
-	glm::vec3 GetLeft(const glm::vec3& v) {
-		return Stereo::GetLeft(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
-	}
-	glm::vec3 GetRight(const glm::vec3& v) {
-		return Stereo::GetRight(v, GetPos(), eyeToCenterDistance, ViewSize.Get(), viewSizeZ);
+	const glm::vec3& GetStereoPair(const glm::vec3& v) {
+		return Stereo::GetStereoPair(v, GetPos(), eyeToCenterDistance, ViewSize.Get());
 	}
 
 

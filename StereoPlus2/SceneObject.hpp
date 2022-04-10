@@ -63,8 +63,7 @@ protected:
 		}
 	}
 	virtual void UpdateOpenGLBuffer(
-		std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) {}
+		std::function<glm::vec3(glm::vec3)> toStereo) {}
 
 
 	// Adds or substracts transformations.
@@ -146,10 +145,9 @@ public:
 			Log::For<SceneObject>().Warning("Deletion is not expected");
 	}
 
-	void UdateBuffer(std::function<glm::vec3(glm::vec3)> toLeft,
-		std::function<glm::vec3(glm::vec3)> toRight) {
+	void UdateBuffer(std::function<glm::vec3(glm::vec3)> toStereo) {
 		if (shouldUpdateCache || Settings::ShouldDetectPosition().Get()) {
-			UpdateOpenGLBuffer(toLeft, toRight);
+			UpdateOpenGLBuffer(toStereo);
 			shouldUpdateCache = false;
 		}
 	}
