@@ -269,7 +269,7 @@ public:
 			return true;
 		}
 
-		auto name = LocaleProvider::Get(Window::name) + " " + GetName(Object);
+		auto name = LocaleProvider::Get(Window::name) + " " + GetName(Object) + "###" + Window::name + GetName(Object);
 		ImGui::Begin(name.c_str());
 
 		if (!DesignInternal())

@@ -110,3 +110,4 @@ If an error occured the name is scenes/~backup<appStartTime>;
 - reworked transform tool GUI;
 # 1.0.1
 - fixed nondiscrete movement;
+- optimized left/right calculation;

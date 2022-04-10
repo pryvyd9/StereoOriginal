@@ -124,9 +124,9 @@ class Renderer {
 	void DrawWithShader(Camera* camera, std::vector<PON>& os, GLuint shader, std::function<void(SceneObject*, GLuint)> drawFunc) {
 		glUseProgram(shader);
 		for (auto& o : os) {
-			o->UdateBuffer(
-				[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
-				[&camera](const glm::vec3& p) { return camera->GetRight(p); });
+			o->UdateBuffer([&camera](const glm::vec3& p) {
+				return camera->GetStereoPair(p);
+				});
 
 			drawFunc(o.Get(), shader);
 		}
@@ -134,9 +134,10 @@ class Renderer {
 	void DrawWithShader(Camera* camera, SceneObject* o, GLuint shader, std::function<void(SceneObject*, GLuint)> drawFunc) {
 		glUseProgram(shader);
 
-		o->UdateBuffer(
-			[&camera](const glm::vec3& p) { return camera->GetLeft(p); },
-			[&camera](const glm::vec3& p) { return camera->GetRight(p); });
+		
+		o->UdateBuffer([&camera](const glm::vec3& p) {
+			return camera->GetStereoPair(p);
+			});
 
 		drawFunc(o, shader);
 	}
