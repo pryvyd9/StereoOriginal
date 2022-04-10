@@ -217,13 +217,11 @@ public:
 	}
 
 	static bool IsPressed(Key::KeyPair key, bool discreteInput = false) {
-		auto* io = &ImGui::GetIO();
-
 		if (discreteInput)
 			return key.type == Key::Type::Mouse
 				? ImGui::IsMouseClicked(key.code, true)
 				: ImGui::IsKeyPressed(key.code, true);
-
+		
 		return key.type == Key::Type::Mouse
 			? ImGui::IsMouseDown(key.code)
 			: ImGui::IsKeyDown(key.code);
@@ -436,8 +434,8 @@ class KeyBinding {
 				Input::MouseAxe() * Settings::MouseSensivity().Get()
 				+ Input::ArrowAxe()
 				+ Input::NumpadAxe();
-
-			if (movement != Input::movement().Get())
+			
+			if (movement != glm::vec3())
 				Input::movement() = movement;
 			});
 		Input::AddHandler([] {
