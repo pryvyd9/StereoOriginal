@@ -108,3 +108,5 @@ If an error occured the name is scenes/~backup<appStartTime>;
 - removed obsolete cascade code;
 - updated to c++20 (v143);
 - reworked transform tool GUI;
+# 1.0.1
+- fixed nondiscrete movement;
