@@ -289,6 +289,13 @@ class PenTool : public EditingTool {
 			return;
 
 		createNewObjectHandlerId = Input::AddHandler([&] {
+			if (!isToolActive()) {
+				Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
+				createNewObjectHandlerId = 0;
+				lockCreateNewObjectHandlerId = false;
+				return;
+			}
+
 			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
@@ -1204,6 +1211,13 @@ class CosinePenTool : public EditingTool {
 			return;
 
 		createNewObjectHandlerId = Input::AddHandler([&] {
+			if (!isToolActive()) {
+				Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
+				createNewObjectHandlerId = 0;
+				lockCreateNewObjectHandlerId = false;
+				return;
+			}
+
 			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
@@ -1395,7 +1409,7 @@ class PointPenTool : public EditingTool {
 	bool createdNewObject;
 
 	void TryCreateNewObject() {
-		if (createNewObjectHandlerId || !isToolActive())
+		if (createNewObjectHandlerId)
 			return;
 
 		createNewObjectHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] {
