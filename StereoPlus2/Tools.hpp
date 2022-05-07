@@ -31,6 +31,9 @@ protected:
 		static Tool* v = nullptr;
 		return v;
 	}
+	bool isToolActive() {
+		return activeTool() == this;
+	}
 };
 
 template<typename T>
@@ -85,7 +88,7 @@ public:
 	}
 };
 
-class EditingTool : Tool {
+class EditingTool : public Tool {
 protected:
 	static bool& isBeingModified() {
 		static bool v;
@@ -115,6 +118,7 @@ public:
 		};
 
 		isAnyActive() = true;
+		activeTool() = this;
 
 		OnToolActivated(ObjectSelection::Selected());
 	}
@@ -1391,10 +1395,17 @@ class PointPenTool : public EditingTool {
 	bool createdNewObject;
 
 	void TryCreateNewObject() {
-		if (createNewObjectHandlerId)
+		if (createNewObjectHandlerId || !isToolActive())
 			return;
 
 		createNewObjectHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] {
+			if (!isToolActive()) {
+				Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
+				createNewObjectHandlerId = 0;
+				lockCreateNewObjectHandlerId = false;
+				return;
+			}
+
 			if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
 				lockCreateNewObjectHandlerId = true;
 
@@ -1415,8 +1426,6 @@ class PointPenTool : public EditingTool {
 				cmd->onCreated = [&](SceneObject* o) {
 					createdNewObject = true;
 					ObjectSelection::Set(o);
-					Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
-					lockCreateNewObjectHandlerId = false;
 					Changes::Commit();
 				};
 			}
@@ -1433,7 +1442,7 @@ class PointPenTool : public EditingTool {
 	}
 
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) override {
-		UnbindTool();
+		//UnbindTool();
 		OnToolActivated(v);
 	}
 	virtual void OnToolActivated(const ObjectSelection::Selection& v) override {
@@ -1519,8 +1528,10 @@ public:
 		return true;
 	}
 	virtual bool UnbindSceneObjects() {
-		if (!lockCreateNewObjectHandlerId)
+		if (!lockCreateNewObjectHandlerId) {
 			Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
+			createNewObjectHandlerId = 0;
+		}
 
 		Settings::ShouldRestrictTargetModeToPivot() = false;
 
@@ -1538,13 +1549,8 @@ public:
 		return true;
 	}
 	virtual void UnbindTool() override {
+		lockCreateNewObjectHandlerId = false;
 		UnbindSceneObjects();
-
-		// On unbinding objects the tool goes to 
-		// creating new object awaiting state.
-		// But if the tool is unbind then it should be cancelled.
-		if (!lockCreateNewObjectHandlerId)
-			Input::continuousInputNoDelay().ContinuousOrStopped() -= createNewObjectHandlerId;
 	}
 
 	SceneObject* GetTarget() {

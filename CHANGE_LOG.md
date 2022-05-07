@@ -111,3 +111,4 @@ If an error occured the name is scenes/~backup<appStartTime>;
 # 1.0.1
 - fixed nondiscrete movement;
 - optimized left/right calculation;
+- fixed point pen not creating more than 1 point;
