@@ -562,7 +562,7 @@ class FileManager {
 		static Log log = Log::For<FileManager>();
 		return log;
 	}
-	static size_t GetFileSize(std::string filename) {
+	static size_t GetFileSize(std::wstring filename) {
 		std::ifstream in(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
 		if (in)
@@ -576,7 +576,7 @@ class FileManager {
 		throw new FileException(msg);
 	}
 
-	static void SaveJson(std::string filename, Scene* inScene) {
+	static void SaveJson(std::wstring filename, Scene* inScene) {
 		if (inScene == nullptr)
 			Fail("InScene was null");
 		if (!inScene->root().Get().HasValue())
@@ -586,7 +586,7 @@ class FileManager {
 		Json::Write(filename, json);
 		delete json;
 	}
-	static void LoadJson(std::string filename, Scene* inScene) {
+	static void LoadJson(std::wstring filename, Scene* inScene) {
 		auto json = Json::Read(filename);
 		JsonConvert::Reset();
 		auto root = JsonConvert::get<SceneObject*>(json);
@@ -600,17 +600,17 @@ class FileManager {
 		inScene->Objects() = newObjects;
 	}
 
-	static void SaveBinary(std::string filename, Scene* inScene) {
+	static void SaveBinary(std::wstring filename, Scene* inScene) {
 		std::ofstream file(filename, std::ios::binary | std::ios::out);
 
 		auto bs = obstream();
 		bs.put(*inScene->root().Get().Get());
 
 		file.write(bs.getBuffer(), bs.getSize());
-
+		
 		file.close();
 	}
-	static void LoadBinary(std::string filename, Scene* inScene) {
+	static void LoadBinary(std::wstring filename, Scene* inScene) {
 		std::ifstream file(filename, std::ios::binary | std::ios::in);
 
 		auto bufferSize = GetFileSize(filename);
@@ -658,35 +658,64 @@ class FileManager {
 
 		return extension;
 	}
+	static std::wstring GetFixedExtensionW(std::wstring& filename) {
+		int dotPosition = filename.find_last_of(L'.');
+
+		if (dotPosition < 0) {
+			if (GetDefaultFileExtensionW().empty())
+				Fail("File extension empty");
+			else {
+				dotPosition = filename.size();
+				filename += L'.' + GetDefaultFileExtensionW();
+			}
+		}
+
+		auto extension = filename.substr(dotPosition + 1);
+
+		if (extension.empty()) {
+			if (GetDefaultFileExtensionW().empty())
+				Fail("File extension empty");
+			else {
+				filename += GetDefaultFileExtensionW();
+			}
+		}
+
+		return extension;
+	}
+
 public:
 
 	static std::string& GetDefaultFileExtension() {
 		static auto val = FileType::So2;
 		return val;
 	}
+	static std::wstring& GetDefaultFileExtensionW() {
+		static auto val = s2ws(FileType::So2);
+		return val;
+	}
 
-	static void Load(std::string filename, Scene* inScene) {
-		auto extension = GetFixedExtension(filename);
+	static void Load(std::wstring filename, Scene* inScene) {
+		auto extension = GetFixedExtensionW(filename);
 
-		if (extension == FileType::Json)
+		if (extension == s2ws(FileType::Json))
 			LoadJson(filename, inScene);
-		else if (extension == FileType::So2)
+		else if (extension == s2ws(FileType::So2))
 			LoadBinary(filename, inScene);
 		else
 			Fail("File extension not supported");
 	}
-	static void Save(std::string filename, Scene* inScene) {
-		auto extension = GetFixedExtension(filename);
+	static void Save(std::wstring filename, Scene* inScene) {
+		auto extension = GetFixedExtensionW(filename);
 
-		if (extension == FileType::Json)
+		if (extension == s2ws(FileType::Json))
 			SaveJson(filename, inScene);
-		else if (extension == FileType::So2)
+		else if (extension == s2ws(FileType::So2))
 			SaveBinary(filename, inScene);
 		else
 			Fail("File extension not supported");
 	}
 
-	static Jw::ObjectAbstract* LoadLocaleFile(const std::string& filename) {
+	static Jw::ObjectAbstract* LoadLocaleFile(const std::wstring& filename) {
 		return Json::ReadW(filename);
 	}
 };

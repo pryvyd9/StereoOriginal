@@ -1590,7 +1590,7 @@ private:
 	void ListFiles() {
 		if (ImGui::ListBoxHeader("")) {
 			if (ImGui::Selectable(".."))
-				path.apply(path.get().parent_path());
+				path.applyAbsolute(path.get().parent_path());
 
 			std::vector<fs::directory_entry> folders;
 			std::vector<fs::directory_entry> files;
@@ -1610,7 +1610,7 @@ private:
 			for (const auto& a : folders)
 				if (const std::u8string directoryName = u8'[' + a.path().filename().u8string() + u8']';
 					ImGui::Selectable(reinterpret_cast<const char*>(directoryName.c_str()))) {
-				path.apply(a);
+				path.applyAbsolute(a);
 				ImGui::ListBoxFooter();
 				return;
 			}
@@ -1618,18 +1618,19 @@ private:
 			for (const auto& a : files)
 				if (const std::u8string fileName = a.path().filename().u8string();
 					ImGui::Selectable(reinterpret_cast<const char*>(fileName.c_str())))
-					selectedFile.apply(a);
+					selectedFile.applyAbsolute(a);
 
 
 			ImGui::ListBoxFooter();
 		}
 	}
 	void ShowPath() {
-		ImGui::InputText(LocaleProvider::GetC("path"), &path.getBuffer());
+		auto buffer = LocaleProvider::UnicodeToUtf8(path.getBuffer());
+		ImGui::InputText(LocaleProvider::GetC("path"), &buffer);
 
 		if (ImGui::Extensions::PushActive(path.isSome())) {
 			if (ImGui::Button(LocaleProvider::GetC("submit")))
-				path.apply();
+				path.applyAbsolute(buffer);
 
 			ImGui::Extensions::PopActive();
 		}
@@ -1649,7 +1650,7 @@ public:
 			return false;
 		}
 
-		path.apply("./scenes");
+		path.applyAbsolute("./scenes");
 
 		// Create directory if not exists
 		fs::create_directory(path.get());
@@ -1664,7 +1665,11 @@ public:
 		ShowPath();
 		ListFiles();
 
-		ImGui::InputText(LocaleProvider::GetC("file"), &selectedFile.getBuffer());
+		{
+			std::string fileName = LocaleProvider::UnicodeToUtf8(selectedFile.getBuffer());
+			ImGui::InputText(LocaleProvider::GetC("file"), &fileName);
+			selectedFile.applyPlain(LocaleProvider::Utf8ToUnicode(fileName));
+		}
 
 		if (ImGui::Extensions::PushActive(selectedFile.isSome())) {
 			if (ImGui::Button(mode == FileWindow::Load ? LocaleProvider::GetC("open") : LocaleProvider::GetC("save"))) {

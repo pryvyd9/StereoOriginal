@@ -112,3 +112,5 @@ If an error occured the name is scenes/~backup<appStartTime>;
 - fixed nondiscrete movement;
 - optimized left/right calculation;
 - fixed point pen not creating more than 1 point;
+# 1.1
+- unicode file name support;

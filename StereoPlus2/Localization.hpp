@@ -56,10 +56,10 @@ static class LocaleProvider {
 		}
 	}
 
-	static void LoadLanguage(std::string name) {
+	static void LoadLanguage(std::wstring name) {
 		Jw::Object* json = nullptr;
 		try {
-			json = (Jw::Object*)FileManager::LoadLocaleFile("locales/" + name + ".json");
+			json = (Jw::Object*)FileManager::LoadLocaleFile(L"locales/" + name + L".json");
 
 			for (auto [k, v] : json->objects)
 				LoadJson(utf8_encode(k), v);
@@ -81,11 +81,18 @@ public:
 		if (auto v = localizations().find(name); v != localizations().end())
 			return v._Ptr->_Myval.second;
 
-		Log::For<LocaleProvider>("localeProviderLog").Warning("Localization for ", name, " was not found.");
+		Log::For<LocaleProvider>(L"localeProviderLog").Warning("Localization for ", name, " was not found.");
 		return name;
 	}
 	static const char* GetC(const std::string& name) {
 		return Get(name).c_str();
+	}
+
+	static std::wstring Utf8ToUnicode(const std::string& str) {
+		return utf8_decode(str);
+	}
+	static std::string UnicodeToUtf8(const std::wstring& wstr) {
+		return utf8_encode(wstr);
 	}
 
 	static bool Init() {
@@ -94,9 +101,9 @@ public:
 			return false;
 		}
 
-		Settings::Language().OnChanged().AddHandler([](std::string name) { LoadLanguage(name); });
+		Settings::Language().OnChanged().AddHandler([](std::string name) { LoadLanguage(s2ws(name)); });
 
-		LoadLanguage(Settings::Language().Get());
+		LoadLanguage(s2ws(Settings::Language().Get()));
 
 		return true;
 	}
