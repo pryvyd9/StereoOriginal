@@ -62,17 +62,17 @@ public:
 			GetCommand()->TimerCommand::Abort();
 	}
 
-	static std::string GetFileName() {
-		std::stringstream ss;
-		ss << "scenes/" << "~temp" << Time::GetAppStartTime() << ".so2";
+	static std::wstring GetFileName() {
+		std::wstringstream ss;
+		ss << L"scenes/" << L"~temp" << Time::GetAppStartTime() << L".so2";
 		return ss.str();
 	}
 
 	// If there was an error save with a different name
 	// in case it's corrupted.
-	static std::string GetBackupFileName() {
-		std::stringstream ss;
-		ss << "scenes/" << "~backup" << Time::GetAppStartTime() << ".so2";
+	static std::wstring GetBackupFileName() {
+		std::wstringstream ss;
+		ss << L"scenes/" << L"~backup" << Time::GetAppStartTime() << L".so2";
 		return ss.str();
 	}
 };

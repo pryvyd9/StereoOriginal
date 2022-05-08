@@ -497,7 +497,7 @@ public:
 };
 
 class Json {
-	static size_t GetFileSize(std::string filename) {
+	static size_t GetFileSize(std::wstring filename) {
 		std::ifstream in(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
 		if (in)
@@ -505,7 +505,7 @@ class Json {
 
 		return 0;
 	}
-	static size_t GetFileSizeW(std::string filename) {
+	static size_t GetFileSizeW(std::wstring filename) {
 		std::wifstream in(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
 		if (in)
@@ -528,7 +528,7 @@ class Json {
 	}
 
 public:
-	static Js::ObjectAbstract* Read(const std::string& filename) {
+	static Js::ObjectAbstract* Read(const std::wstring& filename) {
 		std::ifstream file(filename, std::ios::binary | std::ios::in);
 
 		auto bufferSize = GetFileSize(filename);
@@ -545,7 +545,7 @@ public:
 
 		return json;
 	}
-	static Jw::ObjectAbstract* ReadW(const std::string& filename) {
+	static Jw::ObjectAbstract* ReadW(const std::wstring& filename) {
 		std::wifstream file(filename, std::ios::binary | std::ios::in);
 
 		auto bufferSize = GetFileSizeW(filename);
@@ -562,7 +562,7 @@ public:
 		return json;
 	}
 
-	static void Write(const std::string& filename, Js::ObjectAbstract* joa) {
+	static void Write(const std::wstring& filename, Js::ObjectAbstract* joa) {
 		std::ofstream out(filename);
 		ojstreams bs;
 

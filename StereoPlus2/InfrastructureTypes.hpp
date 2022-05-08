@@ -102,48 +102,57 @@ bool keyExists(const std::set<K,V>& source, const K& item) {
 	return source.find(item) != source.end();
 }
 
+static std::wstring s2ws(const std::string& str) {
+	return std::wstring(str.begin(), str.end());
+}
+static std::string ws2s(const std::wstring& wstr) {
+	return std::string(wstr.begin(), wstr.end());
+}
+
+
 class Path {
 	fs::path path;
-	std::string pathBuffer;
+	std::wstring pathBuffer;
 public:
 	const fs::path& get() const {
 		return path;
 	}
-	std::string& getBuffer() {
+	const std::wstring& getBuffer() {
 		return pathBuffer;
 	}
 
 	Path() {}
 	Path(fs::path n) {
-		apply(n);
+		applyAbsolute(n);
 	}
-	void apply() {
-		apply(pathBuffer);
+	void applyAbsolute(fs::path n) {
+		applyPlain(fs::absolute(n));
 	}
-	void apply(fs::path n) {
-		path = fs::absolute(n);
-		pathBuffer = reinterpret_cast<const char*>(path.u8string().c_str());
+
+	void applyPlain(fs::path n) {
+		path = n;
+		pathBuffer = path.wstring();
 	}
 
 	bool isSome() {
 		return !pathBuffer.empty();
 	}
 
-	std::string join(Path path) {
+	std::wstring join(Path path) {
 		auto last = pathBuffer[pathBuffer.size() - 1];
 
-		if (last == '/' || last == '\\')
+		if (last == L'/' || last == L'\\')
 			return pathBuffer + path.getBuffer();
 
-		return pathBuffer + '/' + path.getBuffer();
+		return pathBuffer + L'\\' + path.getBuffer();
 	}
-	fs::path joinPath(const std::string& path) {
+	fs::path joinPath(const std::wstring& path) {
 		auto last = pathBuffer[pathBuffer.size() - 1];
 
-		if (last == '/' || last == '\\')
+		if (last == L'/' || last == L'\\')
 			return fs::absolute(pathBuffer + path);
 
-		return fs::absolute(pathBuffer + '/' + path);
+		return fs::absolute(pathBuffer + L'\\' + path);
 	}
 };
 
@@ -272,7 +281,7 @@ class Log {
 public:
 	struct Context {
 		std::string contextName = "";
-		std::string logFileName = "";
+		std::wstring logFileName = L"";
 		std::string message = "";
 		std::string level = "";
 	};
@@ -301,7 +310,7 @@ private:
 
 public:
 	template<typename T>
-	static const Log For(std::string logFileName = LogFileName(), std::function<void(const Context&)> sink = Sink()) {
+	static const Log For(std::wstring logFileName = LogFileName(), std::function<void(const Context&)> sink = Sink()) {
 		Log log;
 		log.context.contextName = typeid(T).name();
 		log.context.logFileName = logFileName;
@@ -342,8 +351,8 @@ public:
 		sink(c);
 	}
 
-	static std::string& LogFileName() {
-		static std::string v = "defaultLog";
+	static std::wstring& LogFileName() {
+		static std::wstring v = L"defaultLog";
 		return v;
 	}
 	static std::function<void(const Context&)>& Sink() {
@@ -353,7 +362,7 @@ public:
 
 	static void FileSink(const Context& v) {
 		static Path logDirectory("logs/");
-		static std::string startTime = Time::GetTimeFormatted("%Y%m%d%H%M%S");
+		static std::wstring startTime = s2ws(Time::GetTimeFormatted("%Y%m%d%H%M%S"));
 		if (!fs::is_directory(logDirectory.get()) || !fs::exists(logDirectory.get()))
 			fs::create_directory(logDirectory.get());
 

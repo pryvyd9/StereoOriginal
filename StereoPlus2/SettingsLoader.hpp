@@ -9,7 +9,7 @@ class SettingsLoader {
 	}
 
 	static const Log& Logger() {
-		static Log v = Log::For<SettingsLoader>("settingsLoaderLog");
+		static Log v = Log::For<SettingsLoader>(L"settingsLoaderLog");
 		return v;
 	}
 
@@ -51,7 +51,7 @@ class SettingsLoader {
 			break;
 		}
 	}
-	static void LoadSettings(std::string name) {
+	static void LoadSettings(std::wstring name) {
 		Js::Object* json = nullptr;
 		try {
 			json = (Js::Object*)Json::Read(name);
@@ -194,7 +194,7 @@ class SettingsLoader {
 public:
 	
 	static void Load() {
-		LoadSettings("settings.json");
+		LoadSettings(L"settings.json");
 
 		Load(&Settings::Language);
 		Load(&Settings::StateBufferLength);
@@ -265,6 +265,6 @@ public:
 		Insert(json, &Settings::FaceSizeYMillimeters);
 		Insert(json, &Settings::ScreenCenterToCameraDistanceMillimeters);
 
-		Json::Write("settings.json", &json);
+		Json::Write(L"settings.json", &json);
 	}
 };

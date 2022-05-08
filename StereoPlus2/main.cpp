@@ -79,7 +79,7 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 }
 
 int main() {
-	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = v; };
+	Settings::LogFileName().OnChanged() += [](const std::string& v) { Log::LogFileName() = s2ws(v); };
 	SettingsLoader::Load();
 
 	if (!LocaleProvider::Init())
