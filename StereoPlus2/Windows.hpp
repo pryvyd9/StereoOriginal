@@ -1088,122 +1088,6 @@ public:
 };
 
 
-template<ObjectType type>
-class ExtrusionToolWindow : Window, Attributes {
-	
-	std::string GetName(ObjectType type) {
-		switch (type)
-		{
-		case PolyLineT:
-			return "PolyLine";
-		default:
-			return "noname";
-		}
-	}
-	std::string GetName(ObjectType type, SceneObject* obj) {
-		return 
-			(obj) != nullptr && type == (obj)->GetType()
-			? (obj)->Name
-			: "Empty";
-	}
-
-	bool DesignInternal() {
-		ImGui::Text(GetName(type, GetTarget()).c_str());
-
-		if (ImGui::BeginDragDropTarget()) {
-			ImGuiDragDropFlags target_flags = 0;
-			//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
-			//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
-			std::vector<PON> objects;
-			if (DragDropBuffer::PopDragDropPayload("SceneObjects", target_flags, &objects)) {
-				if (objects.size() > 1)
-					std::cout << "Drawing instrument can't accept multiple scene objects" << std::endl;
-				else if (!tool->BindSceneObjects(objects))
-					return false;
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
-			if (ImGui::Button("Release"))
-				tool->UnbindSceneObjects();
-			ImGui::Extensions::PopActive();
-		}
-
-		if (ImGui::Extensions::PushActive(GetTarget() != nullptr)) {
-			if (ImGui::Button("New"))
-				tool->Create();
-			ImGui::Extensions::PopActive();
-		}
-
-
-		{
-			static int mode = 0;
-			if (ImGui::RadioButton("ImmediateMode", &mode, 0))
-				tool->SetMode(ExtrusionEditingToolMode::Immediate);
-			if (ImGui::RadioButton("StepMode", &mode, 1))
-				tool->SetMode(ExtrusionEditingToolMode::Step);
-		}
-
-		return true;
-	}
-
-public:
-	//SceneObject* target = nullptr;
-
-	ExtrusionEditingTool<type>* tool = nullptr;
-
-	virtual SceneObject* GetTarget() {
-		if (tool == nullptr)
-			return nullptr;
-
-		return tool->GetTarget();
-	}
-	virtual bool Init() {
-		if (tool == nullptr)
-		{
-			std::cout << "Tool wasn't assigned" << std::endl;
-			return false;
-		}
-		
-		Window::name = Attributes::name = "extrusion";
-		Attributes::isInitialized = true;
-		
-		return true;
-	}
-	virtual bool Window::Design() {
-		auto name = LocaleProvider::Get("tool:" + Window::name) + "###" + Window::name + "Window";
-		ImGui::Begin(name.c_str());
-
-		if (!DesignInternal())
-			return false;
-
-		ImGui::End();
-
-		return true;
-	}
-	virtual bool Attributes::Design() {
-		auto name = LocaleProvider::Get("tool:" + Attributes::name) + "###" + Attributes::name + "Window";
-		if (ImGui::BeginTabItem(name.c_str()))
-		{
-			if (!DesignInternal())
-				return false;
-
-			ImGui::EndTabItem();
-		}
-
-		return true;
-	}
-	virtual bool OnExit() {
-		UnbindTargets();
-		return true;
-	}
-	virtual void UnbindTargets() {
-		//target = nullptr;
-	}
-};
-
-
 
 class TransformToolWindow : Window, Attributes {
 	int maxPrecision = 5;
@@ -1267,11 +1151,16 @@ class TransformToolWindow : Window, Attributes {
 
 		static TransformToolMode transformToolModeCopy = TransformToolMode::Translate;
 		{
-			if (ImGui::RadioButton("Move", (int*)&transformToolModeCopy, (int)TransformToolMode::Translate));
-			if (ImGui::RadioButton("Scale", (int*)&transformToolModeCopy, (int)TransformToolMode::Scale));
-			if (ImGui::RadioButton("Rotate", (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate));
+			if (ImGui::RadioButton(LocaleProvider::GetC("transformationTool:move"), (int*)&transformToolModeCopy, (int)TransformToolMode::Translate));
+			if (ImGui::RadioButton(LocaleProvider::GetC("transformationTool:scale"), (int*)&transformToolModeCopy, (int)TransformToolMode::Scale));
+			if (ImGui::RadioButton(LocaleProvider::GetC("transformationTool:rotate"), (int*)&transformToolModeCopy, (int)TransformToolMode::Rotate));
 		}
-		ImGui::Checkbox("Trace", &tool->shouldTrace);
+
+		ImGui::Checkbox(LocaleProvider::GetC("transformationTool:trace"), &tool->shouldTrace);
+		if (ImGui::Extensions::PushActive(tool->shouldTrace)) {
+			ImGui::Checkbox(LocaleProvider::GetC("transformationTool:connectTrace"), &tool->shouldTraceMesh);
+			ImGui::Extensions::PopActive();
+		}
 
 		switch (transformToolModeCopy) {
 		case TransformToolMode::Translate:
@@ -1284,7 +1173,7 @@ class TransformToolWindow : Window, Attributes {
 		case TransformToolMode::Scale:
 			ImGui::Separator();
 			if (auto v = tool->GUIScale.Get();
-				ImGui::DragFloat("scale", &v, 0.01f, 0, 0, "%.2f")) {
+				ImGui::DragFloat(LocaleProvider::GetC("transformationTool:scale"), &v, 0.01f, 0, 0, "%.2f")) {
 				tool->GUIScale = v;
 			}
 			break;
@@ -1510,8 +1399,6 @@ public:
 		}
 		{
 			ImGui::Separator();
-			if (ImGui::Button(LocaleProvider::GetC("tool:extrusion")))
-				ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:pen")))
 				ApplyTool<PenToolWindow, PenTool>();
 			if (ImGui::Button(LocaleProvider::GetC("tool:cosinepen")))

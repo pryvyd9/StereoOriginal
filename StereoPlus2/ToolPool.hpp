@@ -17,11 +17,6 @@ class ToolPool {
 		tool->cross <<= Scene::cross();
 	}
 
-	static void Init(ExtrusionEditingTool<PolyLineT>* tool) {
-		tool->destination <<= Scene::root();
-		tool->cross <<= Scene::cross();
-	}
-
 	static void Init(TransformTool* tool) {
 		tool->cross <<= Scene::cross();
 	}

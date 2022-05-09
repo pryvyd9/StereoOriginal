@@ -114,3 +114,4 @@ If an error occured the name is scenes/~backup<appStartTime>;
 - fixed point pen not creating more than 1 point;
 # 1.1
 - unicode file name support;
+- moved extrusion to trace;

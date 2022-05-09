@@ -90,7 +90,7 @@ public:
 		shouldUpdateCache = true;
 	}
 	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
-		for (auto v : vs)
+		for (auto& v : vs)
 			AddVertice(v);
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) override {
@@ -116,7 +116,7 @@ public:
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) override {
 		HandleBeforeUpdate();
 		vertices.clear();
-		for (auto v : vs)
+		for (auto& v : vs)
 			AddVertice(v);
 		shouldUpdateCache = true;
 	}
@@ -279,7 +279,7 @@ public:
 		shouldUpdateCache = true;
 	}
 	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
-		for (auto v : vs)
+		for (auto& v : vs)
 			AddVertice(v);
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) override {
@@ -305,7 +305,7 @@ public:
 	virtual void SetVertices(const std::vector<glm::vec3>& vs) override {
 		HandleBeforeUpdate();
 		vertices.clear();
-		for (auto v : vs)
+		for (auto& v : vs)
 			AddVertice(v);
 		shouldUpdateCache = true;
 	}
@@ -494,7 +494,7 @@ public:
 		shouldUpdateIBO = true;
 	}
 	virtual void AddVertices(const std::vector<glm::vec3>& vs) override {
-		for (auto v : vs)
+		for (auto& v : vs)
 			AddVertice(v);
 	}
 	virtual void SetVertice(size_t index, const glm::vec3& v) override {
@@ -935,7 +935,7 @@ public:
 
 	GLFWwindow* glWindow;
 
-	StaticField(Scene*, scene);
+	StaticFieldDefault(Scene*, scene, nullptr);
 
 	static IEvent<>& OnDeleteAll() {
 		return deleteAll();

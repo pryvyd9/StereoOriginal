@@ -13,11 +13,6 @@ enum class CosinePenEditingToolMode {
 	Step132,
 };
 
-enum class ExtrusionEditingToolMode {
-	Immediate,
-	Step,
-};
-
 //enum class ObjectMode {
 //	Object,
 //	Vertex,

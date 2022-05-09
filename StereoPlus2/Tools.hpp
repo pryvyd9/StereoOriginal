@@ -16,15 +16,15 @@
 class Tool {
 protected:
 	static size_t& isBeingModifiedHandler() {
-		static size_t v;
+		static size_t v = 0;
 		return v;
 	}
 	static bool& isAnyActive() {
-		static bool v;
+		static bool v = false;
 		return v;
 	}
 	static size_t& selectionChangedhandlerId() {
-		static size_t v;
+		static size_t v = 0;
 		return v;
 	}
 	static Tool*& activeTool() {
@@ -40,7 +40,7 @@ template<typename T>
 class CreatingTool : Tool {
 public:
 	std::function<void(T*)> init;
-	std::function<void(SceneObject*)> onCreated = [](SceneObject*) {};
+	std::function<void(T*)> onCreated = [](T*) {};
 
 	Property<PON> destination;
 
@@ -53,7 +53,7 @@ public:
 			init(obj);
 			return obj;
 		};
-		command->onCreated = onCreated;
+		command->onCreated = [=] (SceneObject*) { onCreated(obj); };
 
 		return obj;
 	}
@@ -91,7 +91,7 @@ public:
 class EditingTool : public Tool {
 protected:
 	static bool& isBeingModified() {
-		static bool v;
+		static bool v = false;
 		return v;
 	}
 	virtual void OnSelectionChanged(const ObjectSelection::Selection& v) {}
@@ -350,7 +350,7 @@ class PenTool : public EditingTool {
 			return;
 		}
 
-		auto t = targets.begin()._Ptr->_Myval;
+		auto& t = targets.begin()._Ptr->_Myval;
 
 		if (t->GetType() != PolyLineT)
 			return TryCreateNewObject();
@@ -477,387 +477,6 @@ public:
 	}
 };
 
-template<ObjectType type>
-class ExtrusionEditingTool : public EditingToolConfigured<ExtrusionEditingToolMode>, public CreatingTool<Mesh> {
-#pragma region Types
-	template<ObjectType type, Mode mode>
-	struct Config : EditingToolConfigured::Config {
-
-	};
-	template<>
-	struct Config<PolyLineT, Mode::Immediate> : EditingToolConfigured::Config {
-		//bool shouldCreateMesh = false;
-
-		// If the cos between vectors is less than E
-		// then we merge those vectors.
-		double E = 1e-6;
-
-		std::vector<glm::vec3> directingPoints;
-
-	};
-	template<>
-	struct Config<PolyLineT, Mode::Step> : EditingToolConfigured::Config {
-		bool isPointCreated = false;
-	};
-#pragma endregion
-	Log Logger = Log::For<ExtrusionEditingTool>();
-
-	size_t inputHandlerId;
-	size_t spaceModeChangeHandlerId;
-	size_t stateChangedHandlerId;
-
-	Mode mode;
-
-	PON mesh;
-	PON pen;
-
-	glm::vec3 crossStartPosition;
-	glm::vec3 crossOldPosition;
-	glm::vec3 crossOriginalPosition;
-	SceneObject* crossOriginalParent;
-
-
-	template<Mode mode>
-	Config<type, mode>* GetConfig() {
-		if (config == nullptr)
-			config = new Config<type, mode>();
-
-		return (Config<type, mode>*) config;
-	}
-
-	const glm::vec3 GetPos() {
-		return cross->GetPosition();
-	}
-
-
-#pragma region ProcessInput
-	template<ObjectType type, Mode mode>
-	void ProcessInput() {
-		std::cout << "Unsupported Editing Tool target Type or Unsupported combination of ObjectType and PolylinePenEditingToolMode" << std::endl;
-	}
-	template<>
-	void ProcessInput<PolyLineT, Mode::Immediate>() {
-		if (Input::HasContinuousMovementInputNoDelayStopped() && SceneObject::IsAnyElementChanged()) {
-			Changes::Commit();
-			SceneObject::ResetIsAnyElementChanged();
-		}
-
-		if (!mesh.HasValue() || crossOldPosition == GetPos())
-			return;
-
-		if (Input::IsDown(Key::Escape, true)) {
-			UnbindSceneObjects();
-			return;
-		}
-
-		auto& meshPoints = mesh->GetVertices();
-		auto& penPoints = pen->GetVertices();
-		auto transformVector = GetPos() - crossStartPosition;
-		auto mesh = (Mesh*)this->mesh.Get();
-
-		if (GetConfig<Mode::Immediate>()->directingPoints.size() < 1) {
-			// We need to select one point and create an additional point
-			// so that we can perform some optimizations.
-			GetConfig<Mode::Immediate>()->directingPoints.push_back(GetPos());
-
-			mesh->AddVertice(penPoints[0] + transformVector);
-
-			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->AddVertice(penPoints[i] + transformVector);
-				mesh->Connect(i - 1, i);
-			}
-
-			return;
-		}
-		else if (GetConfig<Mode::Immediate>()->directingPoints.size() < 2) {
-			// We need to select one point and create an additional point
-			// so that we can perform some optimizations.
-			GetConfig<Mode::Immediate>()->directingPoints.push_back(GetPos());
-
-			auto meshPointsSize = meshPoints.size();
-			mesh->AddVertice(penPoints[0] + transformVector);
-			mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
-
-			for (size_t i = 1; i < penPoints.size(); i++) {
-				meshPointsSize = meshPoints.size();
-				mesh->AddVertice(penPoints[i] + transformVector);
-				mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
-				mesh->Connect(meshPointsSize - 1, meshPointsSize);
-			}
-
-			return;
-		}
-
-		auto E = GetConfig<Mode::Immediate>()->E;
-
-		auto directingPoints = &GetConfig<Mode::Immediate>()->directingPoints;
-
-		glm::vec3 r1 = GetPos() - (*directingPoints)[1];
-		glm::vec3 r2 = (*directingPoints)[0] - (*directingPoints)[1];
-
-
-		auto p = glm::dot(r1, r2);
-		auto l1 = glm::length(r1);
-		auto l2 = glm::length(r2);
-
-		auto cos = p / l1 / l2;
-
-		if (abs(cos) > 1 - E || isnan(cos)) {
-			for (size_t i = 0; i < penPoints.size(); i++)
-				mesh->SetVertice(meshPoints.size() - penPoints.size() + i, penPoints[i] + transformVector);
-
-			(*directingPoints)[1] = GetPos();
-		}
-		else {
-			auto meshPointsSize = meshPoints.size();
-			mesh->AddVertice(penPoints[0] + transformVector);
-			mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
-
-			for (size_t i = 1; i < penPoints.size(); i++) {
-				meshPointsSize = meshPoints.size();
-				mesh->AddVertice(penPoints[i] + transformVector);
-				mesh->Connect(meshPointsSize - penPoints.size(), meshPointsSize);
-				mesh->Connect(meshPointsSize - 1, meshPointsSize);
-			}
-
-			directingPoints->erase(directingPoints->begin());
-			directingPoints->push_back(GetPos());
-		}
-
-		crossOldPosition = GetPos();
-		//std::cout << "PointPen tool Immediate mode points count: " << meshPoints->size() << std::endl;
-	}
-
-	template<>
-	void ProcessInput<PolyLineT, Mode::Step>() {
-		if (!mesh.HasValue())
-			return;
-		
-		if (Input::IsDown(Key::Escape, true)) {
-			UnbindSceneObjects();
-			return;
-		}
-
-		auto& meshPoints = mesh->GetVertices();
-		auto& penPoints = pen->GetVertices();
-		auto mesh = (Mesh*)this->mesh.Get();
-
-		auto transformVector = GetPos() - crossStartPosition;
-
-		if (!GetConfig<Mode::Step>()->isPointCreated || meshPoints.empty()) {
-			mesh->AddVertice(penPoints[0] + transformVector);
-
-			for (size_t i = 1; i < penPoints.size(); i++) {
-				mesh->AddVertice(penPoints[i] + transformVector);
-				mesh->Connect(i - 1, i);
-			}
-
-			GetConfig<Mode::Step>()->isPointCreated = true;
-
-			return;
-		}
-
-		if (Input::IsDown(Key::Enter, true) || Input::IsDown(Key::NEnter, true)) {
-			auto s = meshPoints.size();
-			mesh->AddVertice(penPoints[0] + transformVector);
-			mesh->Connect(s - penPoints.size(), s);
-
-			for (size_t i = 1; i < penPoints.size(); i++) {
-				s = meshPoints.size();
-				mesh->AddVertice(penPoints[i] + transformVector);
-				mesh->Connect(s - penPoints.size(), s);
-				mesh->Connect(s - 1, s);
-			}
-
-			Changes::Commit();
-			return;
-		}
-
-		for (size_t i = 0; i < penPoints.size(); i++)
-			mesh->SetVertice(meshPoints.size() - penPoints.size() + i, penPoints[i] + transformVector);
-	}
-
-	void ProcessInput() {
-		switch (mode)
-		{
-		case Mode::Immediate:
-			return ProcessInput<type, Mode::Immediate>();
-		case Mode::Step:
-			return ProcessInput<type, Mode::Step>();
-		default:
-			std::cout << "Not suported mode was given" << std::endl;
-			return;
-		}
-	}
-#pragma endregion
-	template<ObjectType type, Mode mode>
-	void UnbindSceneObjects() {
-
-	}
-	template<>
-	void UnbindSceneObjects<PolyLineT, Mode::Immediate>() {
-		if (!pen.HasValue())
-			return;
-	}
-	template<>
-	void UnbindSceneObjects<PolyLineT, Mode::Step>() {
-		if (!pen.HasValue())
-			return;
-
-		auto& penPoints = pen->GetVertices();
-		auto mesh = (Mesh*)this->mesh.Get();
-
-		if (GetConfig<Mode::Step>()->isPointCreated && mesh->GetVertices().size() > 0) {
-			if (mesh->GetVertices().size() > penPoints.size())
-			{
-				for (size_t i = 1; i < penPoints.size(); i++)
-				{
-					mesh->RemoveVertice();
-					mesh->Disconnect(mesh->GetVertices().size() - penPoints.size(), mesh->GetVertices().size());
-					mesh->Disconnect(mesh->GetVertices().size() - 1, mesh->GetVertices().size());
-				}
-
-				mesh->RemoveVertice();
-				mesh->Disconnect(mesh->GetVertices().size() - penPoints.size(), mesh->GetVertices().size());
-			}
-			else
-			{
-				for (size_t i = 1; i < penPoints.size(); i++)
-				{
-					mesh->RemoveVertice();
-					mesh->Disconnect(mesh->GetVertices().size() - 1, mesh->GetVertices().size());
-				}
-
-				mesh->RemoveVertice();
-			}
-		}
-	}
-
-	void ResetTool() {
-		cross->SetParent(crossOriginalParent);
-		cross->SetPosition(crossOriginalPosition);
-
-		Settings::SpaceMode().OnChanged() -= spaceModeChangeHandlerId;
-		Input::continuousInputNoDelay().ContinuousOrStopped() -= inputHandlerId;
-		Changes::OnStateChange().RemoveHandler(stateChangedHandlerId);
-
-		DeleteConfig();
-	}
-
-	template<typename T>
-	static int GetId() {
-		static int i = 0;
-		return i++;
-	}
-
-	virtual void OnToolActivated(const ObjectSelection::Selection& v) override { 
-		Settings::ShouldRestrictTargetModeToPivot() = true;
-	}
-
-public:
-	NonAssignProperty<Cross*> cross;
-
-	ExtrusionEditingTool() {
-		init = [&, mesh = &mesh](Mesh* o) {
-			std::stringstream ss;
-			ss << o->GetDefaultName() << GetId<ExtrusionEditingTool<PolyLineT>>();
-			o->Name = ss.str();
-			*mesh = o;
-
-			o->SetPosition(cross->GetPosition());
-			o->SetRotation(pen->GetRotation());
-
-			if (Settings::SpaceMode().Get() == SpaceMode::Local) {
-				cross->SetParent(o, true, true, false);
-				cross->SetPosition(glm::vec3());
-			}
-
-			crossStartPosition = this->GetPos();
-		};
-	}
-
-	virtual bool BindSceneObjects(std::vector<PON> objs) {
-		Settings::ShouldRestrictTargetModeToPivot() = true;
-
-		if (pen.HasValue() && !UnbindSceneObjects())
-			return false;
-
-		if (objs[0]->GetType() != type) {
-			Logger.Warning("Invalid Object passed to ExtrusionEditingTool");
-			return true;
-		}
-		pen = objs[0];
-
-		crossOriginalPosition = cross->GetPosition();
-		crossOriginalParent = const_cast<SceneObject*>(cross->GetParent());
-		stateChangedHandlerId = Changes::OnStateChange().AddHandler([&] {
-			cross->SetParent(mesh.Get(), true, true, false);
-			cross->SetPosition(glm::vec3());
-			});
-
-		
-		inputHandlerId = Input::continuousInputNoDelay().ContinuousOrStopped() += [&] { ProcessInput(); };
-		spaceModeChangeHandlerId = Settings::SpaceMode().OnChanged() += [&](const SpaceMode& v) {
-			if (!mesh.HasValue())
-				return;
-
-			auto pos = cross->GetPosition();
-			
-			if (Settings::SpaceMode().Get() == SpaceMode::Local)
-				cross->SetParent(mesh.Get(), true, true, false);
-			else
-				cross->SetParent(crossOriginalParent, true, true, false);
-
-			cross->SetPosition(pos);
-			};
-
-		return true;
-	}
-	virtual bool UnbindSceneObjects() {
-		Settings::ShouldRestrictTargetModeToPivot() = false;
-
-		switch (mode)
-		{
-		case  Mode::Immediate:
-			UnbindSceneObjects<type, Mode::Immediate>();
-			break;
-		case  Mode::Step:
-			UnbindSceneObjects<type, Mode::Step>();
-			break;
-		default:
-			std::cout << "Not suported mode was given" << std::endl;
-			return false;
-		}
-		
-		ResetTool();
-
-		return true;
-	}
-	virtual void UnbindTool() override {
-		UnbindSceneObjects();
-	}
-
-	SceneObject* GetTarget() {
-		return pen.HasValue()
-			? pen.Get()
-			: nullptr;
-	}
-	void SetMode(Mode mode) {
-		this->mode = mode;
-	}
-
-	bool Create() {
-		if (!pen.HasValue()) {
-			std::cout << "Pen was not assigned" << std::endl;
-			return false;
-		}
-
-		DeleteConfig();
-
-		return CreatingTool<Mesh>::Create();
-	};
-};
-
 class TransformTool : public EditingTool {
 	const Log Logger = Log::For<TransformTool>();
 
@@ -931,7 +550,7 @@ class TransformTool : public EditingTool {
 
 	void Trace(std::vector<PON>& targets) {
 		static int id = 0;
-		
+
 		std::vector<PON> nonTraceObjects;
 		for (auto& o : targets)
 			if (o->GetType() != TraceObjectT)
@@ -943,40 +562,69 @@ class TransformTool : public EditingTool {
 				return so->GetType() == TraceObjectT;
 				}));
 
+			auto cloneInitFunc = [](SceneObject* obj) {
+				Scene::AssignUniqueName(obj, obj->Name);
+				obj->children.clear();
+			};
+			auto cloneOnCreatedFunc = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1, shouldTraceMesh = shouldTraceMesh](SceneObject*) {
+				if (isTheLastObjectInCloneGroup && !shouldTraceMesh)
+					Changes::Commit();
+			};
+
 			if (pos < 0) {
 				traceObjectTool.destination = nonTraceObjects[i];
-				traceObjectTool.init = [&, id = id](SceneObject* o) {
+				traceObjectTool.init = [](SceneObject* o) {
 					Scene::AssignUniqueName(o, LocaleProvider::Get("object:trace"));
 				};
 
 				cloneTool.destination = traceObjectTool.Create();
 				cloneTool.target = nonTraceObjects[i].Get();
-				cloneTool.init = [](SceneObject* obj) {
-					Scene::AssignUniqueName(obj, obj->Name);
-					obj->children.clear();
-				};
-				cloneTool.onCreated = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1](SceneObject*) {
-					if (isTheLastObjectInCloneGroup)
-						Changes::Commit();
-				};
-				cloneTool.Create();
+				cloneTool.init = cloneInitFunc;
+				cloneTool.onCreated = cloneOnCreatedFunc;
+				auto clonedObject = cloneTool.Create();
+
+				if (shouldTraceMesh)
+					TraceMesh(cloneTool.destination, nonTraceObjects[i], clonedObject, i == nonTraceObjects.size() - 1, shouldTraceMesh);
 
 				id++;
 			}
 			else {
 				cloneTool.destination = nonTraceObjects[i]->children[pos];
 				cloneTool.target = nonTraceObjects[i];
-				cloneTool.init = [p = nonTraceObjects[i]->GetPosition(), r = nonTraceObjects[i]->GetRotation()](SceneObject* obj) {
-					Scene::AssignUniqueName(obj, obj->Name);
-					obj->children.clear();
-				};
-				cloneTool.onCreated = [isTheLastObjectInCloneGroup = i == nonTraceObjects.size() - 1](SceneObject*) {
-					if (isTheLastObjectInCloneGroup)
-						Changes::Commit();
-				};
-				cloneTool.Create();
+				cloneTool.init = cloneInitFunc;
+				cloneTool.onCreated = cloneOnCreatedFunc;
+				auto clonedObject = cloneTool.Create();
+
+				if (shouldTraceMesh)
+					TraceMesh(cloneTool.destination, nonTraceObjects[i], clonedObject, i == nonTraceObjects.size() - 1, shouldTraceMesh);
 			}
 		}
+	}
+	void TraceMesh(PON destination, PON fromObject, PON toObject, bool isTheLastObjectInCloneGroup, bool shouldTraceMesh) {
+		meshTool.destination = destination;
+		meshTool.init = [](Mesh* obj) {
+			Scene::AssignUniqueName(obj, obj->Name);
+			obj->children.clear();
+		};
+		meshTool.onCreated = [fromObject, toObject, isTheLastObjectInCloneGroup, shouldTraceMesh](Mesh* obj) {
+			if (fromObject->GetType() == PolyLineT || fromObject->GetType() == SineCurveT) {
+				obj->AddVertices(fromObject->GetVertices());
+				obj->AddVertices(toObject->GetVertices());
+
+				auto verticesCountHalf = toObject->GetVertices().size();
+
+				std::vector<std::array<GLuint, 2>> connections(verticesCountHalf);
+
+				for (GLuint i = 0; i < verticesCountHalf; i++)
+					connections.push_back({ i, i + (GLuint)verticesCountHalf });
+
+				obj->SetConnections(connections);
+
+				if (isTheLastObjectInCloneGroup && shouldTraceMesh)
+					Changes::Commit();
+			}
+		};
+		meshTool.Create();
 	}
 
 	void Transform(const glm::vec3& relativeMovement, const float newScale, const glm::vec3& relativeRotation) {
@@ -1013,7 +661,7 @@ class TransformTool : public EditingTool {
 
 	static std::vector<glm::vec3> GetPositions(std::list<PON>& vs) {
 		std::vector<glm::vec3> l;
-		for (auto o : vs)
+		for (auto& o : vs)
 			if (o.HasValue())
 				l.push_back(o->GetPosition());
 		return l;
@@ -1042,6 +690,7 @@ public:
 	glm::vec3 angle;
 	glm::vec3 transformPos;
 	bool shouldTrace;
+	bool shouldTraceMesh;
 
 	// This is a GUI angle modified property.
 	// It defines the onChanged handler via constructor
@@ -1063,6 +712,7 @@ public:
 
 
 	CreatingTool<TraceObject> traceObjectTool;
+	CreatingTool<Mesh> meshTool;
 	CloneTool cloneTool;
 
 	virtual bool UnbindSceneObjects() override {
@@ -1472,7 +1122,7 @@ class PointPenTool : public EditingTool {
 			return;
 		}
 
-		auto t = targets.begin()._Ptr->_Myval;
+		auto& t = targets.begin()._Ptr->_Myval;
 
 		if (t->GetType() != PointT)
 			return TryCreateNewObject();

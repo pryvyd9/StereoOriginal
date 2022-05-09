@@ -58,8 +58,6 @@ void ConfigureShortcuts(CustomRenderWindow& crw) {
 		ToolWindow::ApplyTool<PenToolWindow, PenTool>);
 	Input::AddShortcut(Key::Combination(Key::S),
 		ToolWindow::ApplyTool<CosinePenToolWindow, CosinePenTool>);
-	Input::AddShortcut(Key::Combination(Key::E),
-		ToolWindow::ApplyTool<ExtrusionToolWindow<PolyLineT>, ExtrusionEditingTool<PolyLineT>>);
 
 	// Render
 	Input::AddShortcut(Key::Combination(Key::F5),
